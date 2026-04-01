@@ -174,7 +174,7 @@ export default function AboutSection() {
           <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">
             WHY W2O SALADA
           </span>
-          <p className="text-[#EF9F27] text-lg mt-4 mb-2">Wake 2 go Out !</p>
+          <p className="text-[#EF9F27] text-lg mt-4 mb-2">Wake up 2 go Out !</p>
           <h2 className="text-4xl md:text-5xl font-bold text-[#0A1A0F] min-h-[1.3em]">
             {display}
             <span className={`text-[#1D9E75] transition-opacity ${showCursor ? "opacity-100" : "opacity-0"}`}>

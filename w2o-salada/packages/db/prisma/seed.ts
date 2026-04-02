@@ -47,18 +47,18 @@ async function main() {
 
   // ── 샐러드 상품 (실제 메뉴, 정가 7500원 / 판매가 5900원) ──
   const salads = [
-    { name: "꽃맛살 샐러드", description: "신선한 꽃맛살과 다양한 채소의 조화", sortOrder: 1 },
-    { name: "메밀면 샐러드", description: "쫄깃한 메밀면과 신선한 채소의 만남", sortOrder: 2 },
-    { name: "새우 샐러드", description: "탱글탱글한 새우와 상큼한 채소", sortOrder: 3 },
-    { name: "고구마 샐러드", description: "달콤한 고구마와 건강한 채소의 조합", sortOrder: 4 },
-    { name: "치킨텐더 샐러드", description: "바삭한 치킨텐더와 풍성한 채소", sortOrder: 5 },
-    { name: "참깨 두부 샐러드", description: "고소한 참깨 두부와 신선한 채소", sortOrder: 6 },
-    { name: "훈제오리 샐러드", description: "풍미 가득한 훈제오리와 채소", sortOrder: 7 },
-    { name: "리코타치즈 샐러드", description: "부드러운 리코타치즈와 신선한 채소", sortOrder: 8 },
-    { name: "단호박 샐러드", description: "달콤한 단호박과 영양 가득한 채소", sortOrder: 9 },
-    { name: "베이컨버섯 샐러드", description: "짭짤한 베이컨과 향긋한 버섯의 조화", sortOrder: 10 },
-    { name: "파스타 샐러드", description: "쫄깃한 파스타와 신선한 채소", sortOrder: 11 },
-    { name: "데리야끼 불고기 샐러드", description: "달콤짭짤한 데리야끼 불고기와 채소", sortOrder: 12 },
+    { name: "꽃맛살 샐러드", description: "신선한 꽃맛살과 다양한 채소의 조화", imageUrl: "/products/kkotmatsal.jpg", sortOrder: 1 },
+    { name: "메밀면 샐러드", description: "쫄깃한 메밀면과 신선한 채소의 만남", imageUrl: "/products/memil.jpg", sortOrder: 2 },
+    { name: "새우 샐러드", description: "탱글탱글한 새우와 상큼한 채소", imageUrl: "/products/shrimp.jpg", sortOrder: 3 },
+    { name: "고구마 샐러드", description: "달콤한 고구마와 건강한 채소의 조합", imageUrl: "/products/goguma.jpg", sortOrder: 4 },
+    { name: "치킨텐더 샐러드", description: "바삭한 치킨텐더와 풍성한 채소", imageUrl: "/products/chicken_tender.jpg", sortOrder: 5 },
+    { name: "참깨 두부 샐러드", description: "고소한 참깨 두부와 신선한 채소", imageUrl: "/products/tofu.jpg", sortOrder: 6 },
+    { name: "훈제오리 샐러드", description: "풍미 가득한 훈제오리와 채소", imageUrl: "/products/smoked_duck.jpg", sortOrder: 7 },
+    { name: "리코타치즈 샐러드", description: "부드러운 리코타치즈와 신선한 채소", imageUrl: "/products/ricotta.jpg", sortOrder: 8 },
+    { name: "단호박 샐러드", description: "달콤한 단호박과 영양 가득한 채소", imageUrl: "/products/pumpkin.jpg", sortOrder: 9 },
+    { name: "베이컨버섯 샐러드", description: "짭짤한 베이컨과 향긋한 버섯의 조화", imageUrl: "/products/mushroom.jpg", sortOrder: 10 },
+    { name: "파스타 샐러드", description: "쫄깃한 파스타와 신선한 채소", imageUrl: "/products/pasta.jpg", sortOrder: 11 },
+    { name: "데리야끼 불고기 샐러드", description: "달콤짭짤한 데리야끼 불고기와 채소", imageUrl: "/products/teriyaki.jpg", sortOrder: 12 },
   ];
 
   for (const salad of salads) {
@@ -67,6 +67,7 @@ async function main() {
         categoryId: saladCat!.id,
         name: salad.name,
         description: salad.description,
+        imageUrl: salad.imageUrl,
         originalPrice: 7500,
         price: 5900,
         tags: salad.sortOrder <= 4 ? "BEST" : salad.sortOrder >= 11 ? "NEW" : null,

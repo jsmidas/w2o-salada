@@ -284,6 +284,29 @@ enum NotificationStatus {
   FAILED
 }
 
+// ── 상품 상세페이지 ──
+model ProductPage {
+  id                 String   @id @default(cuid())
+  productId          String   @unique
+  heroImages         String?  // JSON: ["url1","url2"]
+  subtitle           String?
+  featureTitle       String?
+  featureDescription String?
+  featureImages      String?  // JSON: ["url1"]
+  keyPoints          String?  // JSON: [{icon,title,description}]
+  specs              String?  // JSON: [{label,value}]
+  detailDescription  String?
+  detailImages       String?  // JSON: ["url1"]
+  nutrition          String?  // JSON: [{label,value}]
+  galleryImages      String?  // JSON: ["url1"]
+  sectionOrder       String?  // JSON: ["hero","feature","keypoints",...]
+  isPublished        Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("product_pages")
+}
+
 // ── 쇼핑몰 설정 (key-value) ──
 model Setting {
   id        String   @id @default(cuid())

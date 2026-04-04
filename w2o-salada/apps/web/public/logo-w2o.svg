@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 130">
+  <!-- W -->
+  <text x="0" y="88" font-family="Arial, sans-serif" font-weight="900" font-size="90" fill="#1D9E75" letter-spacing="-2">W</text>
+  <!-- 2 (accent color) -->
+  <text x="85" y="88" font-family="Arial, sans-serif" font-weight="900" font-size="90" fill="#EF9F27" letter-spacing="-2">2</text>
+  <!-- O -->
+  <text x="145" y="88" font-family="Arial, sans-serif" font-weight="900" font-size="90" fill="#1D9E75" letter-spacing="-2">O</text>
+  <!-- dot on the O -->
+  <circle cx="178" cy="30" r="6" fill="#EF9F27"/>
+  <!-- SALADA -->
+  <text x="228" y="82" font-family="Arial, sans-serif" font-weight="600" font-size="40" fill="#5DCAA5" letter-spacing="10">SALADA</text>
+  <!-- 더블유 투 오 subtitle (centered under W2O) -->
+  <text x="260" y="118" font-family="Arial, sans-serif" font-weight="500" font-size="20" fill="#5DCAA5" opacity="0.7" letter-spacing="4" text-anchor="middle">더블유 투 오</text>
+</svg>

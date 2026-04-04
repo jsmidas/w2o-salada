@@ -87,9 +87,17 @@ export default function MyPage() {
         {/* 회원 정보 */}
         <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-brand-green/20 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-brand-green text-2xl">person</span>
-            </div>
+            {session.user?.image ? (
+              <img
+                src={session.user.image}
+                alt="프로필 사진"
+                className="w-14 h-14 rounded-full object-cover border-2 border-brand-green/30"
+              />
+            ) : (
+              <div className="w-14 h-14 bg-brand-green/20 rounded-full flex items-center justify-center">
+                <span className="material-symbols-outlined text-brand-green text-2xl">person</span>
+              </div>
+            )}
             <div>
               <p className="text-white font-bold text-lg">{session.user?.name}님</p>
               <p className="text-gray-500 text-sm">{session.user?.email}</p>

@@ -89,8 +89,14 @@ export default function MenuSection() {
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    fetch("/api/products").then((r) => r.json()).then(setProducts);
-    fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch(() => setProducts([]));
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]));
   }, []);
 
   const filtered = filter === "all"

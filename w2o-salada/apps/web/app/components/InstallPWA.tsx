@@ -37,7 +37,7 @@ export function useInstallPWA() {
     if (isIOS) {
       // iOS는 Safari 공유 메뉴에서 "홈 화면에 추가" 안내
       alert(
-        "📱 홈 화면에 추가하기\n\n" +
+        "📱 홈 화면 바로가기 만들기\n\n" +
         "1. Safari 하단의 공유 버튼 (□↑) 을 누르세요\n" +
         "2. '홈 화면에 추가'를 선택하세요\n" +
         "3. 우측 상단 '추가'를 누르면 완료!"
@@ -47,8 +47,8 @@ export function useInstallPWA() {
 
     if (!deferredPrompt) {
       alert(
-        "이미 설치되어 있거나, 이 브라우저에서는 지원하지 않습니다.\n" +
-        "Chrome, Edge, Samsung Internet을 사용해보세요."
+        "이미 바로가기가 만들어져 있거나, 이 브라우저에서는 지원하지 않습니다.\n" +
+        "Chrome, Edge, Samsung Internet에서 이용해 보세요."
       );
       return;
     }

@@ -178,7 +178,7 @@ export default function RightDock() {
               {isInstalled ? "check_circle" : "add_to_home_screen"}
             </span>
             <span className="text-[10px] font-bold leading-tight">
-              {isInstalled ? "설치됨" : "앱 설치"}
+              {isInstalled ? "추가됨" : "바로가기"}
             </span>
           </button>
         </div>

@@ -122,7 +122,7 @@ export default function RightDock() {
     <>
       {/* 메인 스택 - 히어로 카드 + FAQ + 주문/장바구니 */}
       <aside
-        className="fixed right-0 top-24 z-40 hidden w-[84px] flex-col gap-2 md:flex"
+        className="fixed right-0 top-24 z-40 hidden w-[84px] flex-col gap-2 sm:flex"
         aria-label="빠른 메뉴"
       >
         {/* 1. 히어로 카드 - 새벽배송 안내 비주얼 */}
@@ -194,7 +194,7 @@ export default function RightDock() {
       {/* FAQ 답변 패널 - 좌측으로 슬라이드 */}
       {activeFaq && (
         <div
-          className="fixed right-[84px] top-24 z-40 hidden w-72 md:block"
+          className="fixed right-[84px] top-24 z-40 hidden w-72 sm:block"
           role="dialog"
           aria-label={`${activeFaq.q} 답변`}
         >

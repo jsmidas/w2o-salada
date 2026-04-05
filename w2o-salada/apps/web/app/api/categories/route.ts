@@ -9,6 +9,6 @@ export async function GET() {
     return NextResponse.json(categories);
   } catch (err) {
     console.error("GET /api/categories error:", err);
-    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+    return NextResponse.json([]);
   }
 }

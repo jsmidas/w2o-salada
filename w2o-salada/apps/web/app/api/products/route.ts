@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.json(products);
   } catch (err) {
     console.error("GET /api/products error:", err);
-    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+    // DB 장애 시에도 프론트가 깨지지 않도록 빈 배열 반환
+    return NextResponse.json([]);
   }
 }

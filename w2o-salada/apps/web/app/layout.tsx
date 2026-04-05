@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
+import RightDock from "./components/RightDock";
 
 export const metadata: Metadata = {
   title: "W2O SALADA - 일어나면 이미 준비된 하루",
@@ -26,7 +27,10 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-brand-dark">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <RightDock />
+        </Providers>
       </body>
     </html>
   );

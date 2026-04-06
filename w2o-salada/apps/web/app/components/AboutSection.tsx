@@ -183,7 +183,7 @@ export default function AboutSection() {
           </h2>
           <p className="text-[#2d5a3f] mt-4">매일 신선하게 만든 2종을 새벽에 배달합니다.</p>
           <div className="mt-8 flex justify-center gap-4 flex-wrap">
-            <a href="#subscribe" className="px-8 py-3 bg-[#1D9E75] text-white rounded-full font-semibold hover:bg-[#167A5B] hover:shadow-lg hover:shadow-[#1D9E75]/30 hover:-translate-y-0.5 transition-all duration-300">
+            <a href="/subscribe?plan=subscription" className="px-8 py-3 bg-[#1D9E75] text-white rounded-full font-semibold hover:bg-[#167A5B] hover:shadow-lg hover:shadow-[#1D9E75]/30 hover:-translate-y-0.5 transition-all duration-300">
               구독 신청하기
             </a>
             <a href="#weekly-menu" className="px-8 py-3 bg-[#EF9F27] text-white rounded-full font-semibold hover:bg-[#D48A1E] hover:shadow-lg hover:shadow-[#EF9F27]/30 hover:-translate-y-0.5 transition-all duration-300">

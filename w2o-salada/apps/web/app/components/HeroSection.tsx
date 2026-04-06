@@ -34,13 +34,13 @@ export default function HeroSection() {
           </p>
           <div className="flex gap-3">
             <a
-              href="#subscribe"
+              href="/subscribe?plan=subscription"
               className="px-6 py-3 md:px-8 md:py-3.5 bg-brand-green text-white rounded-full font-semibold text-sm md:text-base hover:bg-[#167A5B] hover:shadow-lg hover:shadow-brand-green/30 hover:-translate-y-0.5 transition-all duration-300"
             >
               구독 신청하기
             </a>
             <a
-              href="#subscribe"
+              href="/subscribe?plan=trial"
               className="px-6 py-3 md:px-8 md:py-3.5 bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-full font-semibold text-sm md:text-base hover:bg-white/30 hover:-translate-y-0.5 transition-all duration-300"
             >
               맛보기 주문

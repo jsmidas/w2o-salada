@@ -90,7 +90,7 @@ export default function SubscribeSection() {
                 ))}
               </ul>
               <Link
-                href="/#subscribe"
+                href={plan.popular ? "/subscribe?plan=subscription" : "/subscribe?plan=trial"}
                 className={`block text-center py-3 rounded-full font-semibold transition ${
                   plan.popular
                     ? "bg-[#1D9E75] text-white hover:bg-[#167A5B]"
@@ -101,6 +101,18 @@ export default function SubscribeSection() {
               </Link>
             </div>
           ))}
+        </div>
+
+        {/* 간편식 안내 */}
+        <div className="mt-8 max-w-3xl mx-auto bg-white/60 backdrop-blur-sm rounded-xl border border-[#EF9F27]/20 p-5 flex items-start gap-4">
+          <span className="material-symbols-outlined text-[#EF9F27] text-2xl shrink-0 mt-0.5">info</span>
+          <div>
+            <p className="text-[#0A1A0F] font-semibold text-sm">간편식(샌드위치, 핫도그 등) 선택 시</p>
+            <p className="text-[#4a7a5e] text-sm mt-1">
+              간편식은 메뉴에 따라 단가가 다를 수 있으며, 선택한 메뉴 조합에 따라 결제 금액이 변동됩니다.
+              식단 선택 화면에서 정확한 금액을 확인하실 수 있습니다.
+            </p>
+          </div>
         </div>
       </div>
     </section>

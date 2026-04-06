@@ -10,13 +10,13 @@ export default function CTASection() {
         </p>
         <div className="mt-8 flex justify-center gap-4 flex-wrap">
           <a
-            href="#subscribe"
+            href="/subscribe?plan=subscription"
             className="px-10 py-4 bg-brand-green text-white rounded-full font-bold text-lg hover:bg-[#167A5B] hover:shadow-lg hover:shadow-brand-green/30 hover:-translate-y-0.5 transition-all duration-300"
           >
             구독 신청하기
           </a>
           <a
-            href="#subscribe"
+            href="/subscribe?plan=trial"
             className="px-10 py-4 bg-brand-amber text-white rounded-full font-bold text-lg hover:opacity-90 hover:-translate-y-0.5 transition-all duration-300"
           >
             맛보기 주문

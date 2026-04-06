@@ -49,19 +49,35 @@ function SubscribeContent() {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedDay, setSelectedDay] = useState(1); // 화요일 기본
   const [paying, setPaying] = useState(false);
+  const [config, setConfig] = useState({ minItems: 2, maxItems: 2, weeksPerMonth: 4, deliveryDays: [1, 3] as number[] });
 
   useEffect(() => {
     fetch("/api/products")
       .then((r) => r.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch(() => setProducts([]));
+
+    // 구독 설정 로드
+    fetch("/api/subscribe/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        const dayMap: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4 };
+        const days = (data["subscribe.deliveryDays"] || "tue,thu").split(",").map((d: string) => dayMap[d.trim()] ?? 1);
+        setConfig({
+          minItems: parseInt(data["subscribe.minItems"] || "2"),
+          maxItems: parseInt(data["subscribe.maxItems"] || "2"),
+          weeksPerMonth: parseInt(data["subscribe.weeksPerMonth"] || "4"),
+          deliveryDays: days,
+        });
+      })
+      .catch(() => {});
   }, []);
 
-  // 배송 요일: 화(1), 목(3)
-  const deliveryDayIndices = [1, 3];
+  // 배송 요일 (설정에서 로드)
+  const deliveryDayIndices = config.deliveryDays;
 
-  // 주차 수: 구독/혼합은 4주, 맛보기는 1주
-  const weekCount = plan === "trial" ? 1 : 4;
+  // 주차 수: 구독/혼합은 설정값, 맛보기는 1주
+  const weekCount = plan === "trial" ? 1 : config.weeksPerMonth;
 
   // 전체 배송일 목록
   const allDeliveryKeys: DayKey[] = useMemo(() => {
@@ -94,7 +110,7 @@ function SubscribeContent() {
       if (current.includes(productId)) {
         return { ...prev, [key]: current.filter((id) => id !== productId) };
       }
-      if (current.length >= 2) return prev;
+      if (current.length >= config.maxItems) return prev;
       return { ...prev, [key]: [...current, productId] };
     });
   };
@@ -132,8 +148,8 @@ function SubscribeContent() {
   const price = calculatePrice();
 
   // 전체 배송일 선택 완료 확인
-  const allDeliveriesReady = allDeliveryKeys.every((k) => getSelectedCount(k) >= 2);
-  const completedCount = allDeliveryKeys.filter((k) => getSelectedCount(k) >= 2).length;
+  const allDeliveriesReady = allDeliveryKeys.every((k) => getSelectedCount(k) >= config.minItems);
+  const completedCount = allDeliveryKeys.filter((k) => getSelectedCount(k) >= config.minItems).length;
 
   // 결제 처리
   const handlePayment = async () => {
@@ -241,7 +257,7 @@ function SubscribeContent() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#0A1A0F] mb-2">식단을 선택하세요</h1>
           <p className="text-[#4a7a5e] text-sm">
             {plan === "trial"
-              ? "맛보기 1회 배송 — 화·목 중 원하는 날의 메뉴 2개를 선택하세요"
+              ? "맛보기 1회 배송 — 화·목 중 원하는 날의 메뉴 {config.minItems}~{config.maxItems}개를 선택하세요"
               : `4주간 배송될 메뉴를 미리 선택하세요 (주 2회 × 4주 = 총 ${allDeliveryKeys.length}회)`}
           </p>
         </div>
@@ -289,7 +305,7 @@ function SubscribeContent() {
               <div className="flex gap-2 mb-4">
                 {weekLabels.slice(0, weekCount).map((label, w) => {
                   const weekComplete = deliveryDayIndices.every(
-                    (d) => getSelectedCount(makeDayKey(w, d)) >= 2
+                    (d) => getSelectedCount(makeDayKey(w, d)) >= config.minItems
                   );
                   return (
                     <button
@@ -335,9 +351,9 @@ function SubscribeContent() {
                     {day}
                     {isDeliveryDay && count > 0 && (
                       <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-white text-[10px] font-bold rounded-full flex items-center justify-center ${
-                        count >= 2 ? "bg-[#1D9E75]" : "bg-[#EF9F27]"
+                        count >= config.minItems ? "bg-[#1D9E75]" : "bg-[#EF9F27]"
                       }`}>
-                        {count >= 2 ? <span className="material-symbols-outlined text-[12px]">check</span> : count}
+                        {count >= config.minItems ? <span className="material-symbols-outlined text-[12px]">check</span> : count}
                       </span>
                     )}
                   </button>
@@ -349,10 +365,10 @@ function SubscribeContent() {
             <div className="flex items-center justify-between mb-4">
               <p className="text-[#4a7a5e] text-sm">
                 {weekCount > 1 && <span className="font-semibold text-[#0A1A0F]">{weekLabels[selectedWeek]} </span>}
-                <span className="font-semibold text-[#0A1A0F]">{dayLabels[selectedDay]}요일</span> 배송 메뉴에서 2개를 선택하세요
+                <span className="font-semibold text-[#0A1A0F]">{dayLabels[selectedDay]}요일</span> 배송 메뉴에서 {config.minItems}~{config.maxItems}개를 선택하세요
               </p>
-              <span className={`text-sm font-medium ${getSelectedCount(currentKey) >= 2 ? "text-[#1D9E75]" : "text-[#EF9F27]"}`}>
-                {getSelectedCount(currentKey)}/2 선택
+              <span className={`text-sm font-medium ${getSelectedCount(currentKey) >= config.minItems ? "text-[#1D9E75]" : "text-[#EF9F27]"}`}>
+                {getSelectedCount(currentKey)}/{config.maxItems} 선택
               </span>
             </div>
 
@@ -367,7 +383,7 @@ function SubscribeContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {getMenuForDay(selectedWeek, selectedDay).map((item) => {
                   const selected = isSelected(currentKey, item.id);
-                  const full = getSelectedCount(currentKey) >= 2 && !selected;
+                  const full = getSelectedCount(currentKey) >= config.maxItems && !selected;
                   return (
                     <button
                       key={item.id}

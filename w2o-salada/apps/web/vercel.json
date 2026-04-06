@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/renewal-charge",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/menu-select-notify",
+      "schedule": "0 9 * * *"
     }
   ]
 }

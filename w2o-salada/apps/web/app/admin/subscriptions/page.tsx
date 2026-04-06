@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
+
+const REGULAR_PRICE = 7500; // 정가 (중도해지 정산 기준)
 
 type SubUser = { id: string; name: string; email: string; phone: string | null };
 type SubPeriod = { id: string; year: number; month: number; status: string; totalAmount: number; paidAt: string | null };
@@ -44,6 +46,50 @@ export default function AdminSubscriptionsPage() {
   const total: number = data?.pagination?.total || 0;
 
   const handleSearch = () => { setPage(1); };
+
+  // 중도해지 정산
+  const [cancelModal, setCancelModal] = useState<Sub | null>(null);
+  const [cancelDelivered, setCancelDelivered] = useState(0); // 배송 완료 건수
+  const [cancelItemsPerDelivery, setCancelItemsPerDelivery] = useState(2);
+  const [cancelling, setCancelling] = useState(false);
+
+  const openCancelModal = (sub: Sub) => {
+    setCancelModal(sub);
+    setCancelDelivered(0);
+    setCancelItemsPerDelivery(sub.itemsPerDelivery);
+  };
+
+  const cancelSettlement = {
+    deliveredItems: cancelDelivered * cancelItemsPerDelivery,
+    regularTotal: cancelDelivered * cancelItemsPerDelivery * REGULAR_PRICE,
+    paidTotal: cancelDelivered * cancelItemsPerDelivery * (cancelModal?.price ? Math.round(cancelModal.price / (cancelModal.itemsPerDelivery * 1)) : 5900),
+    get difference() { return this.regularTotal - this.paidTotal; },
+  };
+
+  const handleCancelSubmit = useCallback(async () => {
+    if (!cancelModal) return;
+    setCancelling(true);
+    try {
+      await fetch(`/api/subscriptions/${cancelModal.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "중도해지",
+          deliveredCount: cancelDelivered,
+          itemsPerDelivery: cancelItemsPerDelivery,
+          regularPrice: REGULAR_PRICE,
+          settlement: cancelSettlement.difference,
+        }),
+      });
+      setCancelModal(null);
+      // SWR 캐시는 자동으로 키가 바뀌면 갱신되므로, 강제 리로드
+      window.location.reload();
+    } catch {
+      alert("해지 처리 중 오류가 발생했습니다.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [cancelModal, cancelDelivered, cancelItemsPerDelivery, cancelSettlement.difference]);
 
   // 갱신 예정 수
   const renewalCount = subs.filter((s) => {
@@ -126,6 +172,7 @@ export default function AdminSubscriptionsPage() {
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">상태</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">다음 결제</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">시작일</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-600">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -164,6 +211,16 @@ export default function AdminSubscriptionsPage() {
                         ? new Date(sub.startedAt).toLocaleDateString("ko-KR")
                         : "-"}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {(sub.status === "ACTIVE" || sub.status === "PAUSED") && (
+                        <button
+                          onClick={() => openCancelModal(sub)}
+                          className="px-3 py-1 bg-red-50 text-red-500 text-xs rounded-lg hover:bg-red-100 transition font-medium"
+                        >
+                          중도해지
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -178,6 +235,79 @@ export default function AdminSubscriptionsPage() {
           <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 rounded border border-gray-200 text-sm disabled:opacity-40">이전</button>
           <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {Math.ceil(total / 20)}</span>
           <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(page + 1)} className="px-3 py-1.5 rounded border border-gray-200 text-sm disabled:opacity-40">다음</button>
+        </div>
+      )}
+      {/* 중도해지 정산 모달 */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCancelModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">중도해지 정산</h3>
+            <p className="text-sm text-gray-500 mb-5">{cancelModal.user.name} ({cancelModal.user.email})</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-600 block mb-1">배송 완료 횟수</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCancelDelivered(Math.max(0, cancelDelivered - 1))}
+                    className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-gray-500 hover:bg-gray-50"
+                  >−</button>
+                  <span className="text-2xl font-black text-gray-800 min-w-[3ch] text-center">{cancelDelivered}회</span>
+                  <button
+                    onClick={() => setCancelDelivered(cancelDelivered + 1)}
+                    className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-gray-500 hover:bg-gray-50"
+                  >+</button>
+                  <span className="text-xs text-gray-400">× {cancelItemsPerDelivery}개/회</span>
+                </div>
+              </div>
+
+              {/* 정산 내역 */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">배송 상품 수</span>
+                  <span className="font-medium">{cancelSettlement.deliveredItems}개</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">정가 기준 ({REGULAR_PRICE.toLocaleString()}원/개)</span>
+                  <span className="font-medium">{cancelSettlement.regularTotal.toLocaleString()}원</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">구독가 결제 금액</span>
+                  <span className="font-medium">{cancelSettlement.paidTotal.toLocaleString()}원</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between">
+                  <span className="text-gray-700 font-semibold">차액 (공제)</span>
+                  <span className="font-bold text-red-600">{cancelSettlement.difference.toLocaleString()}원</span>
+                </div>
+                {cancelSettlement.paidTotal > cancelSettlement.regularTotal && (
+                  <p className="text-xs text-green-600 mt-1">* 환불 가능 금액이 발생합니다.</p>
+                )}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-amber-700 text-xs">
+                  위 차액({cancelSettlement.difference.toLocaleString()}원)을 공제한 후 나머지 금액을 환불 처리합니다.
+                  미배송분은 전액 환불됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setCancelModal(null)}
+                className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-600 font-medium hover:bg-gray-50 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleCancelSubmit}
+                disabled={cancelling || cancelDelivered === 0}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition disabled:opacity-50"
+              >
+                {cancelling ? "처리 중..." : "해지 처리"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

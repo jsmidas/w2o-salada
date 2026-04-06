@@ -57,6 +57,9 @@ function SubscribeContent() {
   const itemsPerDelivery = saladCount + mealCount;
   const [config, setConfig] = useState({ minItems: 2, maxItems: 10 });
 
+  // 약관 동의
+  const [termsAgreed, setTermsAgreed] = useState(false);
+
   // Step 3: 캘린더 메뉴 선택
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
   const [selection, setSelection] = useState<Selection>({});
@@ -210,7 +213,7 @@ function SubscribeContent() {
 
   // 완료 체크
   const completedCount = activeDates.filter((d) => getSelectedCount(d.dateStr) >= itemsPerDelivery).length;
-  const allReady = meetsMinimum && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
+  const allReady = termsAgreed && meetsMinimum && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
 
   // 가격 계산
   const calculatePrice = () => {
@@ -715,10 +718,31 @@ function SubscribeContent() {
                   </div>
                 </div>
 
+                {/* 약관 동의 */}
+                <label className="flex items-start gap-2 mt-5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={termsAgreed}
+                    onChange={(e) => setTermsAgreed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#1D9E75] focus:ring-[#1D9E75] cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-500 leading-relaxed">
+                    <a href="/terms/subscription" target="_blank" className="text-[#1D9E75] underline hover:text-[#167A5B]">
+                      구독 서비스 이용약관
+                    </a>
+                    에 동의합니다.
+                    {mode !== "trial" && (
+                      <span className="text-gray-400 block mt-0.5">
+                        중도해지 시 배송된 상품은 정가(7,500원) 기준으로 정산됩니다.
+                      </span>
+                    )}
+                  </span>
+                </label>
+
                 <button
                   disabled={!allReady || paying}
                   onClick={handlePayment}
-                  className={`w-full mt-6 py-4 rounded-xl font-bold text-base transition ${
+                  className={`w-full mt-3 py-4 rounded-xl font-bold text-base transition ${
                     allReady && !paying
                       ? mode === "trial"
                         ? "bg-[#EF9F27] text-white hover:bg-[#D48A1E] shadow-lg"
@@ -727,8 +751,9 @@ function SubscribeContent() {
                   }`}
                 >
                   {paying ? "결제 처리 중..."
+                    : !termsAgreed ? "약관에 동의해주세요"
                     : !meetsMinimum && mode !== "trial" ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
-                    : !allReady ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
+                    : mode !== "auto" && completedCount < activeDates.length ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
                     : mode === "trial" ? "맛보기 결제하기" : "구독 결제하기"}
                 </button>
 

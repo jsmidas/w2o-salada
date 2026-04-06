@@ -488,20 +488,20 @@ function SubscribeContent() {
 
                 {/* 알아서 배송 추천 버튼 / 상태 표시 */}
                 {mode === "auto" ? (
-                  <div className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#EF9F27]/10 text-[#EF9F27] rounded-full text-xs font-bold">
+                  <div className="ml-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-[#EF9F27]/10 text-[#EF9F27] rounded-full text-xs font-bold">
                     <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                    <span>잘 챙겨서 보내줘</span>
+                    <span className="hidden sm:inline">잘 챙겨서 보내줘</span>
                     {/* 배송 횟수 조절 */}
                     <button
                       onClick={() => setAutoCount(Math.max(MIN_DELIVERIES, autoCount - 1))}
                       disabled={autoCount <= MIN_DELIVERIES}
-                      className="w-5 h-5 rounded-full border border-[#EF9F27]/40 flex items-center justify-center text-[10px] disabled:opacity-30"
+                      className="w-8 h-8 rounded-full border-2 border-[#EF9F27]/50 flex items-center justify-center text-lg font-black disabled:opacity-30 hover:bg-[#EF9F27]/10 transition"
                     >−</button>
-                    <span className="font-black">{autoCount}회</span>
+                    <span className="text-xl font-black min-w-[3ch] text-center">{autoCount}회</span>
                     <button
                       onClick={() => setAutoCount(Math.min(MAX_DELIVERIES, autoCount + 1))}
                       disabled={autoCount >= MAX_DELIVERIES}
-                      className="w-5 h-5 rounded-full border border-[#EF9F27]/40 flex items-center justify-center text-[10px] disabled:opacity-30"
+                      className="w-8 h-8 rounded-full border-2 border-[#EF9F27]/50 flex items-center justify-center text-lg font-black disabled:opacity-30 hover:bg-[#EF9F27]/10 transition"
                     >+</button>
                     <button
                       onClick={() => { setMode("manual"); setTermsAgreed(false); }}

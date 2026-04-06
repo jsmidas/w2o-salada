@@ -67,10 +67,12 @@ function SubscribeContent() {
   const [paying, setPaying] = useState(false);
 
   const now = new Date();
-  const [viewYear] = useState(now.getFullYear());
-  const [viewMonth] = useState(now.getMonth() + 1);
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1;
+  const nextMonth = curMonth === 12 ? 1 : curMonth + 1;
+  const nextYear = curMonth === 12 ? curYear + 1 : curYear;
 
-  // 설정 + 캘린더 로드
+  // 설정 + 캘린더 로드 (이번 달 + 다음 달)
   useEffect(() => {
     fetch("/api/subscribe/settings")
       .then((r) => r.json())
@@ -82,11 +84,17 @@ function SubscribeContent() {
       })
       .catch(() => {});
 
-    fetch(`/api/delivery-calendar?year=${viewYear}&month=${viewMonth}`)
-      .then((r) => r.json())
-      .then((data) => setCalendar(Array.isArray(data) ? data : []))
-      .catch(() => setCalendar([]));
-  }, [viewYear, viewMonth]);
+    Promise.all([
+      fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}`).then((r) => r.json()),
+      fetch(`/api/delivery-calendar?year=${nextYear}&month=${nextMonth}`).then((r) => r.json()),
+    ]).then(([cur, next]) => {
+      const all = [
+        ...(Array.isArray(cur) ? cur : []),
+        ...(Array.isArray(next) ? next : []),
+      ];
+      setCalendar(all);
+    }).catch(() => setCalendar([]));
+  }, [curYear, curMonth, nextYear, nextMonth]);
 
   // 마감 기준: 배송일 -1일 (24시간 전 마감)
   const cutoffDate = useMemo(() => {
@@ -127,18 +135,23 @@ function SubscribeContent() {
     ? deliveryDates.slice(0, 1)
     : deliveryDates.filter((d) => !skippedDates.has(d.dateStr));
 
-  // 달력 그리드
-  const calendarGrid = useMemo(() => {
-    const firstDay = new Date(viewYear, viewMonth - 1, 1);
-    const lastDay = new Date(viewYear, viewMonth, 0);
-    const startPad = firstDay.getDay();
-    const totalDays = lastDay.getDate();
-    const grid: (number | null)[] = [];
-    for (let i = 0; i < startPad; i++) grid.push(null);
-    for (let d = 1; d <= totalDays; d++) grid.push(d);
-    while (grid.length % 7 !== 0) grid.push(null);
-    return grid;
-  }, [viewYear, viewMonth]);
+  // 달력 그리드 (2개월)
+  const months = useMemo(() => {
+    return [
+      { year: curYear, month: curMonth },
+      { year: nextYear, month: nextMonth },
+    ].map(({ year, month }) => {
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+      const startPad = firstDay.getDay();
+      const totalDays = lastDay.getDate();
+      const grid: (number | null)[] = [];
+      for (let i = 0; i < startPad; i++) grid.push(null);
+      for (let d = 1; d <= totalDays; d++) grid.push(d);
+      while (grid.length % 7 !== 0) grid.push(null);
+      return { year, month, grid };
+    });
+  }, [curYear, curMonth, nextYear, nextMonth]);
 
   // 전체 배송일 세트 (마감 포함, 캘린더 표시용)
   const allDeliveryDateSet = useMemo(() => {
@@ -154,8 +167,8 @@ function SubscribeContent() {
     return new Set(activeDates.map((d) => d.dateStr));
   }, [activeDates]);
 
-  const getDateStr = (day: number) =>
-    `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const getDateStr = (year: number, month: number, day: number) =>
+    `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   const getMenuForDate = (dateStr: string) => {
     return calendar.find((d) => new Date(d.date).toISOString().split("T")[0] === dateStr)?.menuAssignments || [];
@@ -410,7 +423,7 @@ function SubscribeContent() {
                     {mode === "auto" ? "배송 일정 확인" : "수량 · 메뉴 선택"}
                   </h1>
                   <p className="text-[#4a7a5e] text-sm mt-1">
-                    {viewYear}년 {viewMonth}월 · 배송 {activeDates.length}회
+                    {curMonth}월~{nextMonth}월 · 배송 {activeDates.length}회
                   </p>
                 </div>
                 <button onClick={() => setStep(1)} className="text-sm text-[#7aaa90] hover:text-[#1D9E75] transition">
@@ -483,82 +496,88 @@ function SubscribeContent() {
                 </div>
               )}
 
-              {/* 미니 캘린더 */}
-              <div className="bg-white rounded-2xl border border-[#1D9E75]/10 overflow-hidden mb-6">
-                <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
-                  {WEEKDAYS.map((d, i) => (
-                    <div key={d} className={`text-center py-2 text-xs font-semibold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"}`}>{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7">
-                  {calendarGrid.map((day, i) => {
-                    if (day === null) return <div key={i} className="h-16 border-b border-r border-gray-50" />;
-                    const dateStr = getDateStr(day);
-                    const isAllDelivery = allDeliveryDateSet.has(dateStr); // 원래 배송일
-                    const isClosed = isAllDelivery && dateStr < cutoffDate; // 마감됨
-                    const isSkipped = skippedDates.has(dateStr); // 건너뛰기
-                    const isDelivery = deliveryDateSet.has(dateStr) && !isSkipped; // 주문 가능
-                    const isSelected = selectedDate === dateStr;
-                    const count = getSelectedCount(dateStr);
-                    const done = count >= itemsPerDelivery;
-                    const incomplete = isDelivery && count > 0 && !done;
-                    const empty = isDelivery && count === 0 && mode !== "auto";
-                    const dayOfWeek = new Date(viewYear, viewMonth - 1, day).getDay();
+              {/* 미니 캘린더 (2개월) */}
+              <div className="space-y-4 mb-6">
+                {months.map(({ year: mY, month: mM, grid }) => (
+                  <div key={`${mY}-${mM}`} className="bg-white rounded-2xl border border-[#1D9E75]/10 overflow-hidden">
+                    <div className="px-4 py-2 bg-[#f7fdf9] border-b border-[#1D9E75]/10">
+                      <span className="text-sm font-bold text-[#0A1A0F]">{mY}년 {mM}월</span>
+                    </div>
+                    <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
+                      {WEEKDAYS.map((d, i) => (
+                        <div key={d} className={`text-center py-1.5 text-[10px] font-semibold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"}`}>{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7">
+                      {grid.map((day, i) => {
+                        if (day === null) return <div key={i} className="h-14 border-b border-r border-gray-50" />;
+                        const dateStr = getDateStr(mY, mM, day);
+                        const isAllDelivery = allDeliveryDateSet.has(dateStr);
+                        const isClosed = isAllDelivery && dateStr < cutoffDate;
+                        const isSkipped = skippedDates.has(dateStr);
+                        const isDelivery = deliveryDateSet.has(dateStr) && !isSkipped;
+                        const isSelected = selectedDate === dateStr;
+                        const count = getSelectedCount(dateStr);
+                        const done = count >= itemsPerDelivery;
+                        const incomplete = isDelivery && count > 0 && !done;
+                        const empty = isDelivery && count === 0 && mode !== "auto";
+                        const dayOfWeek = new Date(mY, mM - 1, day).getDay();
 
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          if (isClosed) return;
-                          if (isAllDelivery && mode !== "trial") {
-                            // 배송일이면 선택 (건너뛴 날짜도 클릭하면 메뉴 선택으로)
-                            if (isSkipped) { toggleSkip(dateStr); }
-                            setSelectedDate(dateStr);
-                          } else if (isDelivery) {
-                            setSelectedDate(dateStr);
-                          }
-                        }}
-                        className={`h-16 border-b border-r border-gray-50 p-1 text-center transition cursor-pointer ${
-                          isClosed ? "bg-gray-50 cursor-not-allowed"
-                            : isSkipped ? "bg-gray-50/80 cursor-pointer"
-                            : isSelected ? "bg-[#1D9E75]/10 ring-2 ring-[#1D9E75] ring-inset"
-                            : incomplete ? "bg-red-50/60 ring-1 ring-red-300 ring-inset"
-                            : empty ? "bg-amber-50/40"
-                            : isDelivery ? "hover:bg-[#f0faf4]" : ""
-                        } ${!isAllDelivery ? "cursor-default" : ""}`}
-                      >
-                        <span className={`text-sm ${dayOfWeek === 0 ? "text-red-400" : dayOfWeek === 6 ? "text-blue-400" : "text-gray-600"} ${!isAllDelivery ? "opacity-30" : isClosed ? "opacity-40" : "font-medium"}`}>
-                          {day}
-                        </span>
-                        {isClosed && (
-                          <div className="mt-1">
-                            <span className="text-[9px] text-gray-400">마감</span>
-                          </div>
-                        )}
-                        {isSkipped && !isClosed && (
-                          <div className="mt-1">
-                            <span className="text-[9px] text-gray-400 line-through">건너뜀</span>
-                          </div>
-                        )}
-                        {isDelivery && !isClosed && (
-                          <div className="mt-1">
-                            {mode === "auto" ? (
-                              <span className="w-2 h-2 bg-[#EF9F27] rounded-full inline-block" />
-                            ) : done ? (
-                              <span className="w-5 h-5 bg-[#1D9E75] rounded-full inline-flex items-center justify-center">
-                                <span className="material-symbols-outlined text-white text-[10px]">check</span>
-                              </span>
-                            ) : count > 0 ? (
-                              <span className="text-[10px] font-bold text-red-500">{count}/{itemsPerDelivery}</span>
-                            ) : (
-                              <span className="material-symbols-outlined text-amber-400 text-[14px]">warning</span>
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => {
+                              if (isClosed) return;
+                              if (isAllDelivery && mode !== "trial") {
+                                if (isSkipped) { toggleSkip(dateStr); }
+                                setSelectedDate(dateStr);
+                              } else if (isDelivery) {
+                                setSelectedDate(dateStr);
+                              }
+                            }}
+                            className={`h-14 border-b border-r border-gray-50 p-1 text-center transition cursor-pointer ${
+                              isClosed ? "bg-gray-50 cursor-not-allowed"
+                                : isSkipped ? "bg-gray-50/80 cursor-pointer"
+                                : isSelected ? "bg-[#1D9E75]/10 ring-2 ring-[#1D9E75] ring-inset"
+                                : incomplete ? "bg-red-50/60 ring-1 ring-red-300 ring-inset"
+                                : empty ? "bg-amber-50/40"
+                                : isDelivery ? "hover:bg-[#f0faf4]" : ""
+                            } ${!isAllDelivery ? "cursor-default" : ""}`}
+                          >
+                            <span className={`text-xs ${dayOfWeek === 0 ? "text-red-400" : dayOfWeek === 6 ? "text-blue-400" : "text-gray-600"} ${!isAllDelivery ? "opacity-30" : isClosed ? "opacity-40" : "font-medium"}`}>
+                              {day}
+                            </span>
+                            {isClosed && (
+                              <div className="mt-0.5">
+                                <span className="text-[8px] text-gray-400">마감</span>
+                              </div>
+                            )}
+                            {isSkipped && !isClosed && (
+                              <div className="mt-0.5">
+                                <span className="text-[8px] text-gray-400 line-through">건너뜀</span>
+                              </div>
+                            )}
+                            {isDelivery && !isClosed && (
+                              <div className="mt-0.5">
+                                {mode === "auto" ? (
+                                  <span className="w-1.5 h-1.5 bg-[#EF9F27] rounded-full inline-block" />
+                                ) : done ? (
+                                  <span className="w-4 h-4 bg-[#1D9E75] rounded-full inline-flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-white text-[9px]">check</span>
+                                  </span>
+                                ) : count > 0 ? (
+                                  <span className="text-[9px] font-bold text-red-500">{count}/{itemsPerDelivery}</span>
+                                ) : (
+                                  <span className="material-symbols-outlined text-amber-400 text-[12px]">warning</span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* 진행 바 */}

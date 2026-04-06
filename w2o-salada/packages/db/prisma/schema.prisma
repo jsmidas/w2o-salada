@@ -85,9 +85,11 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  orderItems        OrderItem[]
-  subscriptionItems SubscriptionItem[]
-  menuSchedules     MenuSchedule[]
+  orderItems              OrderItem[]
+  subscriptionItems       SubscriptionItem[]
+  menuSchedules           MenuSchedule[]
+  menuAssignments         MenuAssignment[]
+  subscriptionSelections  SubscriptionSelection[]
 
   @@map("products")
 }
@@ -180,26 +182,35 @@ enum PaymentStatus {
 
 // ── 정기구독 ──
 model Subscription {
-  id               String             @id @default(cuid())
-  userId           String
-  user             User               @relation(fields: [userId], references: [id])
-  planType         PlanType
-  frequency        Frequency
-  status           SubscriptionStatus @default(PENDING)
-  billingKey       String?            // 토스 빌링키 (암호화)
-  nextBillingDate  DateTime?
-  nextDeliveryDate DateTime?
-  price            Int
-  startedAt        DateTime?
-  pausedAt         DateTime?
-  cancelledAt      DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  planType          PlanType?          // deprecated, optional로 유지
+  frequency         Frequency?         // deprecated, optional로 유지
+  selectionMode     SelectionMode      @default(MANUAL)
+  itemsPerDelivery  Int                @default(2)  // 배송당 수량
+  status            SubscriptionStatus @default(PENDING)
+  billingKey        String?            // 토스 빌링키 (암호화)
+  nextBillingDate   DateTime?
+  nextDeliveryDate  DateTime?
+  renewalNotifiedAt DateTime?          // 갱신 사전 알림 발송일
+  price             Int
+  startedAt         DateTime?
+  pausedAt          DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  items  SubscriptionItem[]
-  orders Order[]
+  items   SubscriptionItem[]
+  periods SubscriptionPeriod[]
+  orders  Order[]
 
   @@map("subscriptions")
+}
+
+enum SelectionMode {
+  MANUAL  // 고객 직접 선택
+  AUTO    // 잘 챙겨서 보내줘 (위임형)
 }
 
 enum PlanType {
@@ -308,7 +319,75 @@ model ProductPage {
   @@map("product_pages")
 }
 
-// ── 식단 배정 ──
+// ── 배송일 캘린더 (관리자 지정) ──
+model DeliveryCalendar {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  isActive  Boolean  @default(true)
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  menuAssignments MenuAssignment[]
+
+  @@map("delivery_calendar")
+}
+
+// ── 날짜별 제공 메뉴 (관리자 배정) ──
+model MenuAssignment {
+  id                 String           @id @default(cuid())
+  deliveryCalendarId String
+  deliveryCalendar   DeliveryCalendar @relation(fields: [deliveryCalendarId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product          @relation(fields: [productId], references: [id])
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  @@unique([deliveryCalendarId, productId])
+  @@map("menu_assignments")
+}
+
+// ── 월별 구독 사이클 ──
+model SubscriptionPeriod {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  year           Int
+  month          Int
+  status         PeriodStatus @default(PENDING)
+  totalAmount    Int          @default(0)
+  orderId        String?
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  selections SubscriptionSelection[]
+
+  @@unique([subscriptionId, year, month])
+  @@map("subscription_periods")
+}
+
+enum PeriodStatus {
+  PENDING
+  PAID
+  DELIVERING
+  COMPLETED
+  CANCELLED
+}
+
+// ── 고객 날짜별 메뉴 선택 ──
+model SubscriptionSelection {
+  id                   String             @id @default(cuid())
+  subscriptionPeriodId String
+  subscriptionPeriod   SubscriptionPeriod @relation(fields: [subscriptionPeriodId], references: [id], onDelete: Cascade)
+  deliveryDate         DateTime
+  productId            String
+  product              Product            @relation(fields: [productId], references: [id])
+  quantity             Int                @default(1)
+
+  @@map("subscription_selections")
+}
+
+// ── 식단 배정 (레거시, deprecated) ──
 model MenuSchedule {
   id        String @id @default(cuid())
   year      Int    // 2026

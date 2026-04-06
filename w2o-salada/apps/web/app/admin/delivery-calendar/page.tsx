@@ -231,11 +231,11 @@ export default function DeliveryCalendarPage() {
   const meals = products.filter((p) => p.category?.slug !== "salad");
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">배송일 캘린더</h1>
-          <p className="text-gray-500 text-sm mt-1">배송일을 지정하고, 날짜별 메뉴를 배정합니다</p>
+    <div className="p-4 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-gray-900">배송일 캘린더</h1>
+          <p className="text-gray-400 text-xs">배송일을 지정하고, 날짜별 메뉴를 배정합니다</p>
         </div>
         <button
           onClick={bulkSetTueThu}
@@ -246,11 +246,11 @@ export default function DeliveryCalendarPage() {
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg text-sm font-medium bg-green-50 text-green-600">{message}</div>
+        <div className="mb-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-50 text-green-600">{message}</div>
       )}
 
       {/* 월 이동 */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-3 mb-2">
         <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition">
           <span className="material-symbols-outlined">chevron_left</span>
         </button>
@@ -278,7 +278,7 @@ export default function DeliveryCalendarPage() {
             {/* 날짜 그리드 */}
             <div className="grid grid-cols-7">
               {calendarGrid.map((day, i) => {
-                if (day === null) return <div key={i} className="min-h-[140px] border-b border-r border-gray-100" />;
+                if (day === null) return <div key={i} className="min-h-[120px] border-b border-r border-gray-100" />;
 
                 const dateStr = getDateStr(day);
                 const entry = getEntry(day);
@@ -290,7 +290,7 @@ export default function DeliveryCalendarPage() {
                 return (
                   <div
                     key={i}
-                    className={`min-h-[140px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition relative ${
+                    className={`min-h-[120px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition relative ${
                       isSelected ? "bg-[#1D9E75]/5 ring-2 ring-[#1D9E75] ring-inset" : "hover:bg-gray-50"
                     }`}
                     onClick={() => setSelectedDate(dateStr)}
@@ -311,21 +311,16 @@ export default function DeliveryCalendarPage() {
                       </button>
                     </div>
 
-                    {/* 배송일 + 메뉴 이름 목록 */}
-                    {isActive && (
-                      <div className="mt-1">
-                        <span className="text-[10px] font-bold text-[#1D9E75]">배송일</span>
-                        {assignments.length > 0 && (
-                          <div className="mt-0.5 space-y-px">
-                            {assignments.map((a) => (
-                              <p key={a.productId} className={`text-[10px] leading-tight truncate font-medium ${
-                                a.product.category?.slug === "salad" ? "text-[#1D9E75]" : "text-[#EF9F27]"
-                              }`}>
-                                {a.product.name}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                    {/* 메뉴 이름 목록 */}
+                    {isActive && assignments.length > 0 && (
+                      <div className="mt-1 space-y-px">
+                        {assignments.map((a) => (
+                          <p key={a.productId} className={`text-[10px] leading-tight truncate font-medium ${
+                            a.product.category?.slug === "salad" ? "text-[#1D9E75]" : "text-[#EF9F27]"
+                          }`}>
+                            {a.product.name}
+                          </p>
+                        ))}
                       </div>
                     )}
 

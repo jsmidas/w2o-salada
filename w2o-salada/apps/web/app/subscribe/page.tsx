@@ -204,9 +204,13 @@ function SubscribeContent() {
   const getSelectedCount = (dateStr: string) => (selection[dateStr] || []).length;
   const isItemSelected = (dateStr: string, productId: string) => (selection[dateStr] || []).includes(productId);
 
+  // 최소 주문 조건: 구독/혼합은 8회 이상, 맛보기는 제한 없음
+  const MIN_DELIVERIES = 8;
+  const meetsMinimum = mode === "trial" || activeDates.length >= MIN_DELIVERIES;
+
   // 완료 체크
   const completedCount = activeDates.filter((d) => getSelectedCount(d.dateStr) >= itemsPerDelivery).length;
-  const allReady = mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length);
+  const allReady = meetsMinimum && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
 
   // 가격 계산
   const calculatePrice = () => {
@@ -449,7 +453,32 @@ function SubscribeContent() {
 
                 <span className="text-gray-300 text-lg">=</span>
                 <span className="text-lg font-black text-[#0A1A0F]">총 {itemsPerDelivery}개</span>
+
+                {/* 알아서 배송 추천 버튼 */}
+                {mode !== "auto" && mode !== "trial" && (
+                  <button
+                    onClick={() => { setMode("auto"); setSelection({}); }}
+                    className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#EF9F27] to-[#f0b54a] text-white rounded-full text-xs font-bold shadow-lg shadow-[#EF9F27]/25 hover:shadow-xl hover:scale-105 transition-all animate-pulse hover:animate-none"
+                  >
+                    <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                    알아서 배송 추천!
+                  </button>
+                )}
               </div>
+
+              {/* 최소 8회 미달 경고 */}
+              {!meetsMinimum && mode !== "trial" && (
+                <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                  <span className="material-symbols-outlined text-red-500 text-lg shrink-0 mt-0.5">error</span>
+                  <div>
+                    <p className="text-red-700 text-sm font-semibold">배송 {activeDates.length}회 — 최소 {MIN_DELIVERIES}회 이상 필요합니다</p>
+                    <p className="text-red-500 text-xs mt-0.5">
+                      구독 할인(5,900원)은 6주 내 {MIN_DELIVERIES}회 이상 주문 시 적용됩니다.
+                      건너뛰기를 줄이거나, 다음 달까지 포함하여 주문해주세요.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* 미니 캘린더 */}
               <div className="bg-white rounded-2xl border border-[#1D9E75]/10 overflow-hidden mb-6">
@@ -697,7 +726,10 @@ function SubscribeContent() {
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  {paying ? "결제 처리 중..." : !allReady ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})` : mode === "trial" ? "맛보기 결제하기" : "구독 결제하기"}
+                  {paying ? "결제 처리 중..."
+                    : !meetsMinimum && mode !== "trial" ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
+                    : !allReady ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
+                    : mode === "trial" ? "맛보기 결제하기" : "구독 결제하기"}
                 </button>
 
                 {mode !== "trial" && (

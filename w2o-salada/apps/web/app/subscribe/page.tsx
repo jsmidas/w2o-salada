@@ -132,6 +132,9 @@ function SubscribeContent() {
     });
   };
 
+  // 최소 주문 조건: 구독/혼합은 8회 이상
+  const MIN_DELIVERIES = 8;
+
   // 맛보기: 첫 배송일만, AUTO: 앞에서 8회, MANUAL: 건너뛰지 않은 배송일
   const activeDates = mode === "trial"
     ? deliveryDates.slice(0, 1)
@@ -228,8 +231,7 @@ function SubscribeContent() {
   const getSelectedCount = (dateStr: string) => (selection[dateStr] || []).length;
   const isItemSelected = (dateStr: string, productId: string) => (selection[dateStr] || []).includes(productId);
 
-  // 최소 주문 조건: 구독/혼합은 8회 이상, 맛보기는 제한 없음
-  const MIN_DELIVERIES = 8;
+  // 최소 주문 조건: 맛보기는 제한 없음
   const meetsMinimum = mode === "trial" || activeDates.length >= MIN_DELIVERIES;
 
   // 완료 체크

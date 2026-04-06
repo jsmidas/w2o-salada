@@ -132,9 +132,11 @@ function SubscribeContent() {
     });
   };
 
-  // 맛보기: 첫 배송일만, 그 외: 건너뛰지 않은 배송일
+  // 맛보기: 첫 배송일만, AUTO: 앞에서 8회, MANUAL: 건너뛰지 않은 배송일
   const activeDates = mode === "trial"
     ? deliveryDates.slice(0, 1)
+    : mode === "auto"
+    ? deliveryDates.slice(0, MIN_DELIVERIES)
     : deliveryDates.filter((d) => !skippedDates.has(d.dateStr));
 
   // 달력 그리드 (2개월)

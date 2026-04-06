@@ -6,7 +6,7 @@ export default function CTASection() {
           내일 아침,<br />문 앞에서 만나요
         </h2>
         <p className="text-gray-400 mt-4 text-base md:text-lg">
-          매일 새벽, 신선한 샐러드·간편식 2종이 도착합니다
+          새벽, 신선한 샐러드·간편식 2종이 도착합니다
         </p>
         <div className="mt-8 flex justify-center gap-4 flex-wrap">
           <a

@@ -141,11 +141,11 @@ function SubscribeContent() {
   // 최소 주문 조건: 구독/혼합은 8회 이상
   const MIN_DELIVERIES = 8;
 
-  // 맛보기: 첫 배송일만, AUTO: 건너뛴 날짜 제외 후 autoCount회, MANUAL: 건너뛰지 않은 배송일
+  // 맛보기: 첫 배송일만, AUTO: 앞에서 autoCount개 중 건너뛴 것 제외, MANUAL: 건너뛰지 않은 배송일
   const activeDates = mode === "trial"
     ? deliveryDates.slice(0, 1)
     : mode === "auto"
-    ? deliveryDates.filter((d) => !skippedDates.has(d.dateStr)).slice(0, autoCount)
+    ? deliveryDates.slice(0, autoCount).filter((d) => !skippedDates.has(d.dateStr))
     : deliveryDates.filter((d) => !skippedDates.has(d.dateStr));
 
   // 달력 그리드 (2개월)

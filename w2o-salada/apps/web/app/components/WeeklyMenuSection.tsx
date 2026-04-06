@@ -27,26 +27,42 @@ export default function WeeklyMenuSection() {
   const [fallbackProducts, setFallbackProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const MIN_DELIVERIES = 8;
+
   useEffect(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    const nextMonth = curMonth === 12 ? 1 : curMonth + 1;
+    const nextYear = curMonth === 12 ? curYear + 1 : curYear;
 
-    fetch(`/api/delivery-calendar?year=${year}&month=${month}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setCalendar(data);
-        } else {
-          fetch("/api/products")
-            .then((r) => r.json())
-            .then((d) => setFallbackProducts(Array.isArray(d) ? d : []))
-            .catch(() => setFallbackProducts([]));
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    // 이번 달 + 다음 달 로드
+    Promise.all([
+      fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}`).then((r) => r.json()),
+      fetch(`/api/delivery-calendar?year=${nextYear}&month=${nextMonth}`).then((r) => r.json()),
+    ]).then(([cur, next]) => {
+      const all = [
+        ...(Array.isArray(cur) ? cur : []),
+        ...(Array.isArray(next) ? next : []),
+      ];
+      if (all.length > 0) {
+        setCalendar(all);
+      } else {
+        fetch("/api/products")
+          .then((r) => r.json())
+          .then((d) => setFallbackProducts(Array.isArray(d) ? d : []))
+          .catch(() => setFallbackProducts([]));
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
+
+  // cutoff: 내일부터 주문 가능
+  const cutoffDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
 
   const hasCalendar = calendar.length > 0;
   const deliveryDays = hasCalendar
@@ -56,6 +72,8 @@ export default function WeeklyMenuSection() {
           date: new Date(d.date).toISOString().split("T")[0]!,
           items: d.menuAssignments.map((m) => m.product),
         }))
+        .filter((d) => d.date >= cutoffDate)
+        .slice(0, MIN_DELIVERIES)
     : [];
 
   // 폴백: 상품 자동 분배 (캘린더 데이터 없을 때)
@@ -92,7 +110,7 @@ export default function WeeklyMenuSection() {
           <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">MONTHLY MENU</span>
           <h2 className="text-3xl md:text-4xl font-bold text-[#0A1A0F] mt-3">이달의 식단표</h2>
           <p className="text-[#4a7a5e] mt-3 text-sm md:text-base">
-            이런 메뉴가 새벽에 배송됩니다 · 총 {displayDays.length}회 배송
+            지금 구독하면 이런 메뉴가 새벽에 배송됩니다 · {displayDays.length}회 배송
           </p>
         </div>
 

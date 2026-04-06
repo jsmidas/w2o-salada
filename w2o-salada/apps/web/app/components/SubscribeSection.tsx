@@ -45,7 +45,7 @@ const plans = [
     name: "혼합신청",
     desc: "샐러드 + 간편식을 함께",
     highlight: "자유 조합",
-    composition: "샐러드 + 간편식 × 4주",
+    composition: "샐러드 + 간편식 × 주 2회 × 4주",
     originalPrice: null,
     priceLabel: "메뉴에 따라 변동",
     priceDetail: "선택한 조합에 따라 결제 금액 결정",

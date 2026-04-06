@@ -256,9 +256,9 @@ function SubscribeContent() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* 스텝 인디케이터 */}
+        {/* 스텝 인디케이터 (2단계) */}
         <div className="flex items-center gap-2 mb-8">
-          {["구독 유형", "수량 선택", mode === "auto" ? "확인 및 결제" : "메뉴 선택"].map((label, i) => (
+          {["구독 유형", mode === "auto" ? "확인 및 결제" : "수량 · 메뉴 선택"].map((label, i) => (
             <div key={i} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                 step > i + 1 ? "bg-[#1D9E75] text-white" : step === i + 1 ? "bg-[#0A1A0F] text-white" : "bg-gray-200 text-gray-400"
@@ -266,7 +266,7 @@ function SubscribeContent() {
                 {step > i + 1 ? <span className="material-symbols-outlined text-sm">check</span> : i + 1}
               </div>
               <span className={`text-sm hidden sm:inline ${step === i + 1 ? "font-semibold text-[#0A1A0F]" : "text-gray-400"}`}>{label}</span>
-              {i < 2 && <div className="w-8 h-px bg-gray-300" />}
+              {i < 1 && <div className="w-8 h-px bg-gray-300" />}
             </div>
           ))}
         </div>
@@ -280,7 +280,7 @@ function SubscribeContent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
               {/* 직접 골라먹기 */}
               <button
-                onClick={() => { setMode("manual"); setStep(2); }}
+                onClick={() => { setMode("manual"); setStep(3); }}
                 className={`text-left p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   mode === "manual" ? "border-[#1D9E75] bg-white shadow-lg" : "border-gray-200 bg-white/80"
                 }`}
@@ -293,7 +293,7 @@ function SubscribeContent() {
 
               {/* 잘 챙겨서 보내줘 */}
               <button
-                onClick={() => { setMode("auto"); setStep(2); }}
+                onClick={() => { setMode("auto"); setStep(3); }}
                 className={`text-left p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] relative ${
                   mode === "auto" ? "border-[#EF9F27] bg-white shadow-lg" : "border-gray-200 bg-white/80"
                 }`}
@@ -307,7 +307,7 @@ function SubscribeContent() {
 
               {/* 맛보기 */}
               <button
-                onClick={() => { setMode("trial"); setStep(2); }}
+                onClick={() => { setMode("trial"); setStep(3); }}
                 className={`text-left p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   mode === "trial" ? "border-[#1D9E75] bg-white shadow-lg" : "border-gray-200 bg-white/80"
                 }`}
@@ -321,61 +321,47 @@ function SubscribeContent() {
           </div>
         )}
 
-        {/* Step 2: 수량 선택 */}
-        {step === 2 && (
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-[#0A1A0F] mb-2">몇 개씩 받으시겠어요?</h1>
-            <p className="text-[#4a7a5e] text-sm mb-8">배송 1회당 받으실 수량을 선택하세요</p>
-
-            <div className="flex gap-3 flex-wrap max-w-xl mb-8">
-              {Array.from({ length: config.maxItems - config.minItems + 1 }, (_, i) => config.minItems + i).map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setItemsPerDelivery(n)}
-                  className={`px-6 py-4 rounded-2xl border-2 font-bold text-lg transition-all ${
-                    itemsPerDelivery === n
-                      ? "border-[#1D9E75] bg-[#1D9E75] text-white shadow-lg scale-105"
-                      : "border-gray-200 bg-white text-[#0A1A0F] hover:border-[#1D9E75]/40"
-                  }`}
-                >
-                  {n}개
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[#4a7a5e] text-sm mb-6">
-              샐러드와 간편식을 자유롭게 조합할 수 있습니다.
-              {mode !== "trial" && ` (이번 달 배송 ${activeDates.length}회)`}
-            </p>
-
-            <div className="flex gap-3">
-              <button onClick={() => setStep(1)} className="px-6 py-3 border border-gray-300 rounded-xl text-gray-600 font-medium hover:bg-gray-50 transition">
-                이전
-              </button>
-              <button onClick={() => setStep(3)} className="px-8 py-3 bg-[#1D9E75] text-white rounded-xl font-semibold hover:bg-[#167A5B] transition">
-                다음
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: 메뉴 선택 (MANUAL/TRIAL) 또는 확인+결제 (AUTO) */}
+        {/* Step 2: 수량 + 메뉴 선택 통합 */}
         {step === 3 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* 왼쪽: 캘린더 + 메뉴 */}
+            {/* 왼쪽: 수량 + 캘린더 + 메뉴 */}
             <div className="lg:col-span-2">
+              {/* 수량 선택 (컴팩트) */}
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-2xl font-bold text-[#0A1A0F]">
-                    {mode === "auto" ? "배송 일정 확인" : "메뉴를 선택하세요"}
+                    {mode === "auto" ? "배송 일정 확인" : "수량 · 메뉴 선택"}
                   </h1>
                   <p className="text-[#4a7a5e] text-sm mt-1">
-                    {viewYear}년 {viewMonth}월 · 배송 {activeDates.length}회 · 회당 {itemsPerDelivery}개
+                    {viewYear}년 {viewMonth}월 · 배송 {activeDates.length}회
                   </p>
                 </div>
-                <button onClick={() => setStep(2)} className="text-sm text-[#7aaa90] hover:text-[#1D9E75] transition">
-                  ← 수량 변경
+                <button onClick={() => setStep(1)} className="text-sm text-[#7aaa90] hover:text-[#1D9E75] transition">
+                  ← 유형 변경
                 </button>
+              </div>
+
+              {/* 수량 +/- */}
+              <div className="flex items-center gap-4 mb-6 bg-white rounded-2xl border border-[#1D9E75]/10 px-5 py-3">
+                <span className="text-sm font-medium text-[#4a7a5e]">배송 1회당</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setItemsPerDelivery(Math.max(config.minItems, itemsPerDelivery - 1))}
+                    disabled={itemsPerDelivery <= config.minItems}
+                    className="w-9 h-9 rounded-full border-2 border-[#1D9E75]/30 flex items-center justify-center text-[#1D9E75] font-bold text-lg hover:bg-[#1D9E75]/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    −
+                  </button>
+                  <span className="text-2xl font-black text-[#1D9E75] min-w-[3ch] text-center">{itemsPerDelivery}개</span>
+                  <button
+                    onClick={() => setItemsPerDelivery(Math.min(config.maxItems, itemsPerDelivery + 1))}
+                    disabled={itemsPerDelivery >= config.maxItems}
+                    className="w-9 h-9 rounded-full border-2 border-[#1D9E75]/30 flex items-center justify-center text-[#1D9E75] font-bold text-lg hover:bg-[#1D9E75]/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="text-xs text-[#7aaa90]">({config.minItems}~{config.maxItems}개)</span>
               </div>
 
               {/* 미니 캘린더 */}

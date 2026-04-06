@@ -160,6 +160,57 @@ export default function PageEditorPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState<PageForm>(makeDefaultForm);
 
+  // 이전 페이지 불러오기
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyPages, setCopyPages] = useState<{ id: string; name: string; imageUrl: string | null }[]>([]);
+  const [copyLoading, setCopyLoading] = useState(false);
+
+  const openCopyModal = async () => {
+    setShowCopyModal(true);
+    setCopyLoading(true);
+    try {
+      const res = await fetch("/api/admin/pages");
+      if (res.ok) {
+        const data = await res.json();
+        // 상세페이지가 있는 상품만 (현재 상품 제외)
+        setCopyPages(
+          data.filter((p: { id: string; page: unknown }) => p.page && p.id !== id)
+            .map((p: { id: string; name: string; imageUrl: string | null }) => ({ id: p.id, name: p.name, imageUrl: p.imageUrl }))
+        );
+      }
+    } catch { /* ignore */ }
+    setCopyLoading(false);
+  };
+
+  const loadFromPage = async (sourceId: string) => {
+    try {
+      const res = await fetch(`/api/admin/pages/${sourceId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          const parse = (v: string | null) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
+          setForm({
+            hero_images: parse(data.heroImages) || [],
+            subtitle: data.subtitle || "",
+            feature_title: data.featureTitle || "",
+            feature_description: data.featureDescription || "",
+            feature_images: parse(data.featureImages) || [],
+            key_points: parse(data.keyPoints) || [{ ...emptyKeyPoint }],
+            specs: parse(data.specs) || [{ ...emptySpec }],
+            detail_description: data.detailDescription || "",
+            detail_images: parse(data.detailImages) || [],
+            nutrition: parse(data.nutrition) || DEFAULT_NUTRITION.map((n) => ({ ...n })),
+            gallery_images: parse(data.galleryImages) || [],
+            is_published: false, // 복사 시 비공개로
+            section_order: parse(data.sectionOrder) || [...DEFAULT_SECTION_ORDER],
+          });
+          setToast("이전 페이지를 불러왔습니다. 수정 후 저장하세요.");
+        }
+      }
+    } catch { /* ignore */ }
+    setShowCopyModal(false);
+  };
+
   /* ── Load data ── */
   const fetchProduct = useCallback(async () => {
     setLoading(true);
@@ -922,6 +973,14 @@ export default function PageEditorPage() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
+                onClick={openCopyModal}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:bg-white/5 text-sm transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">content_copy</span>
+                불러오기
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowPreview(!showPreview)}
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors ${
                   showPreview
@@ -993,6 +1052,51 @@ export default function PageEditorPage() {
         {/* Preview panel */}
         {showPreview && <PreviewPanel />}
       </div>
+
+      {/* 이전 페이지 불러오기 모달 */}
+      {showCopyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCopyModal(false)}>
+          <div className="bg-[#1a1f2e] rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden border border-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-white">이전 페이지 불러오기</h3>
+                <p className="text-xs text-gray-400 mt-0.5">선택한 페이지의 내용을 복사합니다</p>
+              </div>
+              <button onClick={() => setShowCopyModal(false)} className="text-gray-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[55vh] p-3">
+              {copyLoading ? (
+                <p className="text-center text-gray-400 py-8">불러오는 중...</p>
+              ) : copyPages.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">복사할 수 있는 페이지가 없습니다</p>
+              ) : (
+                copyPages.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => loadFromPage(p.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-white/5 transition"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <span className="material-symbols-outlined text-gray-500">article</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                      <p className="text-xs text-gray-500">클릭하여 불러오기</p>
+                    </div>
+                    <span className="material-symbols-outlined text-gray-500 text-lg">content_copy</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

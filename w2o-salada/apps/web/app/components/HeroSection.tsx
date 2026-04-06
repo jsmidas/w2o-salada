@@ -30,7 +30,7 @@ export default function HeroSection() {
         {/* CTA 오버레이 */}
         <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 md:pb-16 bg-gradient-to-t from-black/60 via-transparent to-transparent">
           <p className="text-white/80 text-sm md:text-base mb-4 tracking-wide">
-            매일 새벽, 신선한 2종이 문 앞에 도착합니다
+            새벽, 신선한 2종이 문 앞에 도착합니다
           </p>
           <div className="flex gap-3">
             <a

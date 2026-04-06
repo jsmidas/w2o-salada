@@ -139,19 +139,29 @@ function SubscribeContent() {
     return { salads, meals };
   };
 
+  const getItemCount = (dateStr: string, productId: string) =>
+    (selection[dateStr] || []).filter((id) => id === productId).length;
+
   const toggleItem = (dateStr: string, productId: string) => {
     setSelection((prev) => {
       const current = prev[dateStr] || [];
-      if (current.includes(productId)) {
-        return { ...prev, [dateStr]: current.filter((id) => id !== productId) };
-      }
-      // 카테고리별 수량 체크
+      const currentItemCount = current.filter((id) => id === productId).length;
       const cat = getCategoryOfProduct(dateStr, productId);
       const counts = getSelectedByCategory(dateStr);
-      if (cat === "salad" && counts.salads >= saladCount) return prev;
-      if (cat !== "salad" && counts.meals >= mealCount) return prev;
-      if (current.length >= itemsPerDelivery) return prev;
-      return { ...prev, [dateStr]: [...current, productId] };
+      const catLimit = cat === "salad" ? saladCount : mealCount;
+      const catCount = cat === "salad" ? counts.salads : counts.meals;
+
+      // 카테고리 여유가 있고 총 수량도 여유 있으면 → 1개 추가 (중복 허용)
+      if (catCount < catLimit && current.length < itemsPerDelivery) {
+        return { ...prev, [dateStr]: [...current, productId] };
+      }
+
+      // 여유 없으면 → 해당 상품 전부 제거
+      if (currentItemCount > 0) {
+        return { ...prev, [dateStr]: current.filter((id) => id !== productId) };
+      }
+
+      return prev;
     });
   };
 
@@ -505,6 +515,7 @@ function SubscribeContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {getMenuForDate(selectedDate).map((m) => {
                       const selected = isItemSelected(selectedDate, m.productId);
+                      const qty = getItemCount(selectedDate, m.productId);
                       const cat = m.product.category.slug;
                       const counts = getSelectedByCategory(selectedDate);
                       const catFull = cat === "salad" ? counts.salads >= saladCount : counts.meals >= mealCount;
@@ -527,7 +538,11 @@ function SubscribeContent() {
                             )}
                             {selected && (
                               <div className="absolute top-2 right-2 w-7 h-7 bg-[#1D9E75] rounded-full flex items-center justify-center shadow">
-                                <span className="material-symbols-outlined text-white text-lg">check</span>
+                                {qty >= 2 ? (
+                                  <span className="text-white text-xs font-bold">×{qty}</span>
+                                ) : (
+                                  <span className="material-symbols-outlined text-white text-lg">check</span>
+                                )}
                               </div>
                             )}
                             <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 text-[9px] font-semibold text-[#1D9E75] rounded-full">

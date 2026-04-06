@@ -1,19 +1,13 @@
-import { auth } from "../../auth";
-import { redirect } from "next/navigation";
 import Sidebar from "./components/Sidebar";
 import AdminHeader from "./components/AdminHeader";
 
-export default async function AdminLayout({
+// 인증은 middleware.ts에서 처리 (쿠키 확인)
+// ADMIN role 검증은 각 API의 requireAdmin()에서 처리
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
-  if (!session?.user || (session.user as { role?: string }).role !== "ADMIN") {
-    redirect("/login");
-  }
-
   return (
     <div className="flex">
       <Sidebar />

@@ -171,23 +171,24 @@ export default function DeliveryCalendarPage() {
     }
   };
 
-  // 식단 배정 저장
+  // 식단 배정 (로컬 편집 → 일괄 저장)
+  const [dirtyDates, setDirtyDates] = useState<Set<string>>(new Set());
+  const hasDirty = dirtyDates.size > 0;
+
   const selectedEntry = selectedDate ? calendarMap.get(selectedDate) : null;
   const selectedAssignments = selectedEntry?.menuAssignments || [];
 
   const addProduct = (productId: string) => {
     if (!selectedDate) return;
-    const existing = selectedAssignments.map((a) => ({ id: a.productId, sortOrder: a.sortOrder }));
-    if (existing.some((e) => e.id === productId)) return;
+    if (selectedAssignments.some((a) => a.productId === productId)) return;
 
     const product = products.find((p) => p.id === productId);
     if (!product) return;
 
-    // 즉시 UI 반영 + 모달 닫기
     const newAssignment: MenuAssignmentData = {
       id: `temp-${productId}`,
       productId,
-      sortOrder: existing.length,
+      sortOrder: selectedAssignments.length,
       product,
     };
     setCalendars((prev) =>
@@ -198,17 +199,13 @@ export default function DeliveryCalendarPage() {
           : c;
       })
     );
+    setDirtyDates((prev) => new Set(prev).add(selectedDate));
     setPickerOpen(false);
-
-    // 백그라운드로 저장
-    const newList = [...existing, { id: productId, sortOrder: existing.length }];
-    saveAssignments(selectedDate, newList);
   };
 
   const removeProduct = (productId: string) => {
     if (!selectedDate) return;
 
-    // 즉시 UI 반영
     setCalendars((prev) =>
       prev.map((c) => {
         const cDate = new Date(c.date).toISOString().split("T")[0];
@@ -217,33 +214,28 @@ export default function DeliveryCalendarPage() {
           : c;
       })
     );
-
-    // 백그라운드로 저장
-    const newList = selectedAssignments
-      .filter((a) => a.productId !== productId)
-      .map((a, i) => ({ id: a.productId, sortOrder: i }));
-    saveAssignments(selectedDate, newList);
+    setDirtyDates((prev) => new Set(prev).add(selectedDate));
   };
 
-  const saveAssignments = async (date: string, productIds: { id: string; sortOrder: number }[]) => {
+  const saveAllAssignments = async () => {
+    if (dirtyDates.size === 0) return;
     setSaving(true);
-    const res = await fetch("/api/admin/menu-assignment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, productIds }),
+
+    const promises = Array.from(dirtyDates).map((date) => {
+      const entry = calendarMap.get(date);
+      const productIds = (entry?.menuAssignments || []).map((a, i) => ({ id: a.productId, sortOrder: i }));
+      return fetch("/api/admin/menu-assignment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, productIds }),
+      });
     });
 
-    if (res.ok) {
-      const updated = await res.json();
-      // 해당 날짜 엔트리만 교체
-      setCalendars((prev) =>
-        prev.map((c) => {
-          const cDate = new Date(c.date).toISOString().split("T")[0];
-          return cDate === date ? { ...c, menuAssignments: updated.menuAssignments || [] } : c;
-        })
-      );
-    }
+    await Promise.all(promises);
+    setDirtyDates(new Set());
     setSaving(false);
+    setMessage("메뉴 배정 저장 완료");
+    setTimeout(() => setMessage(""), 2000);
   };
 
   const changeMonth = (delta: number) => {
@@ -313,6 +305,7 @@ export default function DeliveryCalendarPage() {
                 const entry = getEntry(day);
                 const isActive = entry?.isActive === true;
                 const isSelected = selectedDate === dateStr;
+                const isDirty = dirtyDates.has(dateStr);
                 const assignments = entry?.menuAssignments || [];
                 const dayOfWeek = new Date(year, month - 1, day).getDay();
 
@@ -320,7 +313,7 @@ export default function DeliveryCalendarPage() {
                   <div
                     key={i}
                     className={`min-h-[120px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition relative ${
-                      isSelected ? "bg-[#1D9E75]/5 ring-2 ring-[#1D9E75] ring-inset" : "hover:bg-gray-50"
+                      isSelected ? "bg-[#1D9E75]/5 ring-2 ring-[#1D9E75] ring-inset" : isDirty ? "bg-amber-50" : "hover:bg-gray-50"
                     }`}
                     onClick={() => setSelectedDate(dateStr)}
                   >
@@ -423,6 +416,17 @@ export default function DeliveryCalendarPage() {
             )}
 
             {saving && <p className="text-xs text-[#1D9E75] mt-3">저장 중...</p>}
+
+            {/* 일괄 저장 버튼 */}
+            {hasDirty && (
+              <button
+                onClick={saveAllAssignments}
+                disabled={saving}
+                className="mt-4 w-full py-3 bg-[#1D9E75] text-white rounded-xl text-sm font-bold hover:bg-[#178a65] transition disabled:opacity-50"
+              >
+                {saving ? "저장 중..." : `메뉴 배정 저장 (${dirtyDates.size}일)`}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -103,7 +103,8 @@ function SubscribeContent() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }, []);
 
-  // 배송일 목록 (마감 지난 날짜 제외)
+  // 배송일 목록 (마감 이후, 최대 12회까지)
+  const MAX_DELIVERIES = 12;
   const deliveryDates = useMemo(() => {
     return calendar
       .filter((d) => d.isActive)
@@ -111,7 +112,8 @@ function SubscribeContent() {
         const dateStr = new Date(d.date).toISOString().split("T")[0]!;
         return { ...d, dateStr };
       })
-      .filter((d) => d.dateStr >= cutoffDate); // 마감 이후만
+      .filter((d) => d.dateStr >= cutoffDate)
+      .slice(0, MAX_DELIVERIES);
   }, [calendar, cutoffDate]);
 
   // 건너뛰기 (사용자가 해제한 배송일)
@@ -153,14 +155,18 @@ function SubscribeContent() {
     });
   }, [curYear, curMonth, nextYear, nextMonth]);
 
-  // 전체 배송일 세트 (마감 포함, 캘린더 표시용)
+  // 12회 범위 내 배송일의 마지막 날짜
+  const lastDeliveryDate = deliveryDates.length > 0 ? deliveryDates[deliveryDates.length - 1]!.dateStr : "";
+
+  // 전체 배송일 세트 (마감 포함, 캘린더 표시용 — 12회 범위까지만)
   const allDeliveryDateSet = useMemo(() => {
     return new Set(
       calendar
         .filter((d) => d.isActive)
         .map((d) => new Date(d.date).toISOString().split("T")[0]!)
+        .filter((dateStr) => !lastDeliveryDate || dateStr <= lastDeliveryDate)
     );
-  }, [calendar]);
+  }, [calendar, lastDeliveryDate]);
 
   // 주문 가능한 배송일 세트
   const deliveryDateSet = useMemo(() => {

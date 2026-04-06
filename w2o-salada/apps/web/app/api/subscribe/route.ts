@@ -9,10 +9,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { plan, selections, addressId } = body as {
-      plan: "trial" | "subscription" | "mixed";
-      selections: { week: number; day: string; productIds: string[] }[];
-      addressId?: string;
+    const { plan, selectionMode, itemsPerDelivery, selections } = body as {
+      plan: "trial" | "subscription";
+      selectionMode?: "MANUAL" | "AUTO";
+      itemsPerDelivery?: number;
+      selections: { date: string; productIds: string[] }[];
     };
 
     if (!plan || !selections || selections.length === 0) {
@@ -38,11 +39,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 구독/혼합은 4주분
-    if (plan !== "trial") {
-      // totalAmount는 이미 4주분 합산
-    }
-
     // 주문번호 생성
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const count = await prisma.order.count({ where: { orderNo: { startsWith: `W2O-${today}` } } });
@@ -57,7 +53,6 @@ export async function POST(request: Request) {
         status: "PENDING",
         totalAmount,
         deliveryFee: 0,
-        addressId: addressId || null,
         items: {
           create: allProductIds.map((pid) => {
             const product = productMap.get(pid)!;
@@ -72,6 +67,50 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // 구독인 경우 Subscription + Period + Selection 생성
+    if (plan !== "trial") {
+      const now = new Date();
+      const subscription = await prisma.subscription.create({
+        data: {
+          userId,
+          selectionMode: selectionMode === "AUTO" ? "AUTO" : "MANUAL",
+          itemsPerDelivery: itemsPerDelivery || 2,
+          status: "PENDING",
+          price: totalAmount,
+        },
+      });
+
+      const period = await prisma.subscriptionPeriod.create({
+        data: {
+          subscriptionId: subscription.id,
+          year: now.getFullYear(),
+          month: now.getMonth() + 1,
+          status: "PENDING",
+          totalAmount,
+        },
+      });
+
+      // 날짜별 선택 저장
+      const selectionData = selections.flatMap((sel) =>
+        sel.productIds.map((pid) => ({
+          subscriptionPeriodId: period.id,
+          deliveryDate: new Date(sel.date),
+          productId: pid,
+          quantity: 1,
+        }))
+      );
+
+      if (selectionData.length > 0) {
+        await prisma.subscriptionSelection.createMany({ data: selectionData });
+      }
+
+      // 주문에 구독 연결
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { subscriptionId: subscription.id },
+      });
+    }
 
     return NextResponse.json({
       orderId: order.id,

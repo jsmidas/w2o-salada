@@ -123,16 +123,6 @@ const config: NextAuthConfig = {
   session: {
     strategy: "jwt",
   },
-  // middleware에서 admin 라우트 보호
-  authorized({ auth, request }) {
-    const isAdmin = request.nextUrl.pathname.startsWith("/admin");
-    if (isAdmin) {
-      if (!auth?.user) return false; // → /login 리다이렉트
-      const role = (auth.user as { role?: string }).role;
-      if (role !== "ADMIN") return false;
-    }
-    return true;
-  },
   secret: process.env.NEXTAUTH_SECRET ?? "w2o-salada-dev-secret-key-2026",
 };
 

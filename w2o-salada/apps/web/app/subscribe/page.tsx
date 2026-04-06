@@ -493,7 +493,7 @@ function SubscribeContent() {
                 ) : mode !== "trial" ? (
                   <button
                     onClick={() => { setMode("auto"); setSelection({}); }}
-                    className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#EF9F27] to-[#f0b54a] text-white rounded-full text-xs font-bold shadow-lg shadow-[#EF9F27]/25 hover:shadow-xl hover:scale-105 transition-all animate-pulse hover:animate-none"
+                    className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#EF9F27] to-[#f0b54a] text-white rounded-full text-xs font-bold hover:scale-110 transition-all animate-shimmer"
                   >
                     <span className="material-symbols-outlined text-sm">auto_awesome</span>
                     알아서 배송 추천!

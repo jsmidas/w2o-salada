@@ -415,18 +415,18 @@ export default function DeliveryCalendarPage() {
               </div>
             )}
 
-            {saving && <p className="text-xs text-[#1D9E75] mt-3">저장 중...</p>}
-
-            {/* 일괄 저장 버튼 */}
-            {hasDirty && (
-              <button
-                onClick={saveAllAssignments}
-                disabled={saving}
-                className="mt-4 w-full py-3 bg-[#1D9E75] text-white rounded-xl text-sm font-bold hover:bg-[#178a65] transition disabled:opacity-50"
-              >
-                {saving ? "저장 중..." : `메뉴 배정 저장 (${dirtyDates.size}일)`}
-              </button>
-            )}
+            {/* 일괄 저장 버튼 (항상 표시) */}
+            <button
+              onClick={saveAllAssignments}
+              disabled={saving || !hasDirty}
+              className={`mt-4 w-full py-3 rounded-xl text-sm font-bold transition ${
+                hasDirty
+                  ? "bg-[#1D9E75] text-white hover:bg-[#178a65]"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              } disabled:opacity-50`}
+            >
+              {saving ? "저장 중..." : hasDirty ? `메뉴 배정 저장 (${dirtyDates.size}일)` : "변경사항 없음"}
+            </button>
           </div>
         </div>
       </div>

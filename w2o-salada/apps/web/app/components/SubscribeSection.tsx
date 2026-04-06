@@ -131,13 +131,7 @@ export default function SubscribeSection() {
               </ul>
               <Link
                 href={plan.href}
-                className={`block text-center py-3 rounded-full font-semibold transition ${
-                  plan.popular
-                    ? "bg-[#1D9E75] text-white hover:bg-[#167A5B]"
-                    : plan.color === "amber"
-                    ? "border border-[#EF9F27]/30 text-[#EF9F27] hover:bg-[#EF9F27]/10"
-                    : "border border-[#1D9E75]/30 text-[#1D9E75] hover:bg-[#1D9E75]/10"
-                }`}
+                className="block text-center py-3 rounded-full font-semibold transition bg-[#1D9E75] text-white hover:bg-[#167A5B]"
               >
                 {plan.cta}
               </Link>

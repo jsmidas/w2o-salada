@@ -87,6 +87,7 @@ model Product {
 
   orderItems        OrderItem[]
   subscriptionItems SubscriptionItem[]
+  menuSchedules     MenuSchedule[]
 
   @@map("products")
 }
@@ -305,6 +306,23 @@ model ProductPage {
   updatedAt          DateTime @updatedAt
 
   @@map("product_pages")
+}
+
+// ── 식단 배정 ──
+model MenuSchedule {
+  id        String @id @default(cuid())
+  year      Int    // 2026
+  month     Int    // 1~12
+  week      Int    // 1~4 (해당 월의 주차)
+  day       String // "tue" | "thu"
+  slot      Int    // 슬롯 순서 (0, 1, 2 ...)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month, week, day, slot])
+  @@map("menu_schedules")
 }
 
 // ── 쇼핑몰 설정 (key-value) ──

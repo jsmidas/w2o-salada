@@ -8,6 +8,7 @@ const menuItems = [
   { href: "/admin/dashboard", icon: "dashboard", label: "대시보드" },
   { href: "/admin/orders", icon: "receipt_long", label: "주문 관리" },
   { href: "/admin/products", icon: "inventory_2", label: "상품 관리" },
+  { href: "/admin/menu-schedule", icon: "calendar_month", label: "식단 배정" },
   { href: "/admin/categories", icon: "category", label: "카테고리" },
   { href: "/admin/pages", icon: "article", label: "상세페이지" },
   { href: "/admin/subscriptions", icon: "autorenew", label: "구독 관리" },

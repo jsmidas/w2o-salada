@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 
 const TYPING_TEXTS = [
   "맵시를 다함 !",
-  "매일 새벽, 2종이 도착합니다",
+  "새벽에 도착합니다.",
   "새벽의 신선함을 깨웁니다.",
 ];
 
@@ -181,7 +181,7 @@ export default function AboutSection() {
               |
             </span>
           </h2>
-          <p className="text-[#2d5a3f] mt-4">매일 신선하게 만든 2종을 새벽에 배달합니다.</p>
+          <p className="text-[#2d5a3f] mt-4">신선하게 만든 샐러드·간편식을 새벽에 배달합니다.</p>
           <div className="mt-8 flex justify-center gap-4 flex-wrap">
             <a href="/subscribe?plan=subscription" className="px-8 py-3 bg-[#1D9E75] text-white rounded-full font-semibold hover:bg-[#167A5B] hover:shadow-lg hover:shadow-[#1D9E75]/30 hover:-translate-y-0.5 transition-all duration-300">
               구독 신청하기

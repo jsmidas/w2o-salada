@@ -568,6 +568,8 @@ function SubscribeContent() {
                         const isClosed = isAllDelivery && dateStr < cutoffDate;
                         const isSkipped = skippedDates.has(dateStr);
                         const isDelivery = deliveryDateSet.has(dateStr) && !isSkipped;
+                        const isInRange = deliveryDates.some((d) => d.dateStr === dateStr);
+                        const isExpandable = mode === "auto" && isInRange && !isClosed && !isDelivery && !isSkipped;
                         const isSelected = selectedDate === dateStr;
                         const count = getSelectedCount(dateStr);
                         const done = count >= itemsPerDelivery;
@@ -581,7 +583,21 @@ function SubscribeContent() {
                             key={i}
                             onClick={() => {
                               if (isClosed) return;
-                              if (mode === "auto" && isAllDelivery) { toggleSkip(dateStr); return; }
+                              if (mode === "auto" && isAllDelivery) {
+                                const dateIdx = deliveryDates.findIndex((d) => d.dateStr === dateStr);
+                                if (dateIdx < 0) return;
+                                if (skippedDates.has(dateStr)) {
+                                  // 건너뛴 날짜 → 복원
+                                  toggleSkip(dateStr);
+                                } else if (dateIdx < autoCount) {
+                                  // 현재 범위 내 → 건너뛰기
+                                  toggleSkip(dateStr);
+                                } else {
+                                  // 범위 밖 → autoCount 확장하여 이 날짜 포함
+                                  setAutoCount(Math.min(MAX_DELIVERIES, dateIdx + 1));
+                                }
+                                return;
+                              }
                               if (isAllDelivery && mode !== "trial") {
                                 if (isSkipped) { toggleSkip(dateStr); }
                                 setSelectedDate(dateStr);
@@ -593,14 +609,18 @@ function SubscribeContent() {
                                 : isSelected ? "bg-[#1D9E75]/10 ring-2 ring-[#1D9E75] ring-inset"
                                 : incomplete ? "bg-red-50/60 ring-1 ring-red-300 ring-inset"
                                 : empty ? "bg-amber-50/40"
+                                : isExpandable ? "bg-[#EF9F27]/5 hover:bg-[#EF9F27]/10 cursor-pointer"
                                 : isDelivery ? "hover:bg-[#f0faf4]" : ""
-                            } ${!isAllDelivery ? "cursor-default" : ""}`}
+                            } ${!isAllDelivery && !isExpandable ? "cursor-default" : ""}`}
                           >
                             <span className={`text-xs ${dayOfWeek === 0 ? "text-red-400" : dayOfWeek === 6 ? "text-blue-400" : "text-gray-600"} ${!isAllDelivery ? "opacity-20" : isClosed ? "opacity-40" : "font-medium"}`}>
                               {day}
                             </span>
                             {isClosed && <div className="text-[8px] text-gray-400">마감</div>}
                             {isSkipped && !isClosed && <div className="text-[8px] text-gray-400 line-through">건너뜀</div>}
+                            {isExpandable && !isNarrowDay && (
+                              <div><span className="material-symbols-outlined text-[#EF9F27]/50 text-[14px]">add_circle</span></div>
+                            )}
                             {isDelivery && !isClosed && !isNarrowDay && (
                               <div>
                                 {mode === "auto" ? (

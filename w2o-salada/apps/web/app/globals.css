@@ -39,13 +39,14 @@ body {
 
 /* 반짝이 애니메이션 */
 @keyframes shimmer {
-  0%, 100% { background-position: 100% 50%; box-shadow: 0 4px 15px rgba(239,159,39,0.25); }
-  50% { background-position: 0% 50%; box-shadow: 0 4px 25px rgba(239,159,39,0.5); }
+  0%, 100% { box-shadow: 0 4px 15px rgba(239,159,39,0.3); transform: scale(1); }
+  50% { box-shadow: 0 4px 30px rgba(239,159,39,0.6); transform: scale(1.05); }
 }
 
-.animate-shimmer {
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 1s ease-in-out infinite;
+  }
 }
 
 /* 아래에서 위로 천천히 올라감 */

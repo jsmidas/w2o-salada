@@ -15,7 +15,7 @@ type Product = {
   category: { name: string; slug: string };
 };
 
-const dayLabels = ["월", "화", "수", "목", "금"];
+const dayLabels = ["화", "목"];
 
 export default function WeeklyMenuSection() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -58,7 +58,7 @@ export default function WeeklyMenuSection() {
             <p className="text-sm mt-2">곧 이번 주 메뉴가 공개됩니다</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
             {weeklyMenu.map(({ day, items }) => (
               <div
                 key={day}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 
 type Product = {
   id: string;
@@ -37,6 +37,35 @@ export default function DeliveryCalendarPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
+  const [modalInitialized, setModalInitialized] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, originX: modalPos.x, originY: modalPos.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      setModalPos({
+        x: dragRef.current.originX + (ev.clientX - dragRef.current.startX),
+        y: dragRef.current.originY + (ev.clientY - dragRef.current.startY),
+      });
+    };
+    const onUp = () => { dragRef.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [modalPos]);
+
+  // 모달 열릴 때 위치 초기화
+  useEffect(() => {
+    if (pickerOpen) {
+      setModalPos({ x: 0, y: 0 });
+      setModalInitialized(true);
+    } else {
+      setModalInitialized(false);
+    }
+  }, [pickerOpen]);
 
   // 배송일/상품 로드
   useEffect(() => {
@@ -398,12 +427,27 @@ export default function DeliveryCalendarPage() {
         </div>
       </div>
 
-      {/* 메뉴 추가 모달 */}
+      {/* 메뉴 추가 모달 (드래그 이동 가능) */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPickerOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">메뉴 추가</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setPickerOpen(false)}>
+          <div
+            ref={modalRef}
+            className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden shadow-2xl border border-gray-200"
+            style={{ transform: `translate(${modalPos.x}px, ${modalPos.y}px)` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="px-5 py-3 border-b border-gray-200 flex items-center justify-between cursor-grab active:cursor-grabbing select-none bg-gray-50 rounded-t-2xl"
+              onMouseDown={onDragStart}
+            >
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">메뉴 추가</h3>
+                {selectedDate && (
+                  <p className="text-xs text-[#1D9E75] font-medium">
+                    {new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
+                  </p>
+                )}
+              </div>
               <button onClick={() => setPickerOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <span className="material-symbols-outlined">close</span>
               </button>

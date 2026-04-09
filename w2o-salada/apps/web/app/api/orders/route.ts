@@ -23,10 +23,16 @@ export async function POST(request: Request) {
     // DB 저장 시도
     try {
       const { prisma } = await import("@repo/db");
+      // userId가 DB에 존재하는지 확인, 없으면 guest로 폴백
+      let userId = body.userId ?? "guest";
+      if (userId !== "guest") {
+        const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+        if (!userExists) userId = "guest";
+      }
       const order = await prisma.order.create({
         data: {
           orderNo,
-          userId: body.userId ?? "guest",
+          userId,
           type: "SINGLE",
           status: "PENDING",
           totalAmount: 0,

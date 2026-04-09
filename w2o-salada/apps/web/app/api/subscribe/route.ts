@@ -22,9 +22,14 @@ export async function POST(request: Request) {
       const { auth } = await import("../../../auth");
       const session = await auth();
       if (session?.user) {
-        userId = (session.user as { id?: string }).id ?? "guest";
+        const sessionUserId = (session.user as { id?: string }).id;
+        if (sessionUserId) {
+          // DB에 해당 유저가 존재하는지 확인
+          const userExists = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { id: true } });
+          userId = userExists ? sessionUserId : "guest";
+        }
       }
-    } catch {};
+    } catch {}
 
     // 선택한 상품 조회
     const allProductIds = selections.flatMap((s) => s.productIds);

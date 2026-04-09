@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@repo/db";
 import { requireAuth } from "../../lib/auth-guard";
 
 function generateOrderNo() {
@@ -52,6 +51,7 @@ export async function GET() {
   if (error) return error;
 
   try {
+    const { prisma } = await import("@repo/db");
     const userId = (session!.user as { id: string }).id;
 
     const orders = await prisma.order.findMany({

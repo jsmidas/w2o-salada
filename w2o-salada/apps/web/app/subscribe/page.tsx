@@ -843,7 +843,12 @@ function SubscribeContent() {
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  {paying ? "결제 처리 중..."
+                  {paying ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      주문을 준비하고 있어요...
+                    </span>
+                  )
                     : !termsAgreed ? "약관에 동의해주세요"
                     : !meetsMinimum && mode !== "trial" ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
                     : mode !== "auto" && completedCount < activeDates.length ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`

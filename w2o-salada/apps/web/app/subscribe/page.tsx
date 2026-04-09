@@ -340,6 +340,22 @@ function SubscribeContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f7fdf9] to-[#edf7f0]">
+      {/* 결제 처리 오버레이 */}
+      {paying && (
+        <div className="fixed inset-0 z-[100] bg-[#0A1A0F]/70 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-[#1D9E75]/20 border-t-[#1D9E75] rounded-full animate-spin" />
+            <span className="absolute inset-0 flex items-center justify-center text-2xl">
+              <span className="material-symbols-outlined text-[#5DCAA5] text-2xl">restaurant</span>
+            </span>
+          </div>
+          <div className="text-center">
+            <p className="text-white text-lg font-bold">주문을 준비하고 있어요</p>
+            <p className="text-[#5DCAA5] text-sm mt-1">잠시만 기다려주세요...</p>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#1D9E75]/10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">

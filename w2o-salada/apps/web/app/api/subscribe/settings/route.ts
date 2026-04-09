@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@repo/db";
 
 // 기본값
 const DEFAULTS: Record<string, string> = {
@@ -16,6 +15,7 @@ const DEFAULTS: Record<string, string> = {
 // GET: 구독 설정 조회 (공개)
 export async function GET() {
   try {
+    const { prisma } = await import("@repo/db");
     const keys = Object.keys(DEFAULTS);
     const settings = await prisma.setting.findMany({
       where: { key: { in: keys } },
@@ -26,7 +26,9 @@ export async function GET() {
       result[s.key] = s.value;
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch {
     return NextResponse.json(DEFAULTS);
   }

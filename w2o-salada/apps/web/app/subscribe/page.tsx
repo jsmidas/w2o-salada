@@ -90,17 +90,11 @@ function SubscribeContent() {
       })
       .catch(() => {});
 
-    Promise.all([
-      fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}`).then((r) => r.json()),
-      fetch(`/api/delivery-calendar?year=${nextYear}&month=${nextMonth}`).then((r) => r.json()),
-    ]).then(([cur, next]) => {
-      const all = [
-        ...(Array.isArray(cur) ? cur : []),
-        ...(Array.isArray(next) ? next : []),
-      ];
-      setCalendar(all);
-    }).catch(() => setCalendar([]));
-  }, [curYear, curMonth, nextYear, nextMonth]);
+    fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}&months=2`)
+      .then((r) => r.json())
+      .then((data) => setCalendar(Array.isArray(data) ? data : []))
+      .catch(() => setCalendar([]));
+  }, [curYear, curMonth]);
 
   // 마감 기준: 배송일 -1일 (24시간 전 마감)
   const cutoffDate = useMemo(() => {

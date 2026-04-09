@@ -71,10 +71,6 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/login?redirect=/checkout");
-  }, [status, router]);
-
-  useEffect(() => {
     if (mounted && items.length === 0) router.push("/cart");
   }, [mounted, items, router]);
 
@@ -130,7 +126,6 @@ export default function CheckoutPage() {
   };
 
   const handleOrder = async () => {
-    if (!session?.user) return;
     if (!address.name || !address.phone || !address.address1) {
       alert("수령인, 전화번호, 주소를 입력해주세요.");
       return;
@@ -140,11 +135,13 @@ export default function CheckoutPage() {
     // 배송지 저장 체크됐으면 저장
     if (saveThisAddress) saveAddress();
 
+    const userId = (session?.user as { id?: string })?.id ?? "guest";
+
     const orderRes = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: (session.user as { id?: string }).id,
+        userId,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       }),
     });
@@ -157,8 +154,8 @@ export default function CheckoutPage() {
     try {
       const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
-      const userId = (session.user as { id?: string }).id ?? "guest";
-      const payment = tossPayments.payment({ customerKey: userId });
+      const customerKey = userId !== "guest" ? userId : `GUEST_${Date.now()}`;
+      const payment = tossPayments.payment({ customerKey });
       const orderName = items.length > 1 ? `${items[0]!.name} 외 ${items.length - 1}건` : items[0]!.name;
 
       await payment.requestPayment({
@@ -166,7 +163,7 @@ export default function CheckoutPage() {
         amount: { value: finalTotal, currency: "KRW" },
         orderId: order.orderNo,
         orderName,
-        customerName: address.name || session.user?.name || "고객",
+        customerName: address.name || session?.user?.name || "고객",
         successUrl: `${window.location.origin}/checkout/success?orderId=${order.id}`,
         failUrl: `${window.location.origin}/checkout/fail?orderId=${order.id}`,
       });
@@ -177,7 +174,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!session) return null;
+  if (status === "loading") return null;
 
   return (
     <div className="min-h-screen bg-brand-dark">

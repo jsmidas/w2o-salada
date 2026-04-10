@@ -313,17 +313,23 @@ function DayCard({ day, spanClass, activeCategories }: {
 function groupByWeek(days: DisplayDay[]): DisplayDay[][] {
   const weeks: DisplayDay[][] = [];
   let currentWeek: DisplayDay[] = [];
-  let lastWeekNum = -1;
+  let lastKey = "";
 
   for (const day of days) {
     const d = new Date(day.date);
-    const weekNum = Math.ceil(d.getDate() / 7);
-    if (weekNum !== lastWeekNum && currentWeek.length > 0) {
+    // 월요일 기준 주 시작일을 key로 사용 (일요일=0 → 월요일까지 -6, 그 외 → -(dow-1))
+    const dow = d.getDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    const key = `${monday.getFullYear()}-${monday.getMonth()}-${monday.getDate()}`;
+
+    if (key !== lastKey && currentWeek.length > 0) {
       weeks.push(currentWeek);
       currentWeek = [];
     }
     currentWeek.push(day);
-    lastWeekNum = weekNum;
+    lastKey = key;
   }
   if (currentWeek.length > 0) weeks.push(currentWeek);
   return weeks;

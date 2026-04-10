@@ -25,9 +25,16 @@ export async function POST(request: Request) {
   if (error) return error;
 
   try {
-    const { name, slug, sortOrder } = await request.json();
+    const { name, slug, sortOrder, icon, color, isActive } = await request.json();
     const category = await prisma.category.create({
-      data: { name, slug, sortOrder: sortOrder ?? 0 },
+      data: {
+        name,
+        slug,
+        sortOrder: sortOrder ?? 0,
+        icon: icon ?? null,
+        color: color ?? null,
+        isActive: isActive ?? true,
+      },
     });
     return NextResponse.json(category, { status: 201 });
   } catch (err) {

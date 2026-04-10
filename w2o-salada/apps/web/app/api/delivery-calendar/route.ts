@@ -27,7 +27,7 @@ export async function GET(request: Request) {
                 kcal: true,
                 tags: true,
                 imageUrl: true,
-                category: { select: { name: true, slug: true } },
+                category: { select: { id: true, name: true, slug: true, icon: true, color: true, sortOrder: true, isActive: true } },
               },
             },
           },

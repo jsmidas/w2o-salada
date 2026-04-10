@@ -61,6 +61,9 @@ model Category {
   name     String    // 샐러드, 그레인볼, 프로틴 등
   slug     String    @unique
   sortOrder Int      @default(0)
+  icon     String?   // material-symbols 아이콘 이름 (예: eco, lunch_dining)
+  color    String?   // hex 색상 (예: #1D9E75)
+  isActive Boolean   @default(true) // 공개 여부
   products Product[]
 
   @@map("categories")

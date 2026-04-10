@@ -12,10 +12,18 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const { name, slug, sortOrder } = await request.json();
+    const body = await request.json();
+    const { name, slug, sortOrder, icon, color, isActive } = body;
     const category = await prisma.category.update({
       where: { id },
-      data: { name, slug, sortOrder },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(slug !== undefined && { slug }),
+        ...(sortOrder !== undefined && { sortOrder }),
+        ...(icon !== undefined && { icon }),
+        ...(color !== undefined && { color }),
+        ...(isActive !== undefined && { isActive }),
+      },
     });
     return NextResponse.json(category);
   } catch (err) {

@@ -130,11 +130,11 @@ export default function WeeklyMenuSection() {
     return (
       <section className="py-20 bg-gradient-to-b from-[#f7fdf9] to-[#edf7f0]">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">MONTHLY MENU</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0A1A0F] mt-3">이달의 식단표</h2>
+          <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">W2O · WEEKLY</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-[#0A1A0F] mt-3">Weekly 식단</h2>
           <div className="py-16 text-[#7aaa90]">
             <span className="material-symbols-outlined text-5xl mb-4 block">restaurant_menu</span>
-            <p className="text-lg font-medium">식단표를 준비 중입니다</p>
+            <p className="text-lg font-medium">식단을 준비 중입니다</p>
           </div>
         </div>
       </section>
@@ -147,10 +147,13 @@ export default function WeeklyMenuSection() {
     <section id="weekly-menu" className="py-20 bg-gradient-to-b from-[#f7fdf9] to-[#edf7f0] overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-8">
-          <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">MONTHLY MENU</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0A1A0F] mt-3">이달의 식단표</h2>
-          <p className="text-[#4a7a5e] mt-3 text-sm md:text-base">
-            지금 구독하면 이런 메뉴가 새벽에 배송됩니다 · {allDays.length}회 배송
+          <span className="text-[#1D9E75] text-xs tracking-[0.3em] uppercase font-medium">W2O · WEEKLY</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-[#0A1A0F] mt-3">Weekly 식단</h2>
+          <p className="text-[#4a7a5e] mt-3 text-sm md:text-base font-medium">
+            매주 새롭게, 6주 앞까지 미리 확정
+          </p>
+          <p className="text-[#7aaa90] mt-1 text-xs md:text-sm">
+            지금 구독하면 이 중에서 골라 담아요 · 이번 시즌 {allDays.length}회 배송
           </p>
         </div>
 

@@ -3,3 +3,10 @@ Thumbs.db
 *.log
 node_modules/
 .vscode/
+
+# Claude Code / Playwright MCP 작업용 산출물
+.claude/
+.playwright-mcp/
+/*.png
+/*.jpg
+/*.jpeg

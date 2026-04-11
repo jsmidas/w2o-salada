@@ -165,7 +165,7 @@
 | 프로덕션 URL | https://www.w2o.co.kr |
 | 카카오톡 채널 | `w2o_salada` (pf.kakao.com/_xfLLuX) |
 | 고객센터 | 053-721-7794 |
-| GitHub | jsmidas/daham-homepage |
+| GitHub | jsmidas/w2o-salada |
 | 배포 | Vercel (main 푸시 시 자동) |
 | DB | Supabase Pro (Seoul, MICRO) |
 

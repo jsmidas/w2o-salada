@@ -196,7 +196,7 @@ export default function InquiryFAB() {
                   </div>
 
                   {/* 이름/연락처 (비로그인) */}
-                  {!isLoggedIn && (
+                  {!isLoggedIn ? (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-white/60 text-xs font-semibold mb-1 block">이름</label>
@@ -219,12 +219,24 @@ export default function InquiryFAB() {
                         />
                       </div>
                     </div>
-                  )}
-
-                  {isLoggedIn && (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <span className="material-symbols-outlined text-brand-green text-lg">person</span>
-                      {name} 님으로 접수됩니다
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                        <span className="material-symbols-outlined text-brand-green text-lg">person</span>
+                        {name} 님으로 접수됩니다
+                      </div>
+                      {!phone && (
+                        <div>
+                          <label className="text-white/60 text-xs font-semibold mb-1 block">연락처</label>
+                          <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="답변받을 연락처를 입력해주세요"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:border-brand-green"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 

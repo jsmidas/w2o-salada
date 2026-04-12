@@ -50,7 +50,7 @@ function DockTile({ item }: { item: DockItem }) {
 
   const inner = (
     <div
-      className={`flex w-[84px] flex-col items-center justify-center gap-1 border-b border-black/5 py-3 transition-colors ${accentClass}`}
+      className={`flex w-[84px] flex-col items-center justify-center gap-0.5 border-b border-black/5 py-2 transition-colors ${accentClass}`}
     >
       <span
         className="material-symbols-outlined text-[22px] leading-none"

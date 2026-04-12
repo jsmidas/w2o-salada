@@ -27,7 +27,7 @@ export async function GET(request: Request) {
                 kcal: true,
                 tags: true,
                 imageUrl: true,
-                category: { select: { id: true, name: true, slug: true, icon: true, color: true, sortOrder: true, isActive: true, isOption: true } },
+                category: { select: { name: true, slug: true, isOption: true } },
               },
             },
           },
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(calendars, {
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   } catch {
     return NextResponse.json([]);

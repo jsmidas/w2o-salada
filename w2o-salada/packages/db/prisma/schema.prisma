@@ -99,6 +99,7 @@ model Product {
   subscriptionSelections  SubscriptionSelection[]
   reviews                 Review[]
 
+  @@index([categoryId, isActive, sortOrder])
   @@map("products")
 }
 

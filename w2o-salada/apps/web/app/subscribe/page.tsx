@@ -80,21 +80,19 @@ function SubscribeContent() {
 
   // 설정 + 캘린더 로드 (이번 달 + 다음 달)
   useEffect(() => {
-    fetch("/api/subscribe/settings")
-      .then((r) => r.json())
-      .then((data) => {
+    Promise.all([
+      fetch("/api/subscribe/settings").then((r) => r.json()).catch(() => null),
+      fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}&months=2`).then((r) => r.json()).catch(() => []),
+    ]).then(([settingsData, calendarData]) => {
+      if (settingsData) {
         setConfig({
-          minItems: parseInt(data["subscribe.minItems"] || "2"),
-          maxItems: parseInt(data["subscribe.maxItems"] || "5"),
-          trialPrice: parseInt(data["subscribe.trial.price"] || "6900"),
+          minItems: parseInt(settingsData["subscribe.minItems"] || "2"),
+          maxItems: parseInt(settingsData["subscribe.maxItems"] || "5"),
+          trialPrice: parseInt(settingsData["subscribe.trial.price"] || "6900"),
         });
-      })
-      .catch(() => {});
-
-    fetch(`/api/delivery-calendar?year=${curYear}&month=${curMonth}&months=2`)
-      .then((r) => r.json())
-      .then((data) => setCalendar(Array.isArray(data) ? data : []))
-      .catch(() => setCalendar([]));
+      }
+      setCalendar(Array.isArray(calendarData) ? calendarData : []);
+    });
   }, [curYear, curMonth]);
 
   // 마감 기준: 배송일 -1일 (24시간 전 마감)

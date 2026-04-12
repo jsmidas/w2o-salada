@@ -34,6 +34,13 @@ export default function InquiryFAB() {
     }
   }, [session]);
 
+  // 외부에서 바텀시트 열기 (RightDock에서 사용)
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("openInquiry", handler);
+    return () => window.removeEventListener("openInquiry", handler);
+  }, []);
+
   // 어드민 페이지에서는 FAB 숨김
   if (pathname?.startsWith("/admin")) return null;
 
@@ -129,16 +136,17 @@ export default function InquiryFAB() {
   return (
     <>
       {/* FAB 버튼 */}
+      {/* 모바일 전용 FAB (데스크톱은 RightDock에서 트리거) */}
       <button
         onClick={() => setOpen(true)}
-        className={`fixed z-[100] bottom-6 right-6 rounded-full bg-brand-green text-white shadow-lg shadow-brand-green/40 flex items-center gap-2 px-5 py-3.5 hover:scale-105 transition-all duration-300 ${
+        className={`fixed z-[100] bottom-6 right-6 sm:hidden rounded-full bg-brand-green text-white shadow-lg shadow-brand-green/40 flex items-center gap-2 px-5 py-3.5 hover:scale-105 transition-all duration-300 ${
           open ? "scale-0 opacity-0" : "scale-100 opacity-100"
         }`}
         style={{ animation: open ? "none" : "fabPulse 2.5s ease-in-out infinite" }}
         aria-label="문의하기"
       >
         <span className="material-symbols-outlined text-xl">chat_bubble</span>
-        <span className="text-sm font-bold">문의사항</span>
+        <span className="text-sm font-bold">빠른 문의</span>
       </button>
 
       {/* 바텀시트 */}
@@ -168,7 +176,7 @@ export default function InquiryFAB() {
                     <div>
                       <h3 className="text-white font-bold text-lg flex items-center gap-2">
                         <span className="material-symbols-outlined text-brand-green">chat_bubble</span>
-                        문의사항
+                        빠른 문의
                       </h3>
                       <p className="text-brand-green text-xs font-semibold mt-1 flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">schedule</span>
@@ -282,23 +290,20 @@ export default function InquiryFAB() {
                         </div>
                       ))}
                       {images.length < MAX_IMAGES && (
-                        <button
-                          onClick={() => fileRef.current?.click()}
-                          className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-gray-500 hover:border-brand-green hover:text-brand-green transition"
-                        >
+                        <label className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-gray-500 hover:border-brand-green hover:text-brand-green transition cursor-pointer">
+                          <input
+                            ref={fileRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageSelect}
+                            className="sr-only"
+                          />
                           <span className="material-symbols-outlined text-xl">add_photo_alternate</span>
                           <span className="text-[10px] mt-0.5">사진</span>
-                        </button>
+                        </label>
                       )}
                     </div>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageSelect}
-                      className="hidden"
-                    />
                   </div>
                 </div>
 

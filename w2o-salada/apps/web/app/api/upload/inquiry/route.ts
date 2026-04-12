@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     if (uploadError) {
       console.error("Inquiry upload error:", uploadError);
-      return NextResponse.json({ error: "업로드에 실패했습니다." }, { status: 500 });
+      return NextResponse.json({ error: "업로드에 실패했습니다.", detail: uploadError.message }, { status: 500 });
     }
 
     const { data: urlData } = supabase.storage.from("images").getPublicUrl(data.path);
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: urlData.publicUrl });
   } catch (err) {
     console.error("POST /api/upload/inquiry error:", err);
-    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "서버 오류", detail: msg }, { status: 500 });
   }
 }

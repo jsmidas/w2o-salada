@@ -116,6 +116,7 @@ export default function RightDock() {
   const supportItems: DockItem[] = [
     { href: config.support.kakaoUrl, icon: "chat_bubble", label: "카톡상담", accent: "kakao", external: true },
     { href: `tel:${config.support.phone.replace(/-/g, "")}`, icon: "call", label: "전화" },
+    { onClick: () => window.dispatchEvent(new Event("openInquiry")), icon: "edit_note", label: "빠른 문의", accent: "primary" },
   ];
 
   const activeFaq = config.faqs.find((f) => f.id === openFaq);

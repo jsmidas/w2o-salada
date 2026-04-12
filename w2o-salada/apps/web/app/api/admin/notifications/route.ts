@@ -10,7 +10,7 @@ import {
 
 // GET: 발송 이력 + 모드 정보
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   try {
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
 // POST: 수동 발송 (관리자 테스트)
 export async function POST(request: Request) {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireAdmin("customers");
   if (error) return error;
 
   try {

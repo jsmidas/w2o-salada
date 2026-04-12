@@ -45,6 +45,7 @@ const config: NextAuthConfig = {
               email: admin.email,
               name: admin.name,
               role: admin.role,
+              permissions: admin.permissions,
             };
           } catch (err) {
             console.error("admin 계정 upsert 실패:", err);
@@ -74,6 +75,7 @@ const config: NextAuthConfig = {
             email: user.email,
             name: user.name,
             role: user.role,
+            permissions: user.permissions,
           };
         } catch {
           console.error("DB 연결 실패 - DB 로그인 불가");
@@ -105,6 +107,7 @@ const config: NextAuthConfig = {
       if (user) {
         token.role = (user as { role?: string }).role ?? "CUSTOMER";
         token.id = user.id;
+        token.permissions = (user as { permissions?: string | null }).permissions ?? null;
       }
       return token;
     },
@@ -112,6 +115,7 @@ const config: NextAuthConfig = {
       if (session.user) {
         (session.user as { role?: string }).role = token.role as string;
         (session.user as { id?: string }).id = token.id as string;
+        (session.user as { permissions?: string | null }).permissions = token.permissions as string | null;
       }
       return session;
     },

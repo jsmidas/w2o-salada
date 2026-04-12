@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 상품 목록
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("products");
   if (error) return error;
 
   try {
@@ -21,7 +21,7 @@ export async function GET() {
 
 // POST: 상품 등록
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("products");
   if (error) return error;
 
   try {

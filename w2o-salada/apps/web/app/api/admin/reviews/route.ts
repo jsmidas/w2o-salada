@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 전체 리뷰 (관리자)
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   const reviews = await prisma.review.findMany({
@@ -20,7 +20,7 @@ export async function GET() {
 
 // PATCH: 리뷰 숨김/표시 토글
 export async function PATCH(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   const { id, isVisible } = await request.json();
@@ -36,7 +36,7 @@ export async function PATCH(request: Request) {
 
 // DELETE: 리뷰 삭제
 export async function DELETE(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);

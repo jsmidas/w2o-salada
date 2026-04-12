@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 모든 설정 조회
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("system");
   if (error) return error;
 
   try {
@@ -22,7 +22,7 @@ export async function GET() {
 
 // POST: 설정 저장 (여러 키-값 한번에)
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("system");
   if (error) return error;
 
   try {

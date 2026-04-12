@@ -3,7 +3,7 @@ import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("dashboard");
   if (error) return error;
 
   try {

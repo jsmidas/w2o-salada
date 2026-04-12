@@ -8,7 +8,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   try {
@@ -30,7 +30,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireAdmin("customers");
   if (error) return error;
 
   try {

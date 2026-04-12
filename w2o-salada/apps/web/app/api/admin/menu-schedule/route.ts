@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 특정 월의 식단 배정 조회
 export async function GET(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("orders");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
 // POST: 식단 배정 저장 (해당 월 전체를 덮어쓰기)
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("orders");
   if (error) return error;
 
   const body = await request.json();

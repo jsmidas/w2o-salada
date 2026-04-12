@@ -17,6 +17,7 @@ model User {
   name          String
   phone         String?
   role          Role      @default(CUSTOMER)
+  permissions   String?   // JSON: ["dashboard","orders","products","subscriptions","customers","system"] — null = 슈퍼관리자(전체권한)
   provider      String?   // kakao, naver, email
   providerId    String?
   createdAt     DateTime  @default(now())

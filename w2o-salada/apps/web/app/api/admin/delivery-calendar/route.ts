@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 해당 월 배송일 조회
 export async function GET(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("orders");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
 // POST: 배송일 일괄 저장 (해당 월)
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("orders");
   if (error) return error;
 
   const body = await request.json();

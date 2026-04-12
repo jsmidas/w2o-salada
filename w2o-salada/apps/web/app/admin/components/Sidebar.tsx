@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { type AdminPermission, parsePermissions } from "../../lib/auth-guard";
 
-const menuGroups: { title: string; items: { href: string; icon: string; label: string }[] }[] = [
+type MenuItem = { href: string; icon: string; label: string };
+type MenuGroup = { title: string; permission: AdminPermission; items: MenuItem[] };
+
+const menuGroups: MenuGroup[] = [
   {
     title: "운영",
+    permission: "dashboard",
     items: [
       { href: "/admin/dashboard", icon: "dashboard", label: "대시보드" },
       { href: "/admin/stats", icon: "bar_chart", label: "통계" },
@@ -14,6 +19,7 @@ const menuGroups: { title: string; items: { href: string; icon: string; label: s
   },
   {
     title: "주문 · 배송",
+    permission: "orders",
     items: [
       { href: "/admin/orders", icon: "receipt_long", label: "주문 관리" },
       { href: "/admin/delivery", icon: "local_shipping", label: "배송 관리" },
@@ -22,6 +28,7 @@ const menuGroups: { title: string; items: { href: string; icon: string; label: s
   },
   {
     title: "상품",
+    permission: "products",
     items: [
       { href: "/admin/products", icon: "inventory_2", label: "상품 관리" },
       { href: "/admin/categories", icon: "category", label: "카테고리" },
@@ -31,6 +38,7 @@ const menuGroups: { title: string; items: { href: string; icon: string; label: s
   },
   {
     title: "구독",
+    permission: "subscriptions",
     items: [
       { href: "/admin/subscriptions", icon: "autorenew", label: "구독 관리" },
       { href: "/admin/subscribe-settings", icon: "tune", label: "구독 설정" },
@@ -38,6 +46,7 @@ const menuGroups: { title: string; items: { href: string; icon: string; label: s
   },
   {
     title: "고객",
+    permission: "customers",
     items: [
       { href: "/admin/members", icon: "people", label: "회원 관리" },
       { href: "/admin/inquiries", icon: "support_agent", label: "문의 관리" },
@@ -47,8 +56,10 @@ const menuGroups: { title: string; items: { href: string; icon: string; label: s
   },
   {
     title: "시스템",
+    permission: "system",
     items: [
       { href: "/admin/sidebar", icon: "view_sidebar", label: "사이드바" },
+      { href: "/admin/permissions", icon: "admin_panel_settings", label: "관리자 권한" },
       { href: "/admin/settings", icon: "settings", label: "설정" },
     ],
   },
@@ -58,6 +69,16 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const user = session?.user;
+
+  const permissions = parsePermissions(
+    (user as { permissions?: string | null } | undefined)?.permissions
+  );
+  // permissions === null → 슈퍼관리자 (모든 메뉴 표시)
+  const isSuperAdmin = permissions === null;
+
+  const visibleGroups = menuGroups.filter(
+    (group) => isSuperAdmin || permissions.includes(group.permission)
+  );
 
   return (
     <aside className="w-60 bg-[#1a1f2e] min-h-screen flex flex-col">
@@ -73,7 +94,7 @@ export default function Sidebar() {
 
       {/* 메뉴 */}
       <nav className="flex-1 py-3 overflow-y-auto">
-        {menuGroups.map((group, gi) => (
+        {visibleGroups.map((group, gi) => (
           <div key={group.title} className={gi === 0 ? "" : "mt-3"}>
             <div className="px-5 pt-2 pb-1 text-[10px] font-bold tracking-wider text-white/30 uppercase">
               {group.title}
@@ -111,6 +132,9 @@ export default function Sidebar() {
                 {user.name}
               </div>
               <div className="text-xs text-white/30 truncate">{user.email}</div>
+              {isSuperAdmin && (
+                <div className="text-[10px] text-[#EF9F27] font-semibold mt-0.5">슈퍼관리자</div>
+              )}
             </div>
           </div>
         )}

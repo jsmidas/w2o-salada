@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../lib/auth-guard";
 
 // GET: 문의 목록 (최신순, 상태 필터)
 export async function GET(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdmin("customers");
   if (error) return error;
 
   try {

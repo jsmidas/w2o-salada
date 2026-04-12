@@ -10,6 +10,7 @@ type Member = {
   name: string;
   phone: string | null;
   role: string;
+  permissions: string | null;
   provider: string | null;
   createdAt: string;
 };

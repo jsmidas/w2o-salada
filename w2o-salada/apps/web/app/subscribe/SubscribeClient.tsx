@@ -749,7 +749,7 @@ function SubscribeContent({ initialData }: { initialData?: InitialData }) {
                         >
                           <div className="h-32 bg-gradient-to-br from-[#e8f5ee] to-[#d4edda] flex items-center justify-center relative overflow-hidden">
                             {p.imageUrl ? (
-                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" width={400} height={128} loading="eager" decoding="async" />
                             ) : (
                               <span className="material-symbols-outlined text-[#1D9E75]/25 text-4xl">lunch_dining</span>
                             )}

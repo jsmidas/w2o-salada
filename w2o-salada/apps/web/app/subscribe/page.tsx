@@ -56,5 +56,21 @@ export default async function SubscribePage() {
     },
   };
 
-  return <SubscribeClient initialData={initialData} />;
+  // 첫 배송일의 이미지를 프리로드
+  const imageUrls = new Set<string>();
+  for (const day of calendarData) {
+    for (const ma of day.menuAssignments ?? []) {
+      if (ma.product?.imageUrl) imageUrls.add(ma.product.imageUrl);
+    }
+    if (imageUrls.size >= 6) break;
+  }
+
+  return (
+    <>
+      {Array.from(imageUrls).map((url) => (
+        <link key={url} rel="preload" as="image" href={url} />
+      ))}
+      <SubscribeClient initialData={initialData} />
+    </>
+  );
 }

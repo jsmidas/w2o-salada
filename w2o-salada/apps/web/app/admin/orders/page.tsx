@@ -21,6 +21,13 @@ type Order = {
   items: OrderItem[];
 };
 
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 const statusColors: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-600",
   PAID: "bg-blue-100 text-blue-700",
@@ -53,9 +60,20 @@ const nextStatus: Record<string, string> = {
 
 export default function OrdersPage() {
   const [filter, setFilter] = useState("all");
-  const apiUrl = filter !== "all" ? `/api/admin/orders?status=${filter}` : "/api/admin/orders";
-  const { data, isLoading: loading, mutate } = useSWR<Order[]>(apiUrl, fetcher, { revalidateOnFocus: false });
-  const orders = Array.isArray(data) ? data : [];
+  const [page, setPage] = useState(1);
+  const limit = 20;
+
+  const params = new URLSearchParams();
+  if (filter !== "all") params.set("status", filter);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  const apiUrl = `/api/admin/orders?${params}`;
+
+  const { data, isLoading: loading, mutate } = useSWR<{ orders: Order[]; pagination: Pagination }>(apiUrl, fetcher, { revalidateOnFocus: false });
+  const orders = data?.orders ?? [];
+  const pagination = data?.pagination;
+  const total = pagination?.total ?? 0;
+  const totalPages = pagination?.totalPages ?? 1;
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     await fetch(`/api/admin/orders/${orderId}`, {
@@ -66,20 +84,18 @@ export default function OrdersPage() {
     mutate();
   };
 
-  const todayCount = orders.filter((o) => {
-    const d = new Date(o.createdAt);
-    const today = new Date();
-    return d.toDateString() === today.toDateString();
-  }).length;
+  const handleFilterChange = (s: string) => {
+    setFilter(s);
+    setPage(1);
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">주문 관리</h2>
-        <div className="text-sm text-gray-500">
-          오늘: <span className="font-bold text-gray-800">{todayCount}건</span>
-          {" / "}총: <span className="font-bold text-gray-800">{orders.length}건</span>
-        </div>
+        <span className="text-sm text-gray-500">
+          총 <span className="font-bold text-gray-800">{total}건</span>
+        </span>
       </div>
 
       {/* 상태 필터 */}
@@ -87,7 +103,7 @@ export default function OrdersPage() {
         {statusFilter.map((s) => (
           <button
             key={s}
-            onClick={() => setFilter(s)}
+            onClick={() => handleFilterChange(s)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
               filter === s
                 ? "bg-[#1D9E75] text-white"
@@ -116,7 +132,9 @@ export default function OrdersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">로딩 중...</td>
+                <td colSpan={7} className="text-center py-12">
+                  <div className="inline-block w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
+                </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
@@ -183,6 +201,27 @@ export default function OrdersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-4">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+            className="px-3 py-1.5 rounded border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50 transition"
+          >
+            이전
+          </button>
+          <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+            className="px-3 py-1.5 rounded border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50 transition"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
+import { fetcher } from "../../lib/fetcher";
 
 type ProductWithPage = {
   id: string;
@@ -16,15 +17,8 @@ type ProductWithPage = {
 };
 
 export default function PagesListPage() {
-  const [products, setProducts] = useState<ProductWithPage[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/admin/pages")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => { setProducts(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useSWR<ProductWithPage[]>("/api/admin/pages", fetcher, { revalidateOnFocus: false });
+  const products = Array.isArray(data) ? data : [];
 
   if (loading) {
     return <div className="text-center py-20 text-gray-400">로딩 중...</div>;

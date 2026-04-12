@@ -41,7 +41,7 @@ export default function AdminSubscriptionsPage() {
   params.set("limit", "20");
   const apiUrl = `/api/admin/subscriptions?${params}`;
 
-  const { data, isLoading: loading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
+  const { data, isLoading: loading, mutate } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
   const subs: Sub[] = data?.subscriptions || [];
   const total: number = data?.pagination?.total || 0;
 
@@ -82,8 +82,7 @@ export default function AdminSubscriptionsPage() {
         }),
       });
       setCancelModal(null);
-      // SWR 캐시는 자동으로 키가 바뀌면 갱신되므로, 강제 리로드
-      window.location.reload();
+      mutate();
     } catch {
       alert("해지 처리 중 오류가 발생했습니다.");
     } finally {

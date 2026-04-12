@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
-import ProductModal from "./ProductModal";
+
+const ProductModal = dynamic(() => import("./ProductModal"), { ssr: false });
 
 type Product = {
   id: string;

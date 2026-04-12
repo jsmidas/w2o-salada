@@ -51,8 +51,8 @@ const quickActions = [
 
 export default function DashboardPage() {
   const { data: stats } = useSWR<Stats>("/api/admin/stats/overview", fetcher, { revalidateOnFocus: false });
-  const { data: ordersData } = useSWR<RecentOrder[]>("/api/admin/orders?limit=5", fetcher, { revalidateOnFocus: false });
-  const recentOrders = Array.isArray(ordersData) ? ordersData : [];
+  const { data: ordersData } = useSWR<{ orders: RecentOrder[] }>("/api/admin/orders?limit=5", fetcher, { revalidateOnFocus: false });
+  const recentOrders = ordersData?.orders ?? [];
   const loading = !stats;
 
   const statCards = [

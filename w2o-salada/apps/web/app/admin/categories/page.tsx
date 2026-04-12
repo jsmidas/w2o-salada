@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "../../lib/fetcher";
 
 type Category = {
   id: string;
@@ -42,20 +44,11 @@ const emptyForm: FormState = {
 };
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, mutate } = useSWR<Category[]>("/api/admin/categories", fetcher, { revalidateOnFocus: false });
+  const categories = Array.isArray(data) ? data : [];
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [adding, setAdding] = useState(false);
-
-  const fetchCategories = () => {
-    fetch("/api/admin/categories")
-      .then((r) => r.json())
-      .then((data) => { setCategories(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchCategories(); }, []);
 
   const handleSave = async () => {
     const url = editId ? `/api/admin/categories/${editId}` : "/api/admin/categories";
@@ -68,7 +61,7 @@ export default function CategoriesPage() {
     setEditId(null);
     setAdding(false);
     setForm(emptyForm);
-    fetchCategories();
+    mutate();
   };
 
   const handleEdit = (cat: Category) => {
@@ -91,7 +84,7 @@ export default function CategoriesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !cat.isActive }),
     });
-    fetchCategories();
+    mutate();
   };
 
   const handleDelete = async (id: string) => {
@@ -102,7 +95,7 @@ export default function CategoriesPage() {
       alert(data.error ?? "삭제 실패");
       return;
     }
-    fetchCategories();
+    mutate();
   };
 
   return (

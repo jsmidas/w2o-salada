@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "../../lib/fetcher";
 
 type Inquiry = {
   id: string;
@@ -37,28 +39,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function InquiriesPage() {
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [pending, setPending] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("");
   const [selected, setSelected] = useState<Inquiry | null>(null);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
 
-  const load = (status?: string) => {
-    setLoading(true);
-    const qs = status ? `?status=${status}` : "";
-    fetch(`/api/admin/inquiries${qs}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setInquiries(data.inquiries ?? []);
-        setPending(data.pending ?? 0);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  };
-
-  useEffect(() => { load(filter || undefined); }, [filter]);
+  const qs = filter ? `?status=${filter}` : "";
+  const { data, isLoading: loading, mutate } = useSWR(`/api/admin/inquiries${qs}`, fetcher, { revalidateOnFocus: false });
+  const inquiries: Inquiry[] = data?.inquiries ?? [];
+  const pending: number = data?.pending ?? 0;
 
   const openDetail = (inq: Inquiry) => {
     setSelected(inq);
@@ -77,7 +66,7 @@ export default function InquiriesPage() {
       if (res.ok) {
         setSelected(null);
         setReply("");
-        load(filter || undefined);
+        mutate();
       } else {
         const data = await res.json();
         alert(data.error ?? "답변 저장에 실패했습니다.");

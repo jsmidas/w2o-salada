@@ -23,6 +23,10 @@ export async function POST(request: Request) {
 
     const allProductIds = [...new Set(selections.flatMap((s) => s.productIds))];
 
+    // 도래한 가격 인상분 먼저 승격
+    const { pushDuePrices } = await import("../../lib/effective-price");
+    await pushDuePrices();
+
     // 유저 존재 확인 + 상품 조회 + 최소 주문액 설정 조회를 병렬로
     const [userExists, products, minOrderSetting] = await Promise.all([
       sessionUserId && sessionUserId !== "guest"
@@ -134,13 +138,18 @@ export async function POST(request: Request) {
         });
 
         // 선택 저장 + 주문-구독 연결을 병렬로
+        // unitPrice를 결제 시점 가격으로 잠가둠 (계약가) — 이후 product.price가 바뀌어도 이 구독 사이클은 잠긴 가격으로 매출 집계됨
         const selectionData = selections.flatMap((sel) =>
-          sel.productIds.filter((pid) => productMap.has(pid)).map((pid) => ({
-            subscriptionPeriodId: period.id,
-            deliveryDate: new Date(sel.date),
-            productId: pid,
-            quantity: 1,
-          }))
+          sel.productIds.filter((pid) => productMap.has(pid)).map((pid) => {
+            const product = productMap.get(pid) as { price: number };
+            return {
+              subscriptionPeriodId: period.id,
+              deliveryDate: new Date(sel.date),
+              productId: pid,
+              quantity: 1,
+              unitPrice: product.price,
+            };
+          })
         );
 
         await Promise.all([

@@ -16,6 +16,8 @@ type Product = {
   isActive: boolean;
   dailyLimit: number | null;
   availableDays: string | null;
+  nextPrice?: number | null;
+  nextPriceEffectiveFrom?: string | null;
 };
 
 type Category = {
@@ -54,6 +56,10 @@ export default function ProductModal({
     imageUrl: product?.imageUrl ?? "",
     isActive: product?.isActive ?? true,
     dailyLimit: product?.dailyLimit ?? 0,
+    nextPrice: product?.nextPrice ?? 0,
+    nextPriceEffectiveFrom: product?.nextPriceEffectiveFrom
+      ? product.nextPriceEffectiveFrom.slice(0, 10)
+      : "",
   });
   const [selectedDays, setSelectedDays] = useState<string[]>(initialDays);
   const [saving, setSaving] = useState(false);
@@ -98,6 +104,9 @@ export default function ProductModal({
         imageUrl: form.imageUrl || null,
         dailyLimit: form.dailyLimit || null,
         availableDays: selectedDays.length === 7 ? null : selectedDays.join(","),
+        nextPrice: form.nextPrice && form.nextPriceEffectiveFrom ? form.nextPrice : null,
+        nextPriceEffectiveFrom:
+          form.nextPrice && form.nextPriceEffectiveFrom ? form.nextPriceEffectiveFrom : null,
       }),
     });
 
@@ -162,6 +171,54 @@ export default function ProductModal({
               <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required className={inputClass} />
               <p className="text-[10px] text-gray-400 mt-1">정기구독가</p>
             </div>
+          </div>
+
+          {/* 가격 변경 예약 */}
+          <div className="border border-amber-200 bg-amber-50/40 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-amber-800 flex items-center gap-1">
+                <span className="material-symbols-outlined text-base">schedule</span>
+                가격 변경 예약 (선택)
+              </label>
+              {form.nextPrice > 0 && form.nextPriceEffectiveFrom && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, nextPrice: 0, nextPriceEffectiveFrom: "" })}
+                  className="text-xs text-amber-700 hover:underline"
+                >
+                  예약 취소
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-amber-700 mb-1 block">새 구독가 (원)</label>
+                <input
+                  type="number"
+                  aria-label="예약 인상가"
+                  title="예약 인상가"
+                  value={form.nextPrice}
+                  onChange={(e) => setForm({ ...form, nextPrice: Number(e.target.value) })}
+                  className={inputClass}
+                  placeholder="예: 6500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-amber-700 mb-1 block">적용일 (KST 자정)</label>
+                <input
+                  type="date"
+                  aria-label="예약 적용일"
+                  title="예약 적용일"
+                  value={form.nextPriceEffectiveFrom}
+                  onChange={(e) => setForm({ ...form, nextPriceEffectiveFrom: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-amber-700 mt-2 leading-relaxed">
+              적용일 이후 첫 결제부터 새 가격이 자동 적용됩니다.<br />
+              기존 구독은 결제 시점에 잠긴 가격으로 만료까지 유지됩니다.
+            </p>
           </div>
 
           {/* 칼로리 + 일일제한 */}

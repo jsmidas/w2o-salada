@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "../../lib/auth-guard";
+import { pushDuePrices } from "../../lib/effective-price";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
 const FREE_SHIPPING_THRESHOLD = 15000;
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
 
     const { prisma } = await import("@repo/db");
 
-    // 상품 정보 + 카테고리 옵션 여부 로드
+    // 상품 정보 + 카테고리 옵션 여부 로드 (도래한 가격 인상분 먼저 승격)
+    await pushDuePrices();
     const productIds = items.map((i) => i.productId).filter(Boolean);
     const [setting, products] = await Promise.all([
       prisma.setting.findUnique({ where: { key: "minOrderAmount" } }),

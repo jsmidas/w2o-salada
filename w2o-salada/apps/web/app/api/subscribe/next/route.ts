@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     }
 
     const { prisma } = await import("@repo/db");
+    const { pushDuePrices } = await import("../../../lib/effective-price");
+    await pushDuePrices();
 
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },

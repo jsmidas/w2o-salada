@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
+import { pushDuePrices } from "../../../lib/effective-price";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
 
   try {
     const now = new Date();
+    await pushDuePrices(now);
 
     // 결제일이 도래한 활성 구독 조회
     const subscriptions = await prisma.subscription.findMany({

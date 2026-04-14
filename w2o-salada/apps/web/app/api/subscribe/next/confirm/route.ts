@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     }
 
     const { prisma } = await import("@repo/db");
+    const { pushDuePrices } = await import("../../../../lib/effective-price");
+    await pushDuePrices();
 
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
@@ -67,17 +69,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "선택된 메뉴가 없습니다." }, { status: 400 });
     }
 
-    // 금액 계산
+    // 금액 계산 — selection.unitPrice(결제 시점 잠긴 계약가) 우선, 없으면 현재가 fallback
     let baseTotal = 0;
     let itemsTotal = 0;
     const orderItemData = selections.map((s) => {
-      const line = s.product.price * s.quantity;
+      const unit = s.unitPrice ?? s.product.price;
+      const line = unit * s.quantity;
       itemsTotal += line;
       if (!s.product.category?.isOption) baseTotal += line;
       return {
         productId: s.productId,
         quantity: s.quantity,
-        unitPrice: s.product.price,
+        unitPrice: unit,
         totalPrice: line,
       };
     });
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
         totalAmount,
         deliveryFee,
         discountAmount: 0,
+        deliveryDate: subscription.nextDeliveryDate,
         items: { create: orderItemData },
       },
     });

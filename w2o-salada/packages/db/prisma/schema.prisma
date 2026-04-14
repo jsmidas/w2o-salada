@@ -81,6 +81,8 @@ model Product {
   originalPrice Int?     // 정가 (원)
   singlePrice Int?       // 단건 주문가 (원) — 없으면 price 사용. 정가 > 단건가 > 구독가 3-티어 모델의 중간 값
   price       Int      // 구독 판매가 (원, 부가세 포함) — 구독 시 적용
+  nextPrice              Int?      // 예약 인상가 — nextPriceEffectiveFrom 도래 시 price로 자동 승격
+  nextPriceEffectiveFrom DateTime? // 예약 인상 적용일 (KST 자정)
   kcal        Int?
   imageUrl    String?
   tags        String?  // "BEST", "NEW", "SALE" 등
@@ -393,6 +395,7 @@ model SubscriptionSelection {
   productId            String
   product              Product            @relation(fields: [productId], references: [id])
   quantity             Int                @default(1)
+  unitPrice            Int?               // 결제 시점 단가 잠금 (계약가) — null이면 product.price fallback
 
   @@map("subscription_selections")
 }

@@ -28,6 +28,12 @@ export async function PATCH(
     if ("isActive" in body) data.isActive = body.isActive;
     if ("dailyLimit" in body) data.dailyLimit = body.dailyLimit ?? null;
     if ("availableDays" in body) data.availableDays = body.availableDays ?? null;
+    if ("nextPrice" in body) data.nextPrice = body.nextPrice ?? null;
+    if ("nextPriceEffectiveFrom" in body) {
+      data.nextPriceEffectiveFrom = body.nextPriceEffectiveFrom
+        ? new Date(body.nextPriceEffectiveFrom)
+        : null;
+    }
 
     const product = await prisma.product.update({ where: { id }, data });
     return NextResponse.json(product);

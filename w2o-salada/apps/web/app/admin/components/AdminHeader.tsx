@@ -10,7 +10,7 @@ export default function AdminHeader() {
   const displayName = user?.name ?? "관리자";
 
   return (
-    <header className="h-16 bg-white border-b flex items-center justify-between px-6">
+    <header className="h-16 bg-white border-b flex items-center justify-between px-6 print:hidden">
       <div>
         <h1 className="text-lg font-bold text-gray-800">관리자</h1>
       </div>

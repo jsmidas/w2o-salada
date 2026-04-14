@@ -80,7 +80,7 @@ export default function Sidebar() {
   );
 
   return (
-    <aside className="w-60 bg-[#1a1f2e] min-h-screen flex flex-col">
+    <aside className="w-60 bg-[#1a1f2e] min-h-screen flex flex-col print:hidden">
       {/* 로고 */}
       <div className="h-16 flex items-center px-5 border-b border-white/5 gap-2">
         <Link href="/" className="text-lg font-black text-[#1D9E75] hover:text-[#5DCAA5] transition">

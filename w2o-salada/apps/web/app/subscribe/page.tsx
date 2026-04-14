@@ -894,26 +894,37 @@ function SubscribeContent() {
                   </div>
                 </div>
 
-                {/* 약관 동의 */}
-                <label className="flex items-start gap-2 mt-5 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={termsAgreed}
-                    onChange={(e) => setTermsAgreed(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#1D9E75] focus:ring-[#1D9E75] cursor-pointer"
-                  />
-                  <span className="text-xs text-gray-500 leading-relaxed">
-                    <a href="/terms/subscription" target="_blank" className="text-[#1D9E75] underline hover:text-[#167A5B]">
-                      구독 서비스 이용약관
-                    </a>
-                    에 동의합니다.
-                    {mode !== "trial" && (
-                      <span className="text-gray-400 block mt-0.5">
-                        중도해지 시 배송된 상품은 정가(7,500원) 기준으로 정산됩니다.
-                      </span>
-                    )}
-                  </span>
-                </label>
+                {/* 약관 동의 — 체크박스와 링크를 분리해 모바일 오터치 방지 */}
+                <div className="mt-5">
+                  <label className="flex items-start gap-2.5 cursor-pointer group select-none py-1">
+                    <input
+                      type="checkbox"
+                      checked={termsAgreed}
+                      onChange={(e) => setTermsAgreed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#1D9E75] focus:ring-[#1D9E75] cursor-pointer shrink-0"
+                    />
+                    <span className="text-xs text-gray-600 leading-relaxed">
+                      서비스 이용약관 및 결제에 동의합니다.
+                      {mode !== "trial" && (
+                        <span className="text-gray-400 block mt-0.5">
+                          중도해지 시 배송된 상품은 정가(7,500원) 기준으로 정산됩니다.
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                  {/* 이용약관 보기 — 체크박스 라벨 밖, 별도 버튼 */}
+                  <a
+                    href="/terms/subscription"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 mt-2 ml-6 px-2.5 py-1 text-[11px] text-[#7aaa90] hover:text-[#1D9E75] hover:bg-[#1D9E75]/5 rounded-md transition"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">description</span>
+                    이용약관 전문 보기
+                    <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                  </a>
+                </div>
 
                 <button
                   disabled={!allReady || paying}

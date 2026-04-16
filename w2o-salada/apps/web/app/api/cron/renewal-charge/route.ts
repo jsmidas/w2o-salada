@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { pushDuePrices } from "../../../lib/effective-price";
+import { decryptBillingKey } from "../../../lib/billing-crypto";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
@@ -63,8 +64,11 @@ export async function POST(request: Request) {
         const count = await prisma.order.count({ where: { orderNo: { startsWith: `W2O-${today}` } } });
         const orderNo = `W2O-${today}-${String(count + 1).padStart(4, "0")}`;
 
+        // 빌링키 복호화 (레거시 평문은 그대로 통과)
+        const plainBillingKey = decryptBillingKey(sub.billingKey);
+
         // 토스 빌링키 결제
-        const paymentRes = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billingKey}`, {
+        const paymentRes = await fetch(`https://api.tosspayments.com/v1/billing/${plainBillingKey}`, {
           method: "POST",
           headers: {
             Authorization: `Basic ${Buffer.from(TOSS_SECRET_KEY + ":").toString("base64")}`,
@@ -137,7 +141,7 @@ export async function POST(request: Request) {
             method: paymentData.method,
             amount,
             status: "DONE",
-            billingKey: sub.billingKey,
+            billingKey: sub.billingKey, // 이미 암호화된 저장값 유지
             receiptUrl: paymentData.receipt?.url ?? null,
             rawResponse: JSON.stringify(paymentData),
           },

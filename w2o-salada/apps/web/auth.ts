@@ -26,8 +26,12 @@ const config: NextAuthConfig = {
         const usernameStr = credentials.username as string;
         const passwordStr = credentials.password as string;
 
-        // 개발/운영 관리자 데모 계정 (DB에 upsert 해서 실제 id 반환)
-        if (usernameStr === "admin" && passwordStr === "admin1234") {
+        // 개발 전용 데모 관리자 계정 — prod 환경에선 비활성화
+        if (
+          process.env.NODE_ENV === "development" &&
+          usernameStr === "admin" &&
+          passwordStr === "admin1234"
+        ) {
           try {
             const prisma = await getPrisma();
             const admin = await prisma.user.upsert({

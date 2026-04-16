@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
+import { encryptBillingKey } from "../../../lib/billing-crypto";
 
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
 
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
     }
 
     const billingKey = billingData.billingKey;
+    // DB 저장용 암호화본 (토스 API 호출엔 평문 사용)
+    const encryptedBillingKey = encryptBillingKey(billingKey);
 
     // 2. 빌링키로 첫 결제
     const paymentRes = await fetch("https://api.tosspayments.com/v1/billing/" + billingKey, {
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
             method: paymentData.method,
             amount,
             status: "DONE",
-            billingKey,
+            billingKey: encryptedBillingKey,
             receiptUrl: paymentData.receipt?.url ?? null,
             rawResponse: JSON.stringify(paymentData),
           },
@@ -96,7 +99,7 @@ export async function POST(request: Request) {
           where: { id: subscriptionId },
           data: {
             status: "ACTIVE",
-            billingKey,
+            billingKey: encryptedBillingKey,
             startedAt: new Date(),
             nextBillingDate: getNextBillingDate(),
           },
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
             planType: "REGULAR",
             frequency: "BIWEEKLY",
             status: "ACTIVE",
-            billingKey,
+            billingKey: encryptedBillingKey,
             price: amount,
             startedAt: new Date(),
             nextBillingDate: getNextBillingDate(),

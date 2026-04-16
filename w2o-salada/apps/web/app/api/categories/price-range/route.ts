@@ -4,8 +4,6 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const { prisma } = await import("@repo/db");
-    const { pushDuePrices } = await import("../../../lib/effective-price");
-    await pushDuePrices();
     const categories = await prisma.category.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },

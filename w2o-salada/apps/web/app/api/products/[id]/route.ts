@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
-import { pushDuePrices } from "../../../lib/effective-price";
 
 export async function GET(
   _request: Request,
@@ -8,7 +7,6 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  await pushDuePrices();
   const product = await prisma.product.findUnique({
     where: { id },
     include: { category: true },

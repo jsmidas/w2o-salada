@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../lib/auth-guard";
-import { pushDuePrices } from "../../../lib/effective-price";
 
 // GET: 상품 목록
 export async function GET() {
@@ -9,7 +8,6 @@ export async function GET() {
   if (error) return error;
 
   try {
-    await pushDuePrices();
     const products = await prisma.product.findMany({
       include: { category: true },
       orderBy: { sortOrder: "asc" },

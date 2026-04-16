@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
-import { pushDuePrices } from "../../lib/effective-price";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
 
   try {
-    await pushDuePrices();
     const products = await prisma.product.findMany({
       where: {
         isActive: true,

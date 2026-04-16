@@ -30,7 +30,14 @@ export default async function DashboardPage() {
     prisma.user.count({ where: { role: "CUSTOMER" } }),
     prisma.subscription.count({ where: { status: "ACTIVE" } }),
     prisma.order.findMany({
-      include: { user: true },
+      select: {
+        id: true,
+        orderNo: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+        user: { select: { name: true, email: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),

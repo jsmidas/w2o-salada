@@ -8,11 +8,21 @@ const LIMIT = 20;
 export default async function OrdersPage() {
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
-      include: {
-        user: true,
-        items: { include: { product: true } },
-        payments: true,
-        delivery: true,
+      select: {
+        id: true,
+        orderNo: true,
+        status: true,
+        totalAmount: true,
+        deliveryFee: true,
+        createdAt: true,
+        user: { select: { name: true, email: true } },
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            product: { select: { name: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: LIMIT,

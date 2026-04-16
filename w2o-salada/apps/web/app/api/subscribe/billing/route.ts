@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
 import { encryptBillingKey } from "../../../lib/billing-crypto";
@@ -121,6 +122,12 @@ export async function POST(request: Request) {
       }
     } catch (dbErr) {
       console.warn("DB 저장 실패 (결제는 완료됨):", dbErr);
+      // 토스 빌링키는 발급됐는데 DB 저장 실패 — 결제 vs 구독 상태 불일치
+      Sentry.captureException(dbErr, {
+        level: "error",
+        tags: { area: "subscription", phase: "billing-issue-db" },
+        extra: { orderId, subscriptionId },
+      });
     }
 
     return NextResponse.json({
@@ -131,6 +138,10 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/subscribe/billing error:", err);
+    Sentry.captureException(err, {
+      level: "error",
+      tags: { area: "subscription", phase: "billing-issue" },
+    });
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }
 }

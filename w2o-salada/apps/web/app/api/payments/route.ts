@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { sendAlimtalkSafe, TEMPLATE } from "../../lib/notification";
 
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
@@ -123,8 +124,14 @@ export async function POST(request: Request) {
           },
         });
       }
-    } catch {
+    } catch (err) {
       console.warn("DB 저장 실패 (결제는 승인됨):", orderId);
+      // 결제는 외부에서 완료됐는데 DB 저장이 실패 — 매출/배송 장부 불일치 위험
+      Sentry.captureException(err, {
+        level: "error",
+        tags: { area: "payment", phase: "post-confirm-db" },
+        extra: { orderId, paymentKey: tossData.paymentKey },
+      });
     }
 
     return NextResponse.json({
@@ -139,6 +146,10 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("POST /api/payments error:", err);
+    Sentry.captureException(err, {
+      level: "error",
+      tags: { area: "payment", phase: "confirm" },
+    });
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }
 }

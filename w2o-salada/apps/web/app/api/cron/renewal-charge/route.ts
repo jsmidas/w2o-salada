@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@repo/db";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { pushDuePrices } from "../../../lib/effective-price";
@@ -192,6 +193,11 @@ export async function POST(request: Request) {
       } catch (err) {
         failed++;
         results.push({ subId: sub.id, status: "error", error: String(err) });
+        Sentry.captureException(err, {
+          level: "error",
+          tags: { area: "subscription", phase: "renewal-charge" },
+          extra: { subId: sub.id, userId: sub.userId },
+        });
       }
     }
 
@@ -205,6 +211,10 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("Cron renewal-charge error:", err);
+    Sentry.captureException(err, {
+      level: "fatal",
+      tags: { area: "cron", job: "renewal-charge" },
+    });
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { type AdminPermission, parsePermissions } from "../../lib/auth-guard";
 
 type MenuItem = { href: string; icon: string; label: string };
@@ -64,14 +64,18 @@ const menuGroups: MenuGroup[] = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  name,
+  email,
+  permissions: permissionsRaw,
+}: {
+  name: string | null;
+  email: string | null;
+  permissions: string | null;
+}) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const user = session?.user;
 
-  const permissions = parsePermissions(
-    (user as { permissions?: string | null } | undefined)?.permissions
-  );
+  const permissions = parsePermissions(permissionsRaw);
   // permissions === null → 슈퍼관리자 (모든 메뉴 표시)
   const isSuperAdmin = permissions === null;
 
@@ -121,16 +125,16 @@ export default function Sidebar() {
 
       {/* 하단 - 사용자 정보 + 로그아웃 */}
       <div className="p-4 border-t border-white/5">
-        {user && (
+        {name && (
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 bg-[#1D9E75]/20 rounded-full flex items-center justify-center text-[#1D9E75] text-sm font-bold shrink-0">
-              {user.name?.charAt(0) ?? "A"}
+              {name.charAt(0)}
             </div>
             <div className="min-w-0">
               <div className="text-sm text-white/80 font-medium truncate">
-                {user.name}
+                {name}
               </div>
-              <div className="text-xs text-white/30 truncate">{user.email}</div>
+              {email && <div className="text-xs text-white/30 truncate">{email}</div>}
               {isSuperAdmin && (
                 <div className="text-[10px] text-[#EF9F27] font-semibold mt-0.5">슈퍼관리자</div>
               )}

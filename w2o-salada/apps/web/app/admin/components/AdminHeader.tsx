@@ -1,13 +1,6 @@
-"use client";
-
-import { useSession } from "next-auth/react";
-
-export default function AdminHeader() {
-  const { data: session } = useSession();
-  const user = session?.user;
-
-  const initial = user?.name?.charAt(0) ?? "A";
-  const displayName = user?.name ?? "관리자";
+export default function AdminHeader({ name }: { name: string | null }) {
+  const initial = name?.charAt(0) ?? "A";
+  const displayName = name ?? "관리자";
 
   return (
     <header className="h-16 bg-white border-b flex items-center justify-between px-6 print:hidden">

@@ -15,17 +15,16 @@
 // 이미지 정책: 업로드한 이미지는 원본 비율 그대로 단일 컬럼 스택.
 // object-cover나 aspect-ratio 고정을 쓰지 않음.
 
-export type KeyPoint = { icon: string; title: string; description: string };
-export type SpecItem = { label: string; value: string };
-
 export type ProductPageData = {
   heroImages: string[];
   subtitle: string;
   featureTitle: string;
   featureDescription: string;
   featureImages: string[];
-  keyPoints: KeyPoint[];
-  specs: SpecItem[];
+  // 특장점 섹션 (구 keyPoints {icon,title,description}[]) — 이미지 URL 배열
+  keypointImages: string[];
+  // 배송 시스템 섹션 (구 specs {label,value}[]) — 이미지 URL 배열
+  specsImages: string[];
   detailDescription: string;
   detailImages: string[];
   // 기타 안내 섹션 (구 nutrition) — 이미지 URL 배열
@@ -61,12 +60,10 @@ export function parseProductPage(row: {
     }
   };
 
-  // nutrition 필드는 과거엔 {label,value} 객체 배열이었으나 지금은 이미지 URL 배열.
+  // keyPoints/specs/nutrition 필드는 과거엔 객체 배열이었으나 지금은 이미지 URL 배열.
   // 과거 데이터는 필터링으로 버려짐 (문자열만 통과).
-  const rawNutrition = safeParse<unknown[]>(row.nutrition, []);
-  const nutritionImages = Array.isArray(rawNutrition)
-    ? rawNutrition.filter((x): x is string => typeof x === "string")
-    : [];
+  const toImageArray = (raw: unknown): string[] =>
+    Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
 
   return {
     heroImages: safeParse<string[]>(row.heroImages, []),
@@ -74,11 +71,11 @@ export function parseProductPage(row: {
     featureTitle: row.featureTitle || "",
     featureDescription: row.featureDescription || "",
     featureImages: safeParse<string[]>(row.featureImages, []),
-    keyPoints: safeParse<KeyPoint[]>(row.keyPoints, []),
-    specs: safeParse<SpecItem[]>(row.specs, []),
+    keypointImages: toImageArray(safeParse<unknown[]>(row.keyPoints, [])),
+    specsImages: toImageArray(safeParse<unknown[]>(row.specs, [])),
     detailDescription: row.detailDescription || "",
     detailImages: safeParse<string[]>(row.detailImages, []),
-    nutritionImages,
+    nutritionImages: toImageArray(safeParse<unknown[]>(row.nutrition, [])),
     galleryImages: safeParse<string[]>(row.galleryImages, []),
     sectionOrder: safeParse<string[]>(row.sectionOrder, [
       "hero",
@@ -103,8 +100,8 @@ export default function ProductPageView({
 }) {
   const heroImages = data.heroImages.filter(Boolean);
   const featureImages = data.featureImages.filter(Boolean);
-  const filledKps = data.keyPoints.filter((kp) => kp.title);
-  const filledSpecs = data.specs.filter((s) => s.label);
+  const keypointImages = data.keypointImages.filter(Boolean);
+  const specsImages = data.specsImages.filter(Boolean);
   const detailImages = data.detailImages.filter(Boolean);
   const nutritionImages = data.nutritionImages.filter(Boolean);
   const filledGallery = data.galleryImages.filter(Boolean);
@@ -179,41 +176,30 @@ export default function ProductPageView({
             );
 
           case "keypoints":
-            if (filledKps.length === 0) return null;
+            if (keypointImages.length === 0) return null;
             return (
               <div key="keypoints" className="px-5 py-6 border-t border-gray-100">
                 <div className="text-[11px] font-bold tracking-[0.2em] text-[#1D9E75] uppercase mb-3">
                   특장점
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {filledKps.map((kp, i) => (
-                    <div key={i} className="bg-[#f0faf5] rounded-xl p-3 text-center">
-                      <span className="material-symbols-outlined text-2xl text-[#1D9E75]">
-                        {kp.icon}
-                      </span>
-                      <div className="text-sm font-semibold text-gray-900 mt-1">{kp.title}</div>
-                      {kp.description && (
-                        <div className="text-xs text-gray-500 mt-0.5">{kp.description}</div>
-                      )}
-                    </div>
+                <div className="space-y-3">
+                  {keypointImages.map((url, i) => (
+                    <img key={i} src={url} alt="" className="rounded-lg w-full h-auto block" />
                   ))}
                 </div>
               </div>
             );
 
           case "specs":
-            if (filledSpecs.length === 0) return null;
+            if (specsImages.length === 0) return null;
             return (
               <div key="specs" className="px-5 py-6 border-t border-gray-100">
                 <div className="text-[11px] font-bold tracking-[0.2em] text-[#1D9E75] uppercase mb-3">
                   배송 시스템
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                  {filledSpecs.map((s, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-500">{s.label}</span>
-                      <span className="text-gray-900 font-medium">{s.value}</span>
-                    </div>
+                <div className="space-y-3">
+                  {specsImages.map((url, i) => (
+                    <img key={i} src={url} alt="" className="rounded-lg w-full h-auto block" />
                   ))}
                 </div>
               </div>

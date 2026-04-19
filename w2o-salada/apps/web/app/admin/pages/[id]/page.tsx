@@ -17,8 +17,6 @@ type Product = {
   isActive: boolean;
 };
 
-type KeyPoint = { icon: string; title: string; description: string };
-type SpecItem = { label: string; value: string };
 
 interface PageForm {
   hero_images: string[];
@@ -26,8 +24,8 @@ interface PageForm {
   feature_title: string;
   feature_description: string;
   feature_images: string[];
-  key_points: KeyPoint[];
-  specs: SpecItem[];
+  keypoint_images: string[];
+  specs_images: string[];
   detail_description: string;
   detail_images: string[];
   nutrition_images: string[];
@@ -56,8 +54,16 @@ const DEFAULT_SECTION_ORDER = [
   "nutrition",
 ];
 
-// 이미지 업로드를 받는 섹션들 (드래그 중 시각 강조용)
-const IMAGE_SECTIONS = new Set(["hero", "feature", "detail", "nutrition", "gallery"]);
+// 이미지 업로드를 받는 섹션들 (드래그 중 시각 강조용) — 현재는 전 섹션 이미지 허용
+const IMAGE_SECTIONS = new Set([
+  "hero",
+  "feature",
+  "keypoints",
+  "specs",
+  "detail",
+  "nutrition",
+  "gallery",
+]);
 
 const SECTION_LABELS: Record<string, string> = {
   hero: "히어로",
@@ -79,30 +85,6 @@ const SECTION_ICONS: Record<string, string> = {
   gallery: "photo_library",
 };
 
-const ICON_OPTIONS = [
-  "eco",
-  "local_fire_department",
-  "thermostat",
-  "spa",
-  "star",
-  "bolt",
-  "water_drop",
-  "inventory_2",
-  "check_circle",
-  "workspace_premium",
-  "favorite",
-  "wb_sunny",
-  "nutrition",
-  "fitness_center",
-  "timer",
-  "shield",
-  "recycling",
-  "local_dining",
-];
-
-const emptyKeyPoint: KeyPoint = { icon: "eco", title: "", description: "" };
-const emptySpec: SpecItem = { label: "", value: "" };
-
 function makeDefaultForm(): PageForm {
   return {
     hero_images: [],
@@ -110,8 +92,8 @@ function makeDefaultForm(): PageForm {
     feature_title: "",
     feature_description: "",
     feature_images: [],
-    key_points: [{ ...emptyKeyPoint }],
-    specs: [{ ...emptySpec }],
+    keypoint_images: [],
+    specs_images: [],
     detail_description: "",
     detail_images: [],
     nutrition_images: [],
@@ -368,8 +350,14 @@ export default function PageEditorPage() {
             feature_title: data.featureTitle || "",
             feature_description: data.featureDescription || "",
             feature_images: parse(data.featureImages) || [],
-            key_points: parse(data.keyPoints) || [{ ...emptyKeyPoint }],
-            specs: parse(data.specs) || [{ ...emptySpec }],
+            keypoint_images: (() => {
+              const raw = parse(data.keyPoints);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
+            specs_images: (() => {
+              const raw = parse(data.specs);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
             detail_description: data.detailDescription || "",
             detail_images: parse(data.detailImages) || [],
             nutrition_images: (() => {
@@ -417,8 +405,14 @@ export default function PageEditorPage() {
             feature_title: data.featureTitle || "",
             feature_description: data.featureDescription || "",
             feature_images: parse(data.featureImages) || [],
-            key_points: parse(data.keyPoints) || [{ ...emptyKeyPoint }],
-            specs: parse(data.specs) || [{ ...emptySpec }],
+            keypoint_images: (() => {
+              const raw = parse(data.keyPoints);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
+            specs_images: (() => {
+              const raw = parse(data.specs);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
             detail_description: data.detailDescription || "",
             detail_images: parse(data.detailImages) || [],
             nutrition_images: (() => {
@@ -451,8 +445,8 @@ export default function PageEditorPage() {
         featureTitle: form.feature_title,
         featureDescription: form.feature_description,
         featureImages: JSON.stringify(form.feature_images.filter(Boolean)),
-        keyPoints: JSON.stringify(form.key_points.filter((kp) => kp.title)),
-        specs: JSON.stringify(form.specs.filter((s) => s.label)),
+        keyPoints: JSON.stringify(form.keypoint_images.filter(Boolean)),
+        specs: JSON.stringify(form.specs_images.filter(Boolean)),
         detailDescription: form.detail_description,
         detailImages: JSON.stringify(form.detail_images.filter(Boolean)),
         nutrition: JSON.stringify(form.nutrition_images.filter(Boolean)),
@@ -504,39 +498,14 @@ export default function PageEditorPage() {
   }
 
   /* ── Key Points ── */
-  function addKeyPoint() {
-    setForm((prev) => ({ ...prev, key_points: [...prev.key_points, { ...emptyKeyPoint }] }));
-  }
-  function removeKeyPoint(idx: number) {
-    setForm((prev) => ({ ...prev, key_points: prev.key_points.filter((_, i) => i !== idx) }));
-  }
-  function updateKeyPoint(idx: number, field: keyof KeyPoint, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      key_points: prev.key_points.map((kp, i) => (i === idx ? { ...kp, [field]: value } : kp)),
-    }));
-  }
-
-  /* ── Specs ── */
-  function addSpec() {
-    setForm((prev) => ({ ...prev, specs: [...prev.specs, { ...emptySpec }] }));
-  }
-  function removeSpec(idx: number) {
-    setForm((prev) => ({ ...prev, specs: prev.specs.filter((_, i) => i !== idx) }));
-  }
-  function updateSpec(idx: number, field: keyof SpecItem, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      specs: prev.specs.map((s, i) => (i === idx ? { ...s, [field]: value } : s)),
-    }));
-  }
-
   /* ── Image arrays ── */
   type ImageField =
     | "gallery_images"
     | "detail_images"
     | "hero_images"
     | "feature_images"
+    | "keypoint_images"
+    | "specs_images"
     | "nutrition_images";
 
   const setImages = (field: ImageField, next: string[]) => {
@@ -547,6 +516,8 @@ export default function PageEditorPage() {
   const SECTION_FIELD: Record<string, ImageField> = {
     hero: "hero_images",
     feature: "feature_images",
+    keypoints: "keypoint_images",
+    specs: "specs_images",
     detail: "detail_images",
     nutrition: "nutrition_images",
     gallery: "gallery_images",
@@ -715,118 +686,23 @@ export default function PageEditorPage() {
   function renderKeyPoints() {
     return (
       <div className="px-6 pb-6 space-y-4">
-        {form.key_points.map((kp, idx) => (
-          <div
-            key={idx}
-            className="p-4 rounded-xl border border-white/10 bg-[#0f1420] space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">포인트 {idx + 1}</span>
-              {form.key_points.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeKeyPoint(idx)}
-                  className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-base">delete</span>
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">아이콘</label>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-xl text-[#1D9E75]">{kp.icon}</span>
-                  <select
-                    value={kp.icon}
-                    onChange={(e) => updateKeyPoint(idx, "icon", e.target.value)}
-                    className={inputSmClass}
-                  >
-                    {ICON_OPTIONS.map((icon) => (
-                      <option key={icon} value={icon}>
-                        {icon}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">제목</label>
-                <input
-                  type="text"
-                  value={kp.title}
-                  onChange={(e) => updateKeyPoint(idx, "title", e.target.value)}
-                  placeholder="예: 유기농 인증"
-                  className={inputSmClass}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">설명</label>
-              <input
-                type="text"
-                value={kp.description}
-                onChange={(e) => updateKeyPoint(idx, "description", e.target.value)}
-                placeholder="간단한 설명"
-                className={inputSmClass}
-              />
-            </div>
-          </div>
-        ))}
-        {form.key_points.length < 8 && (
-          <button
-            type="button"
-            onClick={addKeyPoint}
-            className="w-full py-2.5 rounded-xl border border-dashed border-white/10 text-gray-500 text-sm hover:border-[#1D9E75] hover:text-[#1D9E75] transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-base">add</span>
-            키포인트 추가
-          </button>
-        )}
+        <ImageListEditor
+          label="특장점 이미지"
+          images={form.keypoint_images}
+          onChange={(next) => setImages("keypoint_images", next)}
+        />
       </div>
     );
   }
 
   function renderSpecs() {
     return (
-      <div className="px-6 pb-6 space-y-3">
-        {form.specs.map((spec, idx) => (
-          <div key={idx} className="flex items-center gap-3">
-            <input
-              type="text"
-              value={spec.label}
-              onChange={(e) => updateSpec(idx, "label", e.target.value)}
-              placeholder="항목명 (예: 중량)"
-              className={inputSmClass + " flex-1"}
-              style={{ width: "auto" }}
-            />
-            <input
-              type="text"
-              value={spec.value}
-              onChange={(e) => updateSpec(idx, "value", e.target.value)}
-              placeholder="값 (예: 350g)"
-              className={inputSmClass + " flex-1"}
-              style={{ width: "auto" }}
-            />
-            {form.specs.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeSpec(idx)}
-                className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-              >
-                <span className="material-symbols-outlined text-base">delete</span>
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addSpec}
-          className="w-full py-2.5 rounded-xl border border-dashed border-white/10 text-gray-500 text-sm hover:border-[#1D9E75] hover:text-[#1D9E75] transition-colors flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          스펙 추가
-        </button>
+      <div className="px-6 pb-6 space-y-4">
+        <ImageListEditor
+          label="배송 시스템 이미지"
+          images={form.specs_images}
+          onChange={(next) => setImages("specs_images", next)}
+        />
       </div>
     );
   }
@@ -892,9 +768,9 @@ export default function PageEditorPage() {
       case "hero":
         return `${form.hero_images.filter(Boolean).length}장`;
       case "keypoints":
-        return `${form.key_points.length}개`;
+        return `${form.keypoint_images.filter(Boolean).length}장`;
       case "specs":
-        return `${form.specs.length}개`;
+        return `${form.specs_images.filter(Boolean).length}장`;
       case "nutrition":
         return `${form.nutrition_images.filter(Boolean).length}장`;
       case "gallery":
@@ -913,8 +789,8 @@ export default function PageEditorPage() {
       featureTitle: form.feature_title,
       featureDescription: form.feature_description,
       featureImages: form.feature_images,
-      keyPoints: form.key_points,
-      specs: form.specs,
+      keypointImages: form.keypoint_images,
+      specsImages: form.specs_images,
       detailDescription: form.detail_description,
       detailImages: form.detail_images,
       nutritionImages: form.nutrition_images,

@@ -171,7 +171,7 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
                       {statusLabels[order.status] ?? order.status}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-center text-sm text-gray-500">
+                  <td className="px-5 py-4 text-center text-sm text-gray-500" suppressHydrationWarning>
                     {new Date(order.createdAt).toLocaleDateString("ko-KR", {
                       month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
                     })}

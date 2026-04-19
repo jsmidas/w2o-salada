@@ -86,7 +86,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                       {m.role === "ADMIN" ? "관리자" : "일반"}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-center text-sm text-gray-500">
+                  <td className="px-5 py-4 text-center text-sm text-gray-500" suppressHydrationWarning>
                     {new Date(m.createdAt).toLocaleDateString("ko-KR")}
                   </td>
                 </tr>

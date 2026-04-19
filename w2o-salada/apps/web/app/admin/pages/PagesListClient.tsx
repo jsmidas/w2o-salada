@@ -67,7 +67,7 @@ export default function PagesListClient({
                     }`}>
                       {p.page?.isPublished ? "공개" : "비공개"}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-400" suppressHydrationWarning>
                       {p.page?.updatedAt ? new Date(p.page.updatedAt).toLocaleDateString("ko-KR") : ""}
                     </span>
                   </div>

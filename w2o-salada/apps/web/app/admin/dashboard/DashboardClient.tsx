@@ -163,7 +163,7 @@ export default function DashboardClient({
                       {statusLabels[order.status] ?? order.status}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-sm text-gray-500 text-center">
+                  <td className="px-3 py-3 text-sm text-gray-500 text-center" suppressHydrationWarning>
                     {new Date(order.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </td>
                 </tr>

@@ -112,7 +112,7 @@ export default function ReviewsClient({ initialReviews }: { initialReviews: Revi
                       {r.isVisible ? "공개" : "숨김"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-400 text-xs">
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs" suppressHydrationWarning>
                     {new Date(r.createdAt).toLocaleDateString("ko-KR")}
                   </td>
                   <td className="px-4 py-3 text-center">

@@ -294,7 +294,7 @@ export default function NotificationsClient({ initialData }: { initialData: Init
             ) : (
               notifications.map((n) => (
                 <tr key={n.id} className="border-b hover:bg-gray-50">
-                  <td className="px-5 py-3 text-sm text-gray-600 whitespace-nowrap">
+                  <td className="px-5 py-3 text-sm text-gray-600 whitespace-nowrap" suppressHydrationWarning>
                     {new Date(n.createdAt).toLocaleString("ko-KR", {
                       month: "2-digit",
                       day: "2-digit",

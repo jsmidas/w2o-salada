@@ -22,7 +22,7 @@ export async function GET(
   }
 }
 
-// PUT: 상세페이지 저장 (upsert)
+// PUT: 상세페이지 저장 (upsert) + 히어로 이미지 → Product.imageUrl 자동 동기화
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -34,40 +34,65 @@ export async function PUT(
     const { id } = await params; // productId
     const body = await request.json();
 
-    const page = await prisma.productPage.upsert({
-      where: { productId: id },
-      update: {
-        heroImages: body.heroImages ?? null,
-        subtitle: body.subtitle ?? null,
-        featureTitle: body.featureTitle ?? null,
-        featureDescription: body.featureDescription ?? null,
-        featureImages: body.featureImages ?? null,
-        keyPoints: body.keyPoints ?? null,
-        specs: body.specs ?? null,
-        detailDescription: body.detailDescription ?? null,
-        detailImages: body.detailImages ?? null,
-        nutrition: body.nutrition ?? null,
-        galleryImages: body.galleryImages ?? null,
-        sectionOrder: body.sectionOrder ?? null,
-        isPublished: body.isPublished ?? false,
-      },
-      create: {
-        productId: id,
-        heroImages: body.heroImages ?? null,
-        subtitle: body.subtitle ?? null,
-        featureTitle: body.featureTitle ?? null,
-        featureDescription: body.featureDescription ?? null,
-        featureImages: body.featureImages ?? null,
-        keyPoints: body.keyPoints ?? null,
-        specs: body.specs ?? null,
-        detailDescription: body.detailDescription ?? null,
-        detailImages: body.detailImages ?? null,
-        nutrition: body.nutrition ?? null,
-        galleryImages: body.galleryImages ?? null,
-        sectionOrder: body.sectionOrder ?? null,
-        isPublished: body.isPublished ?? false,
-      },
-    });
+    // 히어로 첫 번째 이미지 추출 → Product.imageUrl 동기화에 사용
+    let heroFirstUrl: string | null = null;
+    if (body.heroImages) {
+      try {
+        const arr = JSON.parse(body.heroImages);
+        if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === "string" && arr[0]) {
+          heroFirstUrl = arr[0];
+        }
+      } catch {
+        /* 무시 */
+      }
+    }
+
+    const [page] = await prisma.$transaction([
+      prisma.productPage.upsert({
+        where: { productId: id },
+        update: {
+          heroImages: body.heroImages ?? null,
+          subtitle: body.subtitle ?? null,
+          featureTitle: body.featureTitle ?? null,
+          featureDescription: body.featureDescription ?? null,
+          featureImages: body.featureImages ?? null,
+          keyPoints: body.keyPoints ?? null,
+          specs: body.specs ?? null,
+          detailDescription: body.detailDescription ?? null,
+          detailImages: body.detailImages ?? null,
+          nutrition: body.nutrition ?? null,
+          galleryImages: body.galleryImages ?? null,
+          sectionOrder: body.sectionOrder ?? null,
+          isPublished: body.isPublished ?? false,
+        },
+        create: {
+          productId: id,
+          heroImages: body.heroImages ?? null,
+          subtitle: body.subtitle ?? null,
+          featureTitle: body.featureTitle ?? null,
+          featureDescription: body.featureDescription ?? null,
+          featureImages: body.featureImages ?? null,
+          keyPoints: body.keyPoints ?? null,
+          specs: body.specs ?? null,
+          detailDescription: body.detailDescription ?? null,
+          detailImages: body.detailImages ?? null,
+          nutrition: body.nutrition ?? null,
+          galleryImages: body.galleryImages ?? null,
+          sectionOrder: body.sectionOrder ?? null,
+          isPublished: body.isPublished ?? false,
+        },
+      }),
+      // 히어로 이미지가 있으면 Product.imageUrl도 동기화
+      // (메뉴 카드 · 장바구니 · 체크아웃 등 모든 썸네일에 자동 반영)
+      ...(heroFirstUrl
+        ? [
+            prisma.product.update({
+              where: { id },
+              data: { imageUrl: heroFirstUrl },
+            }),
+          ]
+        : []),
+    ]);
 
     return NextResponse.json(page);
   } catch (err) {

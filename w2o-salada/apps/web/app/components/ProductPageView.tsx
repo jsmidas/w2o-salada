@@ -17,7 +17,6 @@
 
 export type KeyPoint = { icon: string; title: string; description: string };
 export type SpecItem = { label: string; value: string };
-export type NutritionItem = { label: string; value: string };
 
 export type ProductPageData = {
   heroImages: string[];
@@ -29,7 +28,8 @@ export type ProductPageData = {
   specs: SpecItem[];
   detailDescription: string;
   detailImages: string[];
-  nutrition: NutritionItem[];
+  // 기타 안내 섹션 (구 nutrition) — 이미지 URL 배열
+  nutritionImages: string[];
   galleryImages: string[];
   sectionOrder: string[];
 };
@@ -61,6 +61,13 @@ export function parseProductPage(row: {
     }
   };
 
+  // nutrition 필드는 과거엔 {label,value} 객체 배열이었으나 지금은 이미지 URL 배열.
+  // 과거 데이터는 필터링으로 버려짐 (문자열만 통과).
+  const rawNutrition = safeParse<unknown[]>(row.nutrition, []);
+  const nutritionImages = Array.isArray(rawNutrition)
+    ? rawNutrition.filter((x): x is string => typeof x === "string")
+    : [];
+
   return {
     heroImages: safeParse<string[]>(row.heroImages, []),
     subtitle: row.subtitle || "",
@@ -71,7 +78,7 @@ export function parseProductPage(row: {
     specs: safeParse<SpecItem[]>(row.specs, []),
     detailDescription: row.detailDescription || "",
     detailImages: safeParse<string[]>(row.detailImages, []),
-    nutrition: safeParse<NutritionItem[]>(row.nutrition, []),
+    nutritionImages,
     galleryImages: safeParse<string[]>(row.galleryImages, []),
     sectionOrder: safeParse<string[]>(row.sectionOrder, [
       "hero",
@@ -99,7 +106,7 @@ export default function ProductPageView({
   const filledKps = data.keyPoints.filter((kp) => kp.title);
   const filledSpecs = data.specs.filter((s) => s.label);
   const detailImages = data.detailImages.filter(Boolean);
-  const filledNutrition = data.nutrition.filter((n) => n.label && n.value);
+  const nutritionImages = data.nutritionImages.filter(Boolean);
   const filledGallery = data.galleryImages.filter(Boolean);
 
   return (
@@ -238,18 +245,20 @@ export default function ProductPageView({
             );
 
           case "nutrition":
-            if (filledNutrition.length === 0) return null;
+            if (nutritionImages.length === 0) return null;
             return (
               <div key="nutrition" className="px-5 py-6 border-t border-gray-100">
                 <div className="text-[11px] font-bold tracking-[0.2em] text-[#1D9E75] uppercase mb-3">
                   기타 안내
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                  {filledNutrition.map((n, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-500">{n.label}</span>
-                      <span className="text-gray-900 font-medium">{n.value}</span>
-                    </div>
+                <div className="space-y-3">
+                  {nutritionImages.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt=""
+                      className="rounded-lg w-full h-auto block"
+                    />
                   ))}
                 </div>
               </div>

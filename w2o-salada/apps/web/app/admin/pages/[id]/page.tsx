@@ -19,7 +19,6 @@ type Product = {
 
 type KeyPoint = { icon: string; title: string; description: string };
 type SpecItem = { label: string; value: string };
-type NutritionItem = { label: string; value: string };
 
 interface PageForm {
   hero_images: string[];
@@ -31,7 +30,7 @@ interface PageForm {
   specs: SpecItem[];
   detail_description: string;
   detail_images: string[];
-  nutrition: NutritionItem[];
+  nutrition_images: string[];
   gallery_images: string[];
   is_published: boolean;
   section_order: string[];
@@ -58,7 +57,7 @@ const DEFAULT_SECTION_ORDER = [
 ];
 
 // 이미지 업로드를 받는 섹션들 (드래그 중 시각 강조용)
-const IMAGE_SECTIONS = new Set(["hero", "feature", "detail", "gallery"]);
+const IMAGE_SECTIONS = new Set(["hero", "feature", "detail", "nutrition", "gallery"]);
 
 const SECTION_LABELS: Record<string, string> = {
   hero: "히어로",
@@ -101,18 +100,8 @@ const ICON_OPTIONS = [
   "local_dining",
 ];
 
-const DEFAULT_NUTRITION: NutritionItem[] = [
-  { label: "칼로리", value: "" },
-  { label: "단백질", value: "" },
-  { label: "탄수화물", value: "" },
-  { label: "지방", value: "" },
-  { label: "식이섬유", value: "" },
-  { label: "나트륨", value: "" },
-];
-
 const emptyKeyPoint: KeyPoint = { icon: "eco", title: "", description: "" };
 const emptySpec: SpecItem = { label: "", value: "" };
-const emptyNutrition: NutritionItem = { label: "", value: "" };
 
 function makeDefaultForm(): PageForm {
   return {
@@ -125,7 +114,7 @@ function makeDefaultForm(): PageForm {
     specs: [{ ...emptySpec }],
     detail_description: "",
     detail_images: [],
-    nutrition: DEFAULT_NUTRITION.map((n) => ({ ...n })),
+    nutrition_images: [],
     gallery_images: [],
     is_published: false,
     section_order: [...DEFAULT_SECTION_ORDER],
@@ -371,7 +360,10 @@ export default function PageEditorPage() {
             specs: parse(data.specs) || [{ ...emptySpec }],
             detail_description: data.detailDescription || "",
             detail_images: parse(data.detailImages) || [],
-            nutrition: parse(data.nutrition) || DEFAULT_NUTRITION.map((n) => ({ ...n })),
+            nutrition_images: (() => {
+              const raw = parse(data.nutrition);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
             gallery_images: parse(data.galleryImages) || [],
             is_published: false, // 복사 시 비공개로
             section_order: parse(data.sectionOrder) || [...DEFAULT_SECTION_ORDER],
@@ -417,7 +409,10 @@ export default function PageEditorPage() {
             specs: parse(data.specs) || [{ ...emptySpec }],
             detail_description: data.detailDescription || "",
             detail_images: parse(data.detailImages) || [],
-            nutrition: parse(data.nutrition) || DEFAULT_NUTRITION.map((n) => ({ ...n })),
+            nutrition_images: (() => {
+              const raw = parse(data.nutrition);
+              return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+            })(),
             gallery_images: parse(data.galleryImages) || [],
             is_published: data.isPublished || false,
             section_order: parse(data.sectionOrder) || [...DEFAULT_SECTION_ORDER],
@@ -448,7 +443,7 @@ export default function PageEditorPage() {
         specs: JSON.stringify(form.specs.filter((s) => s.label)),
         detailDescription: form.detail_description,
         detailImages: JSON.stringify(form.detail_images.filter(Boolean)),
-        nutrition: JSON.stringify(form.nutrition.filter((n) => n.label)),
+        nutrition: JSON.stringify(form.nutrition_images.filter(Boolean)),
         galleryImages: JSON.stringify(form.gallery_images.filter(Boolean)),
         sectionOrder: JSON.stringify(form.section_order),
         isPublished: form.is_published,
@@ -524,23 +519,14 @@ export default function PageEditorPage() {
     }));
   }
 
-  /* ── Nutrition ── */
-  function addNutrition() {
-    setForm((prev) => ({ ...prev, nutrition: [...prev.nutrition, { ...emptyNutrition }] }));
-  }
-  function removeNutrition(idx: number) {
-    setForm((prev) => ({ ...prev, nutrition: prev.nutrition.filter((_, i) => i !== idx) }));
-  }
-  function updateNutrition(idx: number, field: keyof NutritionItem, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      nutrition: prev.nutrition.map((n, i) => (i === idx ? { ...n, [field]: value } : n)),
-    }));
-  }
-
   /* ── Image arrays ── */
   const setImages = (
-    field: "gallery_images" | "detail_images" | "hero_images" | "feature_images",
+    field:
+      | "gallery_images"
+      | "detail_images"
+      | "hero_images"
+      | "feature_images"
+      | "nutrition_images",
     next: string[]
   ) => {
     setForm((prev) => ({ ...prev, [field]: next }));
@@ -822,47 +808,12 @@ export default function PageEditorPage() {
 
   function renderNutrition() {
     return (
-      <div className="px-6 pb-6 space-y-3">
-        <p className="text-xs text-gray-500 mb-2">
-          영양 성분 정보를 입력하세요. 단위를 포함해서 값을 입력해주세요 (예: 320kcal, 25g).
-        </p>
-        {form.nutrition.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-3">
-            <input
-              type="text"
-              value={item.label}
-              onChange={(e) => updateNutrition(idx, "label", e.target.value)}
-              placeholder="항목 (예: 칼로리)"
-              className={inputSmClass + " flex-1"}
-              style={{ width: "auto" }}
-            />
-            <input
-              type="text"
-              value={item.value}
-              onChange={(e) => updateNutrition(idx, "value", e.target.value)}
-              placeholder="값 (예: 320kcal)"
-              className={inputSmClass + " flex-1"}
-              style={{ width: "auto" }}
-            />
-            {form.nutrition.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeNutrition(idx)}
-                className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-              >
-                <span className="material-symbols-outlined text-base">delete</span>
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addNutrition}
-          className="w-full py-2.5 rounded-xl border border-dashed border-white/10 text-gray-500 text-sm hover:border-[#1D9E75] hover:text-[#1D9E75] transition-colors flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          영양 항목 추가
-        </button>
+      <div className="px-6 pb-6 space-y-4">
+        <ImageListEditor
+          label="기타 안내 이미지"
+          images={form.nutrition_images}
+          onChange={(next) => setImages("nutrition_images", next)}
+        />
       </div>
     );
   }
@@ -898,7 +849,7 @@ export default function PageEditorPage() {
       case "specs":
         return `${form.specs.length}개`;
       case "nutrition":
-        return `${form.nutrition.length}개`;
+        return `${form.nutrition_images.filter(Boolean).length}장`;
       case "gallery":
         return `${form.gallery_images.filter(Boolean).length}장`;
       default:
@@ -919,7 +870,7 @@ export default function PageEditorPage() {
       specs: form.specs,
       detailDescription: form.detail_description,
       detailImages: form.detail_images,
-      nutrition: form.nutrition,
+      nutritionImages: form.nutrition_images,
       galleryImages: form.gallery_images,
       sectionOrder: form.section_order,
     };

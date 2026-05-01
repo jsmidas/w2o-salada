@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { prepareUpload, FileTooLargeError } from "../../lib/compress-image";
 
 type Product = {
   id?: string;
@@ -288,12 +289,31 @@ export default function ProductModal({
               type="file"
               accept="image/*"
               onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+                const original = e.target.files?.[0];
+                if (!original) return;
+                let file: File;
+                try {
+                  file = await prepareUpload(original);
+                } catch (err) {
+                  if (err instanceof FileTooLargeError) {
+                    alert("이미지 용량이 너무 큽니다 (4.5MB 미만 권장). 더 작은 파일을 선택해 주세요.");
+                  } else {
+                    alert("이미지 처리에 실패했습니다.");
+                  }
+                  return;
+                }
                 const fd = new FormData();
                 fd.append("file", file);
                 fd.append("folder", "products");
                 const res = await fetch("/api/upload", { method: "POST", body: fd });
+                if (!res.ok) {
+                  alert(
+                    res.status === 413
+                      ? "이미지 용량이 너무 큽니다. 더 작은 파일을 선택해 주세요."
+                      : `업로드 실패 (오류 ${res.status})`
+                  );
+                  return;
+                }
                 const data = await res.json();
                 if (data.url) setForm({ ...form, imageUrl: data.url });
               }}

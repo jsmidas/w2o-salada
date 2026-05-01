@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ProductPageView from "../../../components/ProductPageView";
+import { prepareUpload, FileTooLargeError } from "../../../lib/compress-image";
 
 /* ── Types ────────────────────────────────────────────── */
 
@@ -140,7 +141,19 @@ function ImageListEditor({
     setUploading(true);
     try {
       const uploaded: string[] = [];
-      for (const file of list) {
+      const failures: string[] = [];
+      for (const original of list) {
+        let file: File;
+        try {
+          file = await prepareUpload(original);
+        } catch (err) {
+          if (err instanceof FileTooLargeError) {
+            failures.push(`${original.name} (용량 초과 — 4.5MB 미만 권장)`);
+            continue;
+          }
+          failures.push(`${original.name} (압축 실패)`);
+          continue;
+        }
         const fd = new FormData();
         fd.append("file", file);
         fd.append("folder", "pages");
@@ -148,9 +161,16 @@ function ImageListEditor({
         if (res.ok) {
           const data = await res.json();
           if (data.url) uploaded.push(data.url);
+        } else if (res.status === 413) {
+          failures.push(`${original.name} (용량 초과)`);
+        } else {
+          failures.push(`${original.name} (오류 ${res.status})`);
         }
       }
       if (uploaded.length) onChange([...images, ...uploaded]);
+      if (failures.length) {
+        alert(`일부 이미지 업로드 실패:\n${failures.join("\n")}`);
+      }
     } finally {
       setUploading(false);
     }
@@ -530,7 +550,19 @@ export default function PageEditorPage() {
     const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (images.length === 0) return;
     const uploaded: string[] = [];
-    for (const file of images) {
+    const failures: string[] = [];
+    for (const original of images) {
+      let file: File;
+      try {
+        file = await prepareUpload(original);
+      } catch (err) {
+        if (err instanceof FileTooLargeError) {
+          failures.push(`${original.name} (용량 초과 — 4.5MB 미만 권장)`);
+          continue;
+        }
+        failures.push(`${original.name} (압축 실패)`);
+        continue;
+      }
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "pages");
@@ -538,6 +570,10 @@ export default function PageEditorPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.url) uploaded.push(data.url);
+      } else if (res.status === 413) {
+        failures.push(`${original.name} (용량 초과)`);
+      } else {
+        failures.push(`${original.name} (오류 ${res.status})`);
       }
     }
     if (uploaded.length) {
@@ -547,6 +583,9 @@ export default function PageEditorPage() {
       }));
       // 해당 섹션 펼쳐서 업로드된 이미지 바로 보이게
       setActiveSection(sectionId);
+    }
+    if (failures.length) {
+      alert(`일부 이미지 업로드 실패:\n${failures.join("\n")}`);
     }
   };
 

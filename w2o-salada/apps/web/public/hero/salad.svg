@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="bowlSalad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#fffaf0"/>
+      <stop offset="100%" stop-color="#e8d9b8"/>
+    </radialGradient>
+  </defs>
+  <!-- 그릇 그림자 -->
+  <ellipse cx="100" cy="170" rx="78" ry="10" fill="rgba(0,0,0,0.18)"/>
+  <!-- 그릇 -->
+  <ellipse cx="100" cy="120" rx="80" ry="55" fill="url(#bowlSalad)" stroke="#c9b896" stroke-width="2"/>
+  <ellipse cx="100" cy="105" rx="75" ry="40" fill="#1D9E75" opacity="0.92"/>
+  <!-- 양상추 잎 -->
+  <ellipse cx="80" cy="95" rx="22" ry="14" fill="#5DCAA5" transform="rotate(-15 80 95)"/>
+  <ellipse cx="120" cy="98" rx="22" ry="14" fill="#7BD9B5" transform="rotate(20 120 98)"/>
+  <ellipse cx="100" cy="85" rx="20" ry="12" fill="#5DCAA5"/>
+  <!-- 방울토마토 -->
+  <circle cx="75" cy="100" r="7" fill="#e74c3c"/>
+  <circle cx="73" cy="98" r="2" fill="#fff" opacity="0.6"/>
+  <circle cx="125" cy="105" r="7" fill="#e74c3c"/>
+  <circle cx="123" cy="103" r="2" fill="#fff" opacity="0.6"/>
+  <circle cx="105" cy="110" r="6" fill="#e74c3c"/>
+  <circle cx="103" cy="108" r="2" fill="#fff" opacity="0.6"/>
+  <!-- 옥수수/노란 토핑 -->
+  <circle cx="92" cy="92" r="3" fill="#EF9F27"/>
+  <circle cx="115" cy="90" r="3" fill="#EF9F27"/>
+  <circle cx="88" cy="108" r="3" fill="#EF9F27"/>
+  <!-- 견과류 -->
+  <ellipse cx="100" cy="100" rx="4" ry="3" fill="#8B5A2B" transform="rotate(30 100 100)"/>
+  <ellipse cx="118" cy="92" rx="4" ry="3" fill="#8B5A2B" transform="rotate(-20 118 92)"/>
+</svg>

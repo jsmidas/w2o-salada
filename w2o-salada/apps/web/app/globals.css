@@ -108,3 +108,36 @@ body {
 .animate-bounce-in {
   animation: bounceIn 0.5s ease-out both;
 }
+
+/* ── 모바일 히어로 — 음식 아이콘 funny 애니메이션 ── */
+
+/* 통통 튀면서 살짝 회전 */
+@keyframes foodBounce {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50%      { transform: translateY(-12px) rotate(6deg); }
+}
+
+/* 둥둥 떠다니면서 회전 */
+@keyframes foodFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  33%      { transform: translateY(-8px) rotate(8deg) scale(1.04); }
+  66%      { transform: translateY(4px) rotate(-6deg) scale(0.98); }
+}
+
+/* 흔들면서 등장 */
+@keyframes foodWobble {
+  0%, 100% { transform: translateY(0) rotate(4deg); }
+  50%      { transform: translateY(-10px) rotate(-10deg); }
+}
+
+/* 카피 한 글자씩 팝 */
+@keyframes copyPop {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.6); }
+  60%  { opacity: 1; transform: translateY(-3px) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-food-bounce { animation: foodBounce 2.4s ease-in-out infinite; }
+.animate-food-float  { animation: foodFloat  3.2s ease-in-out infinite; }
+.animate-food-wobble { animation: foodWobble 2.8s ease-in-out infinite; }
+.animate-copy-pop    { animation: copyPop 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }

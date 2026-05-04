@@ -77,7 +77,7 @@ export default function HeroSection() {
  * 영상 맨 아래(마퀴 배너 바로 위)에 핵심 카피만 노출.
  */
 function MobileOverlay() {
-  const copy = ["샐러드,", "반찬,", "간편식을", "문", "앞에"];
+  const copy = ["샐러드,", "반찬,", "간편식을", "문앞에서"];
 
   return (
     <div className="md:hidden absolute inset-0 pointer-events-none">
@@ -93,7 +93,7 @@ function MobileOverlay() {
               className="inline-block animate-copy-pop mr-1.5"
               style={{ animationDelay: `${0.3 + i * 0.1}s` }}
             >
-              {word === "문" || word === "앞에" ? (
+              {word === "문앞에서" ? (
                 <span className="text-brand-amber">{word}</span>
               ) : (
                 word

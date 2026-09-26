@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 // 기본값
 const DEFAULTS: Record<string, string> = {
   "subscribe.minItems": "1", // 회당 최소 개수 — 실제 하한은 본품 최소 주문액(11,000원)이 정한다
-  "subscribe.maxItems": "6", // 회당 최대 개수 — 포장·적재 편의용 상한. /admin/subscribe-settings 에서 변경
+  "subscribe.maxItems": "10", // 회당 최대 개수 — 포장·적재 편의용 상한. /admin/subscribe-settings 에서 변경
   "subscribe.salad.price": "5900",
   "subscribe.salad.originalPrice": "7500",
   "subscribe.trial.price": "6900",

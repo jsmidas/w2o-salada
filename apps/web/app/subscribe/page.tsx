@@ -94,7 +94,7 @@ function SubscribeContent() {
       })
       .catch(() => {});
   }, []);
-  const [config, setConfig] = useState({ minItems: 2, maxItems: 10 });
+  const [config, setConfig] = useState({ minItems: 1, maxItems: 10 });
 
   // 약관 동의
   const [termsAgreed, setTermsAgreed] = useState(false);
@@ -137,7 +137,7 @@ function SubscribeContent() {
       .then((data) => {
         setConfig({
           minItems: parseInt(data["subscribe.minItems"] || "1"),
-          maxItems: parseInt(data["subscribe.maxItems"] || "6"),
+          maxItems: parseInt(data["subscribe.maxItems"] || "10"),
         });
       })
       .catch(() => {});

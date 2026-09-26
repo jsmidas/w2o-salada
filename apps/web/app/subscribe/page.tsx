@@ -90,6 +90,16 @@ function SubscribeContent() {
   const setSlot = (slug: string, value: number) =>
     setSlotCounts((prev) => ({ ...prev, [slug]: Math.max(0, value) }));
 
+  // 회당 권장 상한(설정값)은 막지 않고 한 번 확인만 받는다 — 많이 시키는 걸 굳이 줄일 이유가 없다
+  const [overLimitOk, setOverLimitOk] = useState(false);
+  const confirmOverLimit = (nextTotal: number, max: number): boolean => {
+    if (nextTotal <= max || overLimitOk) return true;
+    const ok = window.confirm(`회당 ${max}개를 초과합니다.
+${max}개 이상 주문하시겠습니까?`);
+    if (ok) setOverLimitOk(true);
+    return ok;
+  };
+
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
@@ -437,9 +447,9 @@ function SubscribeContent() {
                             className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold disabled:opacity-25 disabled:cursor-not-allowed transition"
                             style={{ borderColor: `${c.color}50`, color: c.color }} aria-label={`${c.label} 감소`}>−</button>
                           <span className="text-2xl font-black text-[#0A1A0F] min-w-[1.5ch] text-center">{c.value}</span>
-                          <button type="button" onClick={() => c.set(c.value + 1)} disabled={totalReached}
-                            title={totalReached ? `회당 최대 ${config.maxItems}개까지 담을 수 있어요.` : undefined}
-                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold disabled:opacity-25 disabled:cursor-not-allowed transition"
+                          <button type="button" onClick={() => { if (confirmOverLimit(itemsPerDelivery + 1, config.maxItems)) c.set(c.value + 1); }}
+                            title={totalReached ? `회당 권장 ${config.maxItems}개를 넘습니다 (확인 후 추가 가능)` : undefined}
+                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold transition"
                             style={{ borderColor: `${c.color}50`, color: c.color }} aria-label={`${c.label} 증가`}>+</button>
                         </div>
                       </div>
@@ -450,7 +460,7 @@ function SubscribeContent() {
                   <div className="flex flex-wrap items-center gap-3 mb-4 bg-white rounded-2xl border border-[#1D9E75]/10 px-5 py-3">
                     <span className="text-base font-bold text-[#0A1A0F]">
                       총 <span className="text-xl">{itemsPerDelivery}</span>개 / 회
-                      {totalReached && <span className="ml-2 text-xs font-medium text-[#EF9F27]">회당 최대 {config.maxItems}개</span>}
+                      {itemsPerDelivery > config.maxItems && <span className="ml-2 text-xs font-medium text-[#EF9F27]">회당 {config.maxItems}개 초과</span>}
                       {Object.keys(dateSlots).length > 0 && <span className="ml-2 text-[11px] font-medium text-[#7aaa90]">날짜별 변경 {Object.keys(dateSlots).length}건</span>}
                     </span>
 
@@ -608,15 +618,14 @@ function SubscribeContent() {
                   <div className="flex flex-wrap gap-2 mb-3">
                     {categories.map((c) => {
                       const v = slotsFor(selectedDate)[c.slug] ?? 0;
-                      const reached = itemsFor(selectedDate) >= config.maxItems;
                       return (
                         <div key={c.slug} className="flex items-center gap-1.5 bg-[#f7fdf9] rounded-full pl-3 pr-1 py-1 border" style={{ borderColor: `${c.color || "#1D9E75"}30` }}>
                           <span className="text-xs font-bold" style={{ color: c.color || "#1D9E75" }}>{c.name}</span>
                           <button type="button" onClick={() => setDateSlot(selectedDate, c.slug, v - 1)} disabled={v <= 0}
                             className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold disabled:opacity-25" aria-label={`${c.name} 감소`}>−</button>
                           <span className="text-sm font-black min-w-[1.2ch] text-center">{v}</span>
-                          <button type="button" onClick={() => setDateSlot(selectedDate, c.slug, v + 1)} disabled={reached}
-                            className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold disabled:opacity-25" aria-label={`${c.name} 증가`}>+</button>
+                          <button type="button" onClick={() => { if (confirmOverLimit(itemsFor(selectedDate) + 1, config.maxItems)) setDateSlot(selectedDate, c.slug, v + 1); }}
+                            className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold" aria-label={`${c.name} 증가`}>+</button>
                         </div>
                       );
                     })}

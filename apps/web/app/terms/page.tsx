@@ -378,7 +378,7 @@ export default function TermsOfServicePage() {
               <li>사업자등록번호: 452-87-02160</li>
               <li>소재지: 대구광역시 달서구 성서공단로 332-10, 2층</li>
               <li>전화: 053-721-7794</li>
-              <li>이메일: hello@w2osalada.co.kr</li>
+              <li>이메일: dahamfood@dahamfood.co.kr</li>
               <li>웹사이트: <a href="https://w2o.co.kr" className="text-emerald-600 underline" target="_blank" rel="noopener noreferrer">https://w2o.co.kr</a></li>
             </ul>
           </section>

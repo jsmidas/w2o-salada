@@ -124,7 +124,7 @@ export default function SubscriptionTermsPage() {
           <section className="border-t pt-6">
             <p className="text-gray-400 text-xs">
               본 약관은 2026년 4월 7일부터 시행됩니다.<br />
-              문의: admin@w2o.kr | 다함푸드 주식회사
+              문의: dahamfood@dahamfood.co.kr | 다함푸드 주식회사
             </p>
           </section>
         </div>

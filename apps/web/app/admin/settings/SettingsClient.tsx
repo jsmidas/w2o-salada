@@ -7,7 +7,7 @@ const defaultSettings = {
   companyName: "",
   ownerName: "",
   phone: "053-721-7794",
-  email: "hello@w2osalada.co.kr",
+  email: "dahamfood@dahamfood.co.kr",
   address: "대구광역시 달서구",
   businessNumber: "000-00-00000",
   mailOrderNumber: "", // 통신판매업 신고번호 — 전자상거래법 필수 표기, 간편결제 심사에서 확인하는 항목

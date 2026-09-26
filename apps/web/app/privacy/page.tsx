@@ -242,7 +242,7 @@ export default function PrivacyPolicyPage() {
               <li>회원 탈퇴(서비스 내 마이페이지 또는 고객센터를 통해 가능)</li>
             </ul>
             <p className="mt-3">
-              위 권리 행사는 서비스 내 설정 메뉴, 이메일(hello@w2osalada.co.kr), 전화(053-721-7794)를
+              위 권리 행사는 서비스 내 설정 메뉴, 이메일(dahamfood@dahamfood.co.kr), 전화(053-721-7794)를
               통해 하실 수 있으며, 회사는 지체 없이 필요한 조치를 취하겠습니다.
             </p>
             <p className="mt-2">
@@ -289,7 +289,7 @@ export default function PrivacyPolicyPage() {
               <ul className="mt-2 space-y-1">
                 <li>성명: OOO</li>
                 <li>직위: 대표이사</li>
-                <li>이메일: hello@w2osalada.co.kr</li>
+                <li>이메일: dahamfood@dahamfood.co.kr</li>
                 <li>전화: 053-721-7794</li>
               </ul>
             </div>
@@ -367,7 +367,7 @@ export default function PrivacyPolicyPage() {
               <li>사업자등록번호: 452-87-02160</li>
               <li>소재지: 대구광역시 달서구 성서공단로 332-10, 2층</li>
               <li>전화: 053-721-7794</li>
-              <li>이메일: hello@w2osalada.co.kr</li>
+              <li>이메일: dahamfood@dahamfood.co.kr</li>
               <li>웹사이트: <a href="https://w2o.co.kr" className="text-emerald-600 underline" target="_blank" rel="noopener noreferrer">https://w2o.co.kr</a></li>
             </ul>
           </section>

@@ -32,6 +32,14 @@ function getCatBgStyle(cat?: Pick<Category, "color">): React.CSSProperties {
   return { backgroundColor: `${c}14`, borderColor: `${c}26` };
 }
 
+/**
+ * 캘린더 엔트리의 date(서버 ISO 문자열 또는 로컬 "YYYY-MM-DD")를
+ * 비교용 키 "YYYY-MM-DD"로 정규화한다.
+ */
+function toDateKey(date: string): string {
+  return new Date(date).toISOString().split("T")[0]!;
+}
+
 type MenuAssignmentData = {
   id: string;
   productId: string;
@@ -49,6 +57,29 @@ type CalendarEntry = {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
+/** 상품 썸네일 — imageUrl이 깨진 경우 카테고리 아이콘으로 폴백 */
+function ProductThumb({ product }: { product: Product }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(product.imageUrl) && !failed;
+
+  return (
+    <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+      {showImage ? (
+        <img
+          src={product.imageUrl!}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="material-symbols-outlined text-gray-300 text-xl">
+          {product.category?.icon || "restaurant"}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function DeliveryCalendarClient({
   initialProducts,
 }: {
@@ -61,11 +92,22 @@ export default function DeliveryCalendarClient({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"ok" | "error">("ok");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
-  const [modalInitialized, setModalInitialized] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // 모달 내 선택 상태 (다중 선택)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [activeCatId, setActiveCatId] = useState<string>("all");
+
+  const notify = useCallback((text: string, tone: "ok" | "error" = "ok") => {
+    setMessage(text);
+    setMessageTone(tone);
+    setTimeout(() => setMessage(""), 2500);
+  }, []);
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -82,14 +124,12 @@ export default function DeliveryCalendarClient({
     window.addEventListener("mouseup", onUp);
   }, [modalPos]);
 
-  // 모달 열릴 때 위치 초기화
+  // ESC로 모달 닫기
   useEffect(() => {
-    if (pickerOpen) {
-      setModalPos({ x: 0, y: 0 });
-      setModalInitialized(true);
-    } else {
-      setModalInitialized(false);
-    }
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPickerOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [pickerOpen]);
 
   // 배송일/상품 로드
@@ -123,8 +163,7 @@ export default function DeliveryCalendarClient({
   const calendarMap = useMemo(() => {
     const map = new Map<string, CalendarEntry>();
     for (const c of calendars) {
-      const dateStr = new Date(c.date).toISOString().split("T")[0];
-      map.set(dateStr!, c);
+      map.set(toDateKey(c.date), c);
     }
     return map;
   }, [calendars]);
@@ -135,6 +174,43 @@ export default function DeliveryCalendarClient({
 
   const getEntry = (day: number) => calendarMap.get(getDateStr(day));
 
+  // 식단 배정 (로컬 편집 → 일괄 저장)
+  const [dirtyDates, setDirtyDates] = useState<Set<string>>(new Set());
+  // 비동기 응답 처리 중에도 최신 dirty 집합을 읽기 위한 미러
+  const dirtyDatesRef = useRef<Set<string>>(new Set());
+  const hasDirty = dirtyDates.size > 0;
+
+  const markDirty = useCallback((date: string) => {
+    setDirtyDates((prev) => {
+      const next = new Set(prev).add(date);
+      dirtyDatesRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const setDirty = useCallback((next: Set<string>) => {
+    dirtyDatesRef.current = next;
+    setDirtyDates(next);
+  }, []);
+
+  /**
+   * 서버 응답으로 캘린더를 갱신하되, 아직 저장하지 않은(dirty) 날짜의 메뉴 배정은
+   * 로컬 편집본을 유지한다. 이걸 하지 않으면 배송일 토글이나 화/목 일괄 지정이
+   * 미저장 배정을 통째로 덮어써 사라지게 만든다.
+   */
+  const mergeCalendars = useCallback((server: CalendarEntry[]) => {
+    setCalendars((prev) => {
+      const localByDate = new Map(prev.map((c) => [toDateKey(c.date), c]));
+      return server.map((c) => {
+        const key = toDateKey(c.date);
+        const local = localByDate.get(key);
+        return dirtyDatesRef.current.has(key) && local
+          ? { ...c, menuAssignments: local.menuAssignments }
+          : c;
+      });
+    });
+  }, []);
+
   // 배송일 토글
   const toggleDeliveryDay = async (day: number) => {
     const dateStr = getDateStr(day);
@@ -143,7 +219,7 @@ export default function DeliveryCalendarClient({
 
     // 낙관적 업데이트
     setCalendars((prev) => {
-      const idx = prev.findIndex((c) => new Date(c.date).toISOString().split("T")[0] === dateStr);
+      const idx = prev.findIndex((c) => toDateKey(c.date) === dateStr);
       if (idx >= 0) {
         const updated = [...prev];
         updated[idx] = { ...updated[idx]!, isActive: newActive };
@@ -164,7 +240,7 @@ export default function DeliveryCalendarClient({
 
     if (res.ok) {
       const data = await res.json();
-      setCalendars(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) mergeCalendars(data);
     }
   };
 
@@ -189,80 +265,128 @@ export default function DeliveryCalendarClient({
 
     if (res.ok) {
       const data = await res.json();
-      setCalendars(Array.isArray(data) ? data : []);
-      setMessage("화/목 일괄 지정 완료");
-      setTimeout(() => setMessage(""), 2000);
+      if (Array.isArray(data)) mergeCalendars(data);
+      notify("화/목 일괄 지정 완료");
     }
   };
 
-  // 식단 배정 (로컬 편집 → 일괄 저장)
-  const [dirtyDates, setDirtyDates] = useState<Set<string>>(new Set());
-  const hasDirty = dirtyDates.size > 0;
-
   const selectedEntry = selectedDate ? calendarMap.get(selectedDate) : null;
-  const selectedAssignments = selectedEntry?.menuAssignments || [];
+  const selectedAssignments = useMemo(
+    () => selectedEntry?.menuAssignments || [],
+    [selectedEntry],
+  );
 
-  const addProduct = (productId: string) => {
-    if (!selectedDate) return;
-    if (selectedAssignments.some((a) => a.productId === productId)) return;
-
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-
-    const newAssignment: MenuAssignmentData = {
-      id: `temp-${productId}`,
-      productId,
-      sortOrder: selectedAssignments.length,
-      product,
-    };
-    setCalendars((prev) =>
-      prev.map((c) => {
-        const cDate = new Date(c.date).toISOString().split("T")[0];
-        return cDate === selectedDate
-          ? { ...c, menuAssignments: [...c.menuAssignments, newAssignment] }
-          : c;
-      })
-    );
-    setDirtyDates((prev) => new Set(prev).add(selectedDate));
-    setPickerOpen(false);
-  };
+  /** 선택한 날짜의 배정 목록을 통째로 교체 (엔트리가 없으면 새로 만든다) */
+  const replaceAssignments = useCallback(
+    (date: string, next: MenuAssignmentData[]) => {
+      setCalendars((prev) => {
+        const idx = prev.findIndex((c) => toDateKey(c.date) === date);
+        if (idx < 0) {
+          return [...prev, { id: "", date, isActive: true, memo: null, menuAssignments: next }];
+        }
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx]!, menuAssignments: next };
+        return updated;
+      });
+      markDirty(date);
+    },
+    [markDirty],
+  );
 
   const removeProduct = (productId: string) => {
     if (!selectedDate) return;
+    const next = selectedAssignments
+      .filter((a) => a.productId !== productId)
+      .map((a, i) => ({ ...a, sortOrder: i }));
+    replaceAssignments(selectedDate, next);
+  };
 
-    setCalendars((prev) =>
-      prev.map((c) => {
-        const cDate = new Date(c.date).toISOString().split("T")[0];
-        return cDate === selectedDate
-          ? { ...c, menuAssignments: c.menuAssignments.filter((a) => a.productId !== productId) }
-          : c;
-      })
-    );
-    setDirtyDates((prev) => new Set(prev).add(selectedDate));
+  // 메뉴 선택 모달
+  const openPicker = () => {
+    // 이미 배정된 메뉴를 선택 상태로 열어, 체크/해제만으로 추가·제거가 되게 한다
+    setSelectedIds(new Set(selectedAssignments.map((a) => a.productId)));
+    setSearch("");
+    setActiveCatId("all");
+    setModalPos({ x: 0, y: 0 });
+    setPickerOpen(true);
+  };
+
+  const toggleSelect = (productId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  /** 모달에서 고른 상품 집합을 해당 날짜의 배정으로 반영 */
+  const applySelection = () => {
+    if (!selectedDate) return;
+
+    // 기존 배정은 순서를 유지한 채 남기고, 새로 고른 항목을 체크 순서대로 뒤에 붙인다
+    const kept = selectedAssignments.filter((a) => selectedIds.has(a.productId));
+    const added = Array.from(selectedIds)
+      .filter((id) => !selectedAssignments.some((a) => a.productId === id))
+      .map((id) => products.find((p) => p.id === id))
+      .filter((p): p is Product => Boolean(p))
+      .map((p) => ({ id: `temp-${p.id}`, productId: p.id, sortOrder: 0, product: p }));
+
+    const next = [...kept, ...added].map((a, i) => ({ ...a, sortOrder: i }));
+    replaceAssignments(selectedDate, next);
+    setPickerOpen(false);
   };
 
   const saveAllAssignments = async () => {
     if (dirtyDates.size === 0) return;
     setSaving(true);
 
-    const promises = Array.from(dirtyDates).map((date) => {
-      const entry = calendarMap.get(date);
-      const productIds = (entry?.menuAssignments || []).map((a, i) => ({ id: a.productId, sortOrder: i }));
-      return fetch("/api/admin/menu-assignment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, productIds }),
-      });
-    });
+    const targets = Array.from(dirtyDates);
+    const results = await Promise.all(
+      targets.map(async (date) => {
+        const entry = calendarMap.get(date);
+        const productIds = (entry?.menuAssignments || []).map((a, i) => ({ id: a.productId, sortOrder: i }));
+        try {
+          const res = await fetch("/api/admin/menu-assignment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date, productIds }),
+          });
+          return { date, ok: res.ok, data: res.ok ? await res.json() : null };
+        } catch {
+          return { date, ok: false, data: null };
+        }
+      }),
+    );
 
-    await Promise.all(promises);
-    setDirtyDates(new Set());
+    // 성공한 날짜는 서버 응답(실제 id 포함)으로 교체하고, 실패한 날짜는 dirty로 남긴다
+    const savedByDate = new Map(
+      results.filter((r) => r.ok && r.data).map((r) => [r.date, r.data as CalendarEntry]),
+    );
+    if (savedByDate.size > 0) {
+      setCalendars((prev) =>
+        prev.map((c) => {
+          const saved = savedByDate.get(toDateKey(c.date));
+          return saved ? { ...c, id: saved.id, menuAssignments: saved.menuAssignments ?? [] } : c;
+        }),
+      );
+    }
+
+    const failed = targets.filter((d) => !savedByDate.has(d));
+    setDirty(new Set(failed));
     setSaving(false);
-    setMessage("메뉴 배정 저장 완료");
-    setTimeout(() => setMessage(""), 2000);
+
+    if (failed.length > 0) {
+      notify(`${savedByDate.size}일 저장 완료 · ${failed.length}일 실패`, "error");
+    } else {
+      notify("메뉴 배정 저장 완료");
+    }
   };
 
   const changeMonth = (delta: number) => {
+    if (hasDirty && !confirm(`저장하지 않은 메뉴 배정이 ${dirtyDates.size}일 있습니다. 이동하면 사라집니다. 계속할까요?`)) {
+      return;
+    }
     let m = month + delta;
     let y = year;
     if (m > 12) { m = 1; y++; }
@@ -270,6 +394,7 @@ export default function DeliveryCalendarClient({
     setYear(y);
     setMonth(m);
     setSelectedDate(null);
+    setDirty(new Set());
   };
 
   // 카테고리별 동적 그룹핑 (category.sortOrder 기준)
@@ -288,6 +413,23 @@ export default function DeliveryCalendarClient({
     );
   }, [products]);
 
+  // 모달에 실제로 그릴 목록 (카테고리 필터 + 이름 검색)
+  const visibleGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return productsByCategory
+      .filter((g) => activeCatId === "all" || g.category.id === activeCatId)
+      .map((g) => ({
+        category: g.category,
+        items: q ? g.items.filter((p) => p.name.toLowerCase().includes(q)) : g.items,
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [productsByCategory, activeCatId, search]);
+
+  const totalProductCount = useMemo(
+    () => productsByCategory.reduce((sum, g) => sum + g.items.length, 0),
+    [productsByCategory],
+  );
+
   return (
     <div className="p-4 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between mb-2">
@@ -304,7 +446,13 @@ export default function DeliveryCalendarClient({
       </div>
 
       {message && (
-        <div className="mb-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-50 text-green-600">{message}</div>
+        <div
+          className={`mb-2 px-4 py-2 rounded-lg text-sm font-medium ${
+            messageTone === "error" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"
+          }`}
+        >
+          {message}
+        </div>
       )}
 
       {/* 월 이동 */}
@@ -439,7 +587,7 @@ export default function DeliveryCalendarClient({
                       )}
 
                       <button
-                        onClick={() => setPickerOpen(true)}
+                        onClick={openPicker}
                         className="w-full border-2 border-dashed border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-400 hover:border-[#1D9E75]/40 hover:text-[#1D9E75] transition"
                       >
                         + 메뉴 추가
@@ -473,21 +621,22 @@ export default function DeliveryCalendarClient({
         </div>
       </div>
 
-      {/* 메뉴 추가 모달 (드래그 이동 가능) */}
+      {/* 메뉴 선택 모달 (드래그 이동 가능 · 다중 선택) */}
       {pickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setPickerOpen(false)}>
           <div
             ref={modalRef}
-            className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden shadow-2xl border border-gray-200"
+            className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-gray-200"
             style={{ transform: `translate(${modalPos.x}px, ${modalPos.y}px)` }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* 헤더 (드래그 핸들) */}
             <div
-              className="px-5 py-3 border-b border-gray-200 flex items-center justify-between cursor-grab active:cursor-grabbing select-none bg-gray-50 rounded-t-2xl"
+              className="px-5 py-3 border-b border-gray-200 flex items-center justify-between cursor-grab active:cursor-grabbing select-none bg-gray-50 rounded-t-2xl shrink-0"
               onMouseDown={onDragStart}
             >
               <div>
-                <h3 className="font-bold text-gray-900 text-sm">메뉴 추가</h3>
+                <h3 className="font-bold text-gray-900 text-sm">메뉴 선택</h3>
                 {selectedDate && (
                   <p className="text-xs text-[#1D9E75] font-medium">
                     {new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
@@ -498,52 +647,129 @@ export default function DeliveryCalendarClient({
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[55vh] p-3">
-              {productsByCategory.length === 0 && (
-                <p className="text-center text-gray-400 py-8">등록된 상품이 없습니다</p>
-              )}
-              {productsByCategory.map(({ category, items }) => (
-                <div key={category.id} className="mb-4 last:mb-0">
-                  <p
-                    className="text-xs font-bold mb-2 px-1 flex items-center gap-1.5"
-                    style={{ color: getCatColor(category) }}
-                  >
-                    {category.icon && (
-                      <span className="material-symbols-outlined text-sm">{category.icon}</span>
-                    )}
-                    {category.name}
-                    <span className="text-gray-400 font-medium">({items.length})</span>
-                  </p>
-                  {items.map((p) => {
-                    const alreadyAdded = selectedAssignments.some((a) => a.productId === p.id);
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => !alreadyAdded && addProduct(p.id)}
-                        disabled={alreadyAdded}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition ${
-                          alreadyAdded ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover rounded-lg" />
-                          ) : (
-                            <span className="material-symbols-outlined text-gray-300">
-                              {category.icon || "restaurant"}
+
+            {/* 검색 + 카테고리 필터 */}
+            <div className="px-5 py-3 border-b border-gray-100 space-y-2.5 shrink-0">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-lg">search</span>
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="메뉴 이름 검색"
+                  className="w-full pl-10 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30 focus:border-[#1D9E75]/40 transition"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setActiveCatId("all")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                    activeCatId === "all"
+                      ? "bg-gray-800 text-white border-gray-800"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  전체 <span className="opacity-60">{totalProductCount}</span>
+                </button>
+                {productsByCategory.map(({ category, items }) => {
+                  const active = activeCatId === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setActiveCatId(category.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition flex items-center gap-1 ${
+                        active ? "text-white" : "bg-white hover:border-gray-300"
+                      }`}
+                      style={
+                        active
+                          ? { backgroundColor: getCatColor(category), borderColor: getCatColor(category) }
+                          : { color: getCatColor(category), borderColor: `${getCatColor(category)}40` }
+                      }
+                    >
+                      {category.icon && (
+                        <span className="material-symbols-outlined text-sm">{category.icon}</span>
+                      )}
+                      {category.name} <span className="opacity-60">{items.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 상품 그리드 */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0">
+              {visibleGroups.length === 0 ? (
+                <p className="text-center text-gray-400 py-12 text-sm">
+                  {totalProductCount === 0 ? "등록된 상품이 없습니다" : "검색 결과가 없습니다"}
+                </p>
+              ) : (
+                visibleGroups.map(({ category, items }) => (
+                  <div key={category.id} className="mb-5 last:mb-0">
+                    <p
+                      className="text-xs font-bold mb-2 px-0.5 flex items-center gap-1.5"
+                      style={{ color: getCatColor(category) }}
+                    >
+                      {category.icon && (
+                        <span className="material-symbols-outlined text-sm">{category.icon}</span>
+                      )}
+                      {category.name}
+                      <span className="text-gray-400 font-medium">({items.length})</span>
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {items.map((p) => {
+                        const checked = selectedIds.has(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => toggleSelect(p.id)}
+                            className={`relative flex items-center gap-2.5 p-2 pr-7 rounded-xl border-2 text-left transition ${
+                              checked
+                                ? "border-[#1D9E75] bg-[#1D9E75]/5"
+                                : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center transition ${
+                                checked ? "bg-[#1D9E75] text-white" : "bg-gray-200 text-transparent"
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[12px] leading-none">check</span>
                             </span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
-                          <p className="text-xs text-gray-400">{p.price.toLocaleString()}원</p>
-                        </div>
-                        {alreadyAdded && <span className="text-xs text-gray-400">추가됨</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+                            <ProductThumb product={p} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                              <p className="text-xs text-gray-400">{p.price.toLocaleString()}원</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 하단 액션 바 */}
+            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-3 shrink-0">
+              <p className="text-sm text-gray-500">
+                <span className="font-bold text-[#1D9E75]">{selectedIds.size}개</span> 선택됨
+                <span className="text-xs text-gray-400 ml-2">체크를 해제하면 배정에서 제거됩니다</span>
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={selectedIds.size === 0}
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-200 transition disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  전체 해제
+                </button>
+                <button
+                  onClick={applySelection}
+                  className="px-5 py-2 rounded-lg text-sm font-bold bg-[#1D9E75] text-white hover:bg-[#178a65] transition"
+                >
+                  적용
+                </button>
+              </div>
             </div>
           </div>
         </div>

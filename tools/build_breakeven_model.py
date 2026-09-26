@@ -110,11 +110,18 @@ section("② 변동비 가정 (주문 1건당)")
 assume("cogs", "식자재 원가율", 0.38, "%", "샐러드·신선 HMR 통상 35~42%", PCT)
 assume("waste", "폐기율 (식자재 대비)", 0.05, "%", "예측생산 신선식품 통상 3~8%", PCT)
 assume("pack", "건당 포장재비", 1200, "원", "보냉박스+아이스팩+용기 (비회수 기준)")
-assume("ship", "건당 위탁 배송비", 3500, "원", "새벽배송 3PL 위탁 단가 통상 3,000~4,500")
 assume("pg", "PG 수수료율", 0.033, "%", "토스페이먼츠 약 3.3%", PCT)
 assume("alim", "건당 알림톡비", 40, "원", "주문완료+출발+완료 3건 × 12~15원")
 
-section("③ 고정비 가정 (월)")
+section("③ 배송 가정 (최소비용 보장 용역)")
+assume("dlvGuar", "코스 최소 보장액", 100000, "원",
+       "집수가 적어도 코스당 최소 지급액. 7만~10만 협의 중 — 이 값만 바꾸면 전체 재계산")
+assume("dlvPer", "집당 배송 단가", 1000, "원",
+       "한 집 = 1건 (한 집에 샐러드·반찬이 함께 가도 1건)")
+assume("dlvMax", "코스당 최대 집수", 200, "집",
+       "기사 1명이 새벽 4시간에 도는 물리 한계. 아파트 밀집이면 ↑, 단독주택이면 ↓")
+
+section("④ 고정비 가정 (월)")
 assume("rent", "주방 임대·관리비", 2500000, "원", "공유주방~소형 센터 초기 기준")
 assume("labor", "인건비", 12000000, "원", "조리·포장·CS 4~5명 초기 소규모")
 assume("car", "차량·냉장설비", 1500000, "원", "리스·유지·냉장 인프라")
@@ -174,6 +181,19 @@ psection("물량")
 mdays = pline("월 배송일 수", f"={ref['freq']}*{ref['weeks']}", NUM1, note="주 배송횟수 × 월평균주수")
 morders = pline("월 주문 건수", f"={ref['daily']}*{mdays}", WON_PLAIN, note="배송일당 주문수 × 월 배송일수")
 
+# 배송비는 건당 고정이 아니다. 용차가 최소비용 보장 용역이라
+#   코스 정산액 = max(보장액, 집수 × 집당단가)
+# 이고, 물량이 분기점(보장액 ÷ 단가)을 넘으면 건당 원가가 단가로 수렴한다.
+psection("배송 (최소비용 보장 구조)")
+d_bep = pline("코스 분기점", f"={ref['dlvGuar']}/{ref['dlvPer']}", WON_PLAIN,
+              note="보장액 ÷ 집당단가. 이 집수를 넘으면 건당 원가가 단가로 고정된다")
+d_routes = pline("배송일당 코스 수", f"=MAX(1,CEILING({ref['daily']}/{ref['dlvMax']},1))", NUM1,
+                 note="집수 ÷ 코스당 최대집수 (올림). 코스를 더 나눠도 분기점 이상이면 총액은 같다")
+d_cost = pline("배송일당 배송비", f"=MAX({d_routes}*{ref['dlvGuar']},{ref['daily']}*{ref['dlvPer']})",
+               WON, note="max(코스수 × 보장액, 집수 × 단가)")
+d_unit = pline("실질 건당 배송비", f"=IF({ref['daily']}=0,0,{d_cost}/{ref['daily']})", WON,
+               bold=True, fill=True, note="물량이 분기점 미만이면 보장액 때문에 올라간다")
+
 psection("매출")
 rev = pline("월 매출액", f"={ref['aov']}*{morders}", WON, bold=True, fill=True, note="객단가 × 월 주문건수")
 
@@ -181,7 +201,7 @@ psection("변동비 (주문 1건당)")
 v_cogs = pline("식자재비", f"={ref['aov']}*{ref['cogs']}", WON, note="객단가 × 원가율")
 v_waste = pline("폐기 손실", f"={v_cogs}*{ref['waste']}", WON, note="식자재비 × 폐기율")
 v_pack = pline("포장재비", f"={ref['pack']}", WON)
-v_ship = pline("위탁 배송비", f"={ref['ship']}", WON)
+v_ship = pline("배송비 (실질 건당)", f"={d_unit}", WON, note="위 배송 섹션에서 계산 — 물량에 따라 변한다")
 v_pg = pline("PG 수수료", f"={ref['aov']}*{ref['pg']}", WON, note="객단가 × PG율")
 v_alim = pline("알림톡비", f"={ref['alim']}", WON)
 v_sum = pline("건당 변동비 합계", f"={v_cogs}+{v_waste}+{v_pack}+{v_ship}+{v_pg}+{v_alim}",
@@ -215,12 +235,12 @@ B.sheet_view.showGridLines = False
 B.column_dimensions["A"].width = 3
 B.column_dimensions["B"].width = 26
 B.column_dimensions["C"].width = 16
-B.column_dimensions["D"].width = 4
-for col in "EFGHI":
+B.column_dimensions["D"].width = 14
+for col in "EFGHIJ":
     B.column_dimensions[col].width = 15
 
 B["B1"] = "손익분기점 (BEP) 분석"
-B.merge_cells("B1:I1")
+B.merge_cells("B1:J1")
 B["B1"].font = title_font
 B["B1"].fill = title_fill
 B["B1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -250,39 +270,51 @@ bep_safety = bline(7, "현재 가정 대비 안전마진",
                    f"=IF({morders}=0,0,({morders}-{bep_orders})/{morders})", PCT)
 bep_status = bline(8, "현재 가정 손익 상태",
                    f'=IF({op}>=0,"흑자 (BEP 통과)","적자 (BEP 미달)")', "General")
+B.cell(row=9, column=2,
+       value="※ 위 BEP는 현재 가정값의 건당 배송비를 그대로 적용한 값입니다. "
+             "물량이 코스 분기점 미만이면 배송비가 올라가므로 아래 민감도 표를 함께 보세요.").font = note_font
+B.merge_cells("B9:J9")
 
-B["B10"] = "민감도 — 배송일당 주문 수별 월 영업이익"
-B.merge_cells("B10:I10")
-style_block(B, "B10:I10", font=sec_font, fill=sec_fill)
+B["B11"] = "민감도 — 배송일당 집수별 월 영업이익 (배송비를 물량에 맞춰 재계산)"
+B.merge_cells("B11:J11")
+style_block(B, "B11:J11", font=sec_font, fill=sec_fill)
 
-hdr = ["배송일당 주문수", "월 주문건수", "월 매출", "월 공헌이익", "월 고정비", "월 영업이익", "손익"]
+hdr = ["배송일당 집수", "코스 수", "건당 배송비", "월 주문건수", "월 매출",
+       "월 공헌이익", "월 고정비", "월 영업이익", "손익"]
 for i, h in enumerate(hdr):
-    c = B.cell(row=11, column=2 + i, value=h)
+    c = B.cell(row=12, column=2 + i, value=h)
     c.font = Font(name="맑은 고딕", size=9, bold=True, color="FFFFFF")
     c.fill = PatternFill("solid", fgColor="1D9E75")
     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     c.border = box
-B.row_dimensions[11].height = 30
+B.row_dimensions[12].height = 30
 
-scenarios = [20, 40, 60, 80, 100, 120, 150, 200]
-r = 12
+scenarios = [20, 40, 60, 80, 100, 120, 150, 200, 250, 300]
+r = 13
 for d in scenarios:
     dcell = f"$B${r}"
     B.cell(row=r, column=2, value=d).number_format = WON_PLAIN
+    # 코스 수 = 집수 ÷ 코스당 최대집수 (올림, 최소 1)
+    B.cell(row=r, column=3,
+           value=f"=MAX(1,CEILING({dcell}/{ref['dlvMax']},1))").number_format = NUM1
+    # 건당 배송비 = max(코스수 × 보장액, 집수 × 단가) ÷ 집수
+    B.cell(row=r, column=4,
+           value=f"=MAX($C{r}*{ref['dlvGuar']},{dcell}*{ref['dlvPer']})/{dcell}").number_format = WON
     # 월 주문건수 = 배송일당 × 월배송일수
-    B.cell(row=r, column=3, value=f"={dcell}*{mdays}").number_format = WON_PLAIN
+    B.cell(row=r, column=5, value=f"={dcell}*{mdays}").number_format = WON_PLAIN
     # 월 매출
-    B.cell(row=r, column=4, value=f"=$C{r}*{ref['aov']}").number_format = WON
-    # 월 공헌이익 = 건당 공헌이익 × 월주문건수
-    B.cell(row=r, column=5, value=f"=$C{r}*{cm_unit}").number_format = WON
+    B.cell(row=r, column=6, value=f"=$E{r}*{ref['aov']}").number_format = WON
+    # 월 공헌이익 — 손익 시트의 건당 공헌이익에서 배송비만 이 행의 값으로 치환
+    B.cell(row=r, column=7,
+           value=f"=({cm_unit}+{v_ship}-$D{r})*$E{r}").number_format = WON
     # 월 고정비
-    B.cell(row=r, column=6, value=f"={f_sum}").number_format = WON
+    B.cell(row=r, column=8, value=f"={f_sum}").number_format = WON
     # 월 영업이익
-    B.cell(row=r, column=7, value=f"=$E{r}-$F{r}").number_format = WON
+    B.cell(row=r, column=9, value=f"=$G{r}-$H{r}").number_format = WON
     # 손익
-    B.cell(row=r, column=8,
-           value=f'=IF($G{r}>=0,"흑자","적자")').number_format = "General"
-    for col in range(2, 9):
+    B.cell(row=r, column=10,
+           value=f'=IF($I{r}>=0,"흑자","적자")').number_format = "General"
+    for col in range(2, 11):
         cell = B.cell(row=r, column=col)
         cell.border = box
         cell.alignment = Alignment(horizontal="right")
@@ -290,9 +322,44 @@ for d in scenarios:
             cell.font = calc_font
     r += 1
 
+# ---- 보장액이 아직 확정되지 않았으므로 금액별로 나란히 비교한다 ----
+r += 1
+B.cell(row=r, column=2,
+       value="민감도 — 코스 최소 보장액별 실질 건당 배송비 (보장액 확정 전 비교용)")
+B.merge_cells(start_row=r, start_column=2, end_row=r, end_column=10)
+style_block(B, f"B{r}:J{r}", font=sec_font, fill=sec_fill)
+r += 1
+
+guarantees = [70000, 80000, 90000, 100000, 120000]
+ghdr = ["배송일당 집수"] + [f"보장액 {g // 10000}만 원" for g in guarantees]
+for i, h in enumerate(ghdr):
+    c = B.cell(row=r, column=2 + i, value=h)
+    c.font = Font(name="맑은 고딕", size=9, bold=True, color="FFFFFF")
+    c.fill = PatternFill("solid", fgColor="EF9F27")
+    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    c.border = box
+B.row_dimensions[r].height = 28
+r += 1
+
+for d in [40, 60, 80, 100, 120, 150, 200, 300]:
+    dcell = f"$B${r}"
+    routes = f"MAX(1,CEILING({dcell}/{ref['dlvMax']},1))"
+    B.cell(row=r, column=2, value=d).number_format = WON_PLAIN
+    for i, g in enumerate(guarantees):
+        # 코스 수는 보장액과 무관하게 물리 한계로 결정된다
+        B.cell(row=r, column=3 + i,
+               value=f"=MAX({routes}*{g},{dcell}*{ref['dlvPer']})/{dcell}").number_format = WON
+    for col in range(2, 3 + len(guarantees)):
+        cell = B.cell(row=r, column=col)
+        cell.border = box
+        cell.alignment = Alignment(horizontal="right")
+        cell.font = calc_font
+    r += 1
+
 B.cell(row=r + 1, column=2,
-       value="※ 노란 셀(가정값 시트)을 바꾸면 모든 수치가 자동 재계산됩니다.").font = note_font
-B.merge_cells(start_row=r + 1, start_column=2, end_row=r + 1, end_column=8)
+       value="※ 노란 셀(가정값 시트)을 바꾸면 모든 수치가 자동 재계산됩니다. "
+             "보장액은 협의에 따라 바뀔 수 있으므로 위 표에서 금액별 영향을 먼저 확인하세요.").font = note_font
+B.merge_cells(start_row=r + 1, start_column=2, end_row=r + 1, end_column=10)
 
 # 시트 순서: 가정값 → 손익 → 손익분기
 wb.move_sheet("손익분기", offset=0)

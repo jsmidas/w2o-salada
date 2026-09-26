@@ -136,8 +136,8 @@ function SubscribeContent() {
       .then((r) => r.json())
       .then((data) => {
         setConfig({
-          minItems: parseInt(data["subscribe.minItems"] || "2"),
-          maxItems: parseInt(data["subscribe.maxItems"] || "5"),
+          minItems: parseInt(data["subscribe.minItems"] || "1"),
+          maxItems: parseInt(data["subscribe.maxItems"] || "6"),
         });
       })
       .catch(() => {});
@@ -587,6 +587,7 @@ function SubscribeContent() {
                                 type="button"
                                 onClick={() => c.set(c.value + 1)}
                                 disabled={totalReached}
+                                title={totalReached ? `회당 최대 ${config.maxItems}개까지 담을 수 있어요. 다른 카테고리를 줄이면 추가할 수 있습니다.` : undefined}
                                 className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold disabled:opacity-25 disabled:cursor-not-allowed transition"
                                 style={{ borderColor: `${c.color}50`, color: c.color }}
                                 aria-label={`${c.label} 증가`}
@@ -599,7 +600,12 @@ function SubscribeContent() {
 
                     {/* 합계 + AUTO 모드 컨트롤 */}
                     <div className="flex flex-wrap items-center gap-3 mb-6 bg-white rounded-2xl border border-[#1D9E75]/10 px-5 py-3">
-                      <span className="text-base font-bold text-[#0A1A0F]">총 <span className="text-xl">{itemsPerDelivery}</span>개 / 회</span>
+                      <span className="text-base font-bold text-[#0A1A0F]">
+                        총 <span className="text-xl">{itemsPerDelivery}</span>개 / 회
+                        {itemsPerDelivery >= config.maxItems && (
+                          <span className="ml-2 text-xs font-medium text-[#EF9F27]">회당 최대 {config.maxItems}개</span>
+                        )}
+                      </span>
 
                       {mode === "auto" ? (
                         <div className="ml-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-[#EF9F27]/10 text-[#EF9F27] rounded-full text-xs font-bold">

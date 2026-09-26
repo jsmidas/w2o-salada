@@ -58,8 +58,8 @@ export default function SubscribeSettingsClient({
   };
 
   // 미리보기 계산
-  const minItems = parseInt(getValue("subscribe.minItems") || "2");
-  const maxItems = parseInt(getValue("subscribe.maxItems") || "2");
+  const minItems = parseInt(getValue("subscribe.minItems") || "1");
+  const maxItems = parseInt(getValue("subscribe.maxItems") || "6");
   const saladPrice = parseInt(getValue("subscribe.salad.price") || "5900");
   const originalPrice = parseInt(getValue("subscribe.salad.originalPrice") || "7500");
   const trialPrice = parseInt(getValue("subscribe.trial.price") || "6900");

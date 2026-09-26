@@ -40,6 +40,16 @@ export async function POST(request: Request) {
     const billingKey = billingData.billingKey;
     // DB 저장용 암호화본 (토스 API 호출엔 평문 사용)
     const encryptedBillingKey = encryptBillingKey(billingKey);
+    // 등록 카드 표시용 (마이페이지·"등록 카드로 바로 결제" 라벨)
+    const cardCompany: string | null = billingData.cardCompany ?? null;
+    const cardNumber: string | null = billingData.cardNumber ?? billingData.card?.number ?? null;
+
+    // successUrl에 subscriptionId가 빠진 경우 주문에 연결된 구독으로 보정 (레거시 신규 생성 방지)
+    let targetSubscriptionId: string | null = subscriptionId ?? null;
+    if (!targetSubscriptionId && orderId) {
+      const o = await prisma.order.findUnique({ where: { id: orderId }, select: { subscriptionId: true } });
+      targetSubscriptionId = o?.subscriptionId ?? null;
+    }
 
     // 2. 빌링키로 첫 결제
     const paymentRes = await fetch("https://api.tosspayments.com/v1/billing/" + billingKey, {
@@ -95,13 +105,15 @@ export async function POST(request: Request) {
       }
 
       // 구독 처리: subscriptionId 있으면 기존 구독 활성화, 없으면 신규 생성 (레거시 호환)
-      if (subscriptionId) {
-        const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, select: { nextBillingDate: true } });
+      if (targetSubscriptionId) {
+        const sub = await prisma.subscription.findUnique({ where: { id: targetSubscriptionId }, select: { nextBillingDate: true } });
         await prisma.subscription.update({
-          where: { id: subscriptionId },
+          where: { id: targetSubscriptionId },
           data: {
             status: "ACTIVE",
             billingKey: encryptedBillingKey,
+            cardCompany,
+            cardNumber,
             startedAt: new Date(),
             // 롤링 주기: /api/subscribe 가 주기 종료 이틀 전으로 정해둔 값을 쓴다. 레거시(없음)만 한 달 뒤
             nextBillingDate: sub?.nextBillingDate ?? getNextBillingDate(),
@@ -109,7 +121,7 @@ export async function POST(request: Request) {
         });
         // 첫 주기 결제 완료
         await prisma.subscriptionPeriod.updateMany({
-          where: { subscriptionId, status: "PENDING", ...(orderId ? { OR: [{ orderId }, { orderId: null }] } : {}) },
+          where: { subscriptionId: targetSubscriptionId, status: "PENDING", ...(orderId ? { OR: [{ orderId }, { orderId: null }] } : {}) },
           data: { status: "PAID", paidAt: new Date(), ...(orderId ? { orderId } : {}) },
         });
       } else {
@@ -120,6 +132,8 @@ export async function POST(request: Request) {
             frequency: "BIWEEKLY",
             status: "ACTIVE",
             billingKey: encryptedBillingKey,
+            cardCompany,
+            cardNumber,
             price: amount,
             startedAt: new Date(),
             nextBillingDate: getNextBillingDate(),

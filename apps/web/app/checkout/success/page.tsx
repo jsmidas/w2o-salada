@@ -59,6 +59,15 @@ function SuccessContent() {
       return;
     }
 
+    // 등록 카드로 서버에서 즉시 결제된 경우 — 승인 호출 없이 완료 처리
+    if (searchParams.get("paid") === "saved") {
+      setStatus("success");
+      setOrderNo(searchParams.get("orderNo"));
+      clearCart();
+      try { localStorage.removeItem("w2o_checkout_draft"); } catch {}
+      return;
+    }
+
     if (!paymentKey || !orderId || !amount) {
       // paymentKey가 없으면 이미 처리된 상태 (직접 접근)
       setStatus("success");

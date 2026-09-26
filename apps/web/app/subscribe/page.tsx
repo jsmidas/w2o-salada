@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { firstOrderableDate } from "../lib/cutoff";
 import DeliveryAddressPicker, { type AddressSelection } from "../components/address/DeliveryAddressPicker";
+import SavedCardChoice, { type PayMethod, type SavedCardInfo } from "../components/SavedCardChoice";
 
 type Product = {
   id: string;
@@ -66,6 +68,7 @@ export default function SubscribePage() {
 function SubscribeContent() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const router = useRouter();
   const paramPlan = searchParams.get("plan");
   const paramMode = searchParams.get("mode"); // 새 포맷: mode=auto|manual
 
@@ -129,6 +132,22 @@ function SubscribeContent() {
   const [selection, setSelection] = useState<Selection>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  // 등록 카드(기존 구독 빌링키) — 있으면 카드 입력 없이 바로 결제/구독 시작
+  const [savedCard, setSavedCard] = useState<SavedCardInfo | null>(null);
+  const [payMethod, setPayMethod] = useState<PayMethod>("window");
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    fetch("/api/payments/saved-card")
+      .then((r) => (r.ok ? r.json() : { card: null }))
+      .then((d: { card: SavedCardInfo | null }) => {
+        if (cancelled) return;
+        setSavedCard(d.card);
+        if (d.card) setPayMethod("saved");
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [session?.user]);
   const [minOrderAmount, setMinOrderAmount] = useState(11000);
 
   useEffect(() => {
@@ -349,6 +368,26 @@ function SubscribeContent() {
       }
 
       const order = await orderRes.json();
+
+      // 등록 카드로 바로 결제 — 자동 갱신 구독이면 서버가 그 카드를 새 구독에 붙인다. 실패하면 결제창으로
+      if (savedCard && payMethod === "saved" && session?.user) {
+        try {
+          const res = await fetch("/api/payments/saved-card", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: order.orderId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            router.push(`/checkout/success?orderId=${order.orderId}&paid=saved&orderNo=${encodeURIComponent(order.orderNo)}`);
+            return;
+          }
+          alert(`등록된 카드 결제에 실패했습니다.\n${data?.error ?? ""}\n카드 결제창으로 진행합니다.`);
+        } catch {
+          alert("등록된 카드 결제 중 오류가 발생했습니다. 카드 결제창으로 진행합니다.");
+        }
+      }
+
       const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!TOSS_CLIENT_KEY) { alert("결제 키가 설정되지 않았습니다."); setPaying(false); return; }
 
@@ -364,7 +403,7 @@ function SubscribeContent() {
         // 자동 갱신: 카드 등록(빌링키) → 첫 결제. 이후 주기마다 실제 배송 수량으로 자동 결제
         await payment.requestBillingAuth({
           method: "CARD",
-          successUrl: `${window.location.origin}/checkout/success?orderId=${order.orderId}&billing=true&amount=${order.totalAmount}&orderNo=${order.orderNo}`,
+          successUrl: `${window.location.origin}/checkout/success?orderId=${order.orderId}&billing=true&amount=${order.totalAmount}&orderNo=${order.orderNo}&subscriptionId=${order.subscriptionId ?? ""}`,
           failUrl: `${window.location.origin}/checkout/fail?orderId=${order.orderId}`,
         });
       } else {
@@ -854,6 +893,12 @@ function SubscribeContent() {
                   <span className="material-symbols-outlined text-[11px]">open_in_new</span>
                 </a>
               </div>
+
+              {savedCard && (
+                <div className="mt-4">
+                  <SavedCardChoice card={savedCard} value={payMethod} onChange={setPayMethod} theme="light" autoRenewNote={mode !== "trial" && autoRenew} />
+                </div>
+              )}
 
               <button
                 disabled={!allReady || paying}

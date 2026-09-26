@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "../store/cart";
+import SavedCardChoice, { type PayMethod, type SavedCardInfo } from "../components/SavedCardChoice";
 import AreaCheckNotice from "../components/address/AreaCheckNotice";
 import DeliveryDetailFields from "../components/address/DeliveryDetailFields";
 import {
@@ -119,6 +120,22 @@ export default function CheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [saveThisAddress, setSaveThisAddress] = useState(false);
+  // 등록 카드(구독 빌링키) — 있으면 기본 결제 수단으로 제안
+  const [savedCard, setSavedCard] = useState<SavedCardInfo | null>(null);
+  const [payMethod, setPayMethod] = useState<PayMethod>("window");
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+    fetch("/api/payments/saved-card")
+      .then((r) => (r.ok ? r.json() : { card: null }))
+      .then((d: { card: SavedCardInfo | null }) => {
+        if (cancelled) return;
+        setSavedCard(d.card);
+        if (d.card) setPayMethod("saved");
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [status]);
 
   // 배송비 정책은 관리자 설정을 따른다 (현재 무료)
   const { data: feeSettings } = useSWR<{ deliveryFee: string; freeShippingMin: string }>(
@@ -328,6 +345,25 @@ export default function CheckoutPage() {
 
     // 서버가 계산한 금액을 사용 (위변조 방지)
     const payAmount: number = order.totalAmount ?? finalTotal;
+
+    // 등록 카드로 바로 결제 — 실패하면 안내 후 카드 결제창으로 이어간다
+    if (savedCard && payMethod === "saved" && userId !== "guest") {
+      try {
+        const res = await fetch("/api/payments/saved-card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: order.id }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          router.push(`/checkout/success?orderId=${order.id}&paid=saved&orderNo=${encodeURIComponent(order.orderNo)}`);
+          return;
+        }
+        alert(`등록된 카드 결제에 실패했습니다.\n${data?.error ?? ""}\n카드 결제창으로 진행합니다.`);
+      } catch {
+        alert("등록된 카드 결제 중 오류가 발생했습니다. 카드 결제창으로 진행합니다.");
+      }
+    }
 
     const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
     if (!TOSS_CLIENT_KEY) { alert("결제 키가 설정되지 않았습니다."); setLoading(false); return; }
@@ -559,9 +595,15 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {savedCard && (
+            <div className="mt-5">
+              <SavedCardChoice card={savedCard} value={payMethod} onChange={setPayMethod} theme="dark" />
+            </div>
+          )}
+
           <button onClick={handleOrder} disabled={loading || !address.name || !address.address1}
             className="w-full mt-6 py-4 bg-brand-amber text-white rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading ? "처리 중..." : `${finalTotal.toLocaleString()}원 결제하기`}
+            {loading ? "처리 중..." : savedCard && payMethod === "saved" ? `${finalTotal.toLocaleString()}원 등록 카드로 바로 결제` : `${finalTotal.toLocaleString()}원 결제하기`}
           </button>
         </div>
       </div>

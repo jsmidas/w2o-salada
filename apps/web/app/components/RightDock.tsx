@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: SidebarConfig = {
     { id: "area", q: "배송 지역", a: "대구 달서구와 달성군 일부 지역에 새벽배송합니다. 서비스 지역은 순차적으로 넓혀갑니다.", href: "/about-service" },
     { id: "cutoff", q: "주문 마감", a: "화·목 새벽 배송이며, 배송 전날 오후 2시까지 주문하시면 됩니다.", href: "/about-service" },
     { id: "fee", q: "배송비", a: "배송비는 받지 않습니다. 본품 11,000원 이상부터 주문하실 수 있습니다.", href: "/about-service" },
-    { id: "pack", q: "신선 포장", a: "친환경 보냉팩 + 드라이아이스로 0~4도 콜드체인 유지.", href: "/about-service" },
+    { id: "pack", q: "신선 포장", a: "친환경 보냉팩으로 0~4도 콜드체인을 유지합니다. 조리·포장 후 냉장 보관해 새벽에 배송합니다.", href: "/about-service" },
   ],
 };
 

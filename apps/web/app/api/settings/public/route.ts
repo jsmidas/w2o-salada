@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 const DEFAULTS: Record<string, string> = {
   minOrderAmount: "11000",
+  // 배송비는 무료 정책이지만, 값을 코드에 박지 않고 관리자 설정을 따른다
+  deliveryFee: "0",
+  freeShippingMin: "11000",
 };
 
 // GET: 공개 설정 조회 (최소 주문액 등, 고객 UI에서 사용)

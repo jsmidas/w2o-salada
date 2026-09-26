@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -50,7 +51,15 @@ export default function CheckoutPage() {
   const [saveThisAddress, setSaveThisAddress] = useState(false);
   const [addressLabel, setAddressLabel] = useState("");
 
-  const deliveryFee = totalPrice() >= 15000 ? 0 : 3000;
+  // 배송비 정책은 관리자 설정을 따른다 (현재 무료)
+  const { data: feeSettings } = useSWR<{ deliveryFee: string; freeShippingMin: string }>(
+    "/api/settings/public",
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const baseDeliveryFee = feeSettings ? Number(feeSettings.deliveryFee) : 0;
+  const freeShippingMin = feeSettings ? Number(feeSettings.freeShippingMin) : 11000;
+  const deliveryFee = totalPrice() >= freeShippingMin ? 0 : baseDeliveryFee;
   const finalTotal = totalPrice() + deliveryFee;
   const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-brand-green text-sm transition";
 

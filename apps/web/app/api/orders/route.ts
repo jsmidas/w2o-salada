@@ -3,8 +3,11 @@ import { requireAuth } from "../../lib/auth-guard";
 import { pushDuePrices } from "../../lib/effective-price";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
-const FREE_SHIPPING_THRESHOLD = 15000;
-const DELIVERY_FEE = 3000;
+// 배송비 정책은 관리자 설정(deliveryFee / freeShippingMin)을 따른다.
+// 예전에는 15,000원 미만 3,000원이 코드에 박혀 있어, 설정이 무료여도
+// 최소 주문액(11,000원) 주문에 배송비가 붙었다.
+const DEFAULT_DELIVERY_FEE = 0;
+const DEFAULT_FREE_SHIPPING_MIN = 11000;
 
 function generateOrderNo() {
   const now = new Date();
@@ -80,7 +83,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const deliveryFee = itemsTotal >= FREE_SHIPPING_THRESHOLD ? 0 : DELIVERY_FEE;
+    const feeSettings = await prisma.setting.findMany({
+      where: { key: { in: ["deliveryFee", "freeShippingMin"] } },
+    });
+    const settingOf = (key: string, fallback: number) => {
+      const raw = feeSettings.find((s) => s.key === key)?.value;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const baseDeliveryFee = settingOf("deliveryFee", DEFAULT_DELIVERY_FEE);
+    const freeShippingMin = settingOf("freeShippingMin", DEFAULT_FREE_SHIPPING_MIN);
+    const deliveryFee = itemsTotal >= freeShippingMin ? 0 : baseDeliveryFee;
     const totalAmount = itemsTotal + deliveryFee;
 
     // userId 확인 (없으면 guest 폴백)

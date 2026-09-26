@@ -8,10 +8,14 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice, baseTotalPrice } = useCart();
-  const { data: settings } = useSWR<{ minOrderAmount: string }>("/api/settings/public", fetcher, {
-    revalidateOnFocus: false,
-  });
+  const { data: settings } = useSWR<{
+    minOrderAmount: string;
+    deliveryFee: string;
+    freeShippingMin: string;
+  }>("/api/settings/public", fetcher, { revalidateOnFocus: false });
   const minOrderAmount = settings ? Number(settings.minOrderAmount) : 11000;
+  const baseDeliveryFee = settings ? Number(settings.deliveryFee) : 0;
+  const freeShippingMin = settings ? Number(settings.freeShippingMin) : 11000;
 
   if (items.length === 0) {
     return (
@@ -28,7 +32,7 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = totalPrice() >= 15000 ? 0 : 3000;
+  const deliveryFee = totalPrice() >= freeShippingMin ? 0 : baseDeliveryFee;
   const finalTotal = totalPrice() + deliveryFee;
 
   // 본품 합계 기반 최소 주문액 검증
@@ -148,7 +152,7 @@ export default function CartPage() {
             </div>
             {deliveryFee > 0 && (
               <p className="text-xs text-gray-500">
-                {(15000 - totalPrice()).toLocaleString()}원 더 담으면 무료배송!
+                {(freeShippingMin - totalPrice()).toLocaleString()}원 더 담으면 무료배송!
               </p>
             )}
             <div className="pt-3 border-t border-white/10 flex justify-between">

@@ -508,12 +508,23 @@ ${max}개 이상 주문하시겠습니까?`);
                   <div key={d} className={`text-center py-1 text-[10px] font-semibold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"}`}>{d}</div>
                 ))}
               </div>
-              {weekRows.map((row, ri) => (
-                <div key={ri} className="grid" style={{ gridTemplateColumns: "0.7fr 0.7fr 2fr 1fr 2fr 1fr 0.7fr" }}>
+              {weekRows.map((row, ri) => {
+                const firstOfMonthIdx = row.findIndex((d) => d.slice(8, 10) === "01");
+                const bandMonth = ri === 0 ? Number(row[0]!.slice(5, 7)) : firstOfMonthIdx >= 0 ? Number(row[firstOfMonthIdx]!.slice(5, 7)) : null;
+                const bandStartsMid = ri !== 0 && firstOfMonthIdx > 0;
+                return (
+                <div key={ri}>
+                {bandMonth !== null && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1D9E75]/10 border-y border-[#1D9E75]/15">
+                    <span className="text-base font-black text-[#1D9E75] tracking-tight">{bandMonth}월</span>
+                    {bandStartsMid && <span className="text-[11px] text-[#1D9E75]/70">{fmtMD(row[firstOfMonthIdx]!)}부터</span>}
+                  </div>
+                )}
+                <div className="grid" style={{ gridTemplateColumns: "0.7fr 0.7fr 2fr 1fr 2fr 1fr 0.7fr" }}>
                   {row.map((dateStr, ci) => {
                     const day = Number(dateStr.slice(8, 10));
                     const month = Number(dateStr.slice(5, 7));
-                    const showMonth = day === 1 || (ri === 0 && ci === 0);
+                    const showMonth = day === 1;
                     const isAnyDelivery = allDeliveryDateSet.has(dateStr);
                     const inWindow = windowDateSet.has(dateStr);
                     const isClosed = isAnyDelivery && dateStr < cutoffDate;
@@ -535,7 +546,7 @@ ${max}개 이상 주문하시겠습니까?`);
                           if (isSkipped) { toggleSkip(dateStr); return; }
                           setSelectedDate(isSelected ? null : dateStr);
                         }}
-                        className={`min-h-[2.4rem] border-b border-r border-gray-50 px-0.5 py-0.5 text-center transition ${
+                        className={`min-h-[3rem] border-b border-r border-gray-50 px-0.5 py-1 text-center transition ${
                           isClosed ? "bg-gray-50 cursor-not-allowed"
                             : isSkipped ? "bg-gray-50/80 cursor-pointer"
                             : isSelected ? "bg-[#1D9E75]/10 ring-2 ring-[#1D9E75] ring-inset cursor-pointer"
@@ -546,35 +557,37 @@ ${max}개 이상 주문하시겠습니까?`);
                         }`}
                         title={beyond ? "기간을 늘리면 포함됩니다" : undefined}
                       >
-                        <div className="flex items-center justify-center gap-0.5 leading-none">
-                          {showMonth && <span className="text-[8px] text-[#1D9E75] font-bold">{month}월</span>}
-                          <span className={`text-[11px] ${ci === 0 ? "text-red-400" : ci === 6 ? "text-blue-400" : "text-gray-600"} ${!isAnyDelivery ? "opacity-20" : isClosed || beyond ? "opacity-40" : "font-semibold"}`}>
-                            {day}
+                        <div className="flex items-center justify-center leading-none">
+                          <span className={`${showMonth ? "text-[12px] font-black text-[#1D9E75]" : `text-[12px] ${ci === 0 ? "text-red-400" : ci === 6 ? "text-blue-400" : "text-gray-600"}`} ${!isAnyDelivery ? "opacity-20" : isClosed || beyond ? "opacity-40" : "font-bold"}`}>
+                            {showMonth ? `${month}/${day}` : day}
                           </span>
                         </div>
                         {isClosed && <div className="text-[8px] text-gray-400">마감</div>}
                         {isSkipped && !isClosed && <div className="text-[8px] text-gray-400 line-through">건너뜀</div>}
                         {isActive && !isClosed && !narrow && (
-                          <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                          <div className="flex items-center justify-center mt-1">
                             {mode === "auto" || done ? (
-                              <span className={`w-3.5 h-3.5 rounded-full inline-flex items-center justify-center ${mode === "auto" ? "bg-[#EF9F27]" : "bg-[#1D9E75]"}`}>
-                                <span className="material-symbols-outlined text-white text-[8px]">check</span>
+                              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[13px] font-black leading-none ${dateSlots[dateStr] ? "bg-[#EF9F27]" : mode === "auto" ? "bg-[#EF9F27]" : "bg-[#1D9E75]"}`}>
+                                <span className="material-symbols-outlined text-[11px]">check</span>{need}개
                               </span>
                             ) : picks > 0 ? (
-                              <span className="text-[9px] font-bold text-red-500">{picks}/{need}</span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[12px] font-black leading-none">{picks}/{need}</span>
                             ) : (
-                              <span className="material-symbols-outlined text-amber-400 text-[11px]">warning</span>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[12px] font-black leading-none">
+                                <span className="material-symbols-outlined text-[11px]">warning</span>{need}개
+                              </span>
                             )}
-                            <span className={`text-[9px] font-bold ${dateSlots[dateStr] ? "text-[#EF9F27]" : "text-gray-500"}`}>{need}개</span>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
-              ))}
-              <p className="text-[10px] text-[#7aaa90] px-3 py-1.5 border-t border-gray-50">
-                체크된 날짜를 누르면 그 날만 수량을 바꾸거나 건너뛸 수 있습니다. 회색 날짜는 기간을 늘리면 들어옵니다.
+                </div>
+                );
+              })}
+              <p className="text-[11px] text-[#7aaa90] px-3 py-1.5 border-t border-gray-50">
+숫자는 그 날 받을 개수입니다. 날짜를 누르면 그 날만 수량을 바꾸거나 건너뛸 수 있고, 주황색은 기본 구성과 다르게 바꾼 날입니다.
               </p>
             </div>
 
@@ -730,7 +743,7 @@ ${max}개 이상 주문하시겠습니까?`);
                     <div className="flex-1 min-w-0 text-xs text-[#0A1A0F] truncate">
                       {picked.length > 0 ? picked.map((m) => m.product.name).join(" · ") : <span className="text-gray-400">{mode === "auto" ? "메뉴 미배정" : "메뉴를 선택하세요"}</span>}
                     </div>
-                    <span className={`shrink-0 text-[11px] font-bold ${dateSlots[d.dateStr] ? "text-[#EF9F27]" : "text-gray-500"}`}>{need}개</span>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-sm font-black ${dateSlots[d.dateStr] ? "bg-[#EF9F27]/15 text-[#EF9F27]" : "bg-[#1D9E75]/10 text-[#1D9E75]"}`}>{need}개</span>
                     <span className="shrink-0 text-xs text-gray-500 w-14 text-right">{getDateTotal(d.dateStr).toLocaleString()}원</span>
                     <span className={`material-symbols-outlined text-lg ${ok ? (mode === "auto" ? "text-[#EF9F27]" : "text-[#1D9E75]") : "text-amber-400"}`}>{ok ? "check_circle" : "warning"}</span>
                   </button>

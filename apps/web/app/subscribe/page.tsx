@@ -17,6 +17,16 @@ type Product = {
   category: { name: string; slug: string; isOption?: boolean };
 };
 
+type Cat = {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  color: string | null;
+  sortOrder: number;
+  isOption: boolean;
+};
+
 type CalendarDay = {
   id: string;
   date: string;
@@ -56,12 +66,32 @@ function SubscribeContent() {
     "auto";
   const [mode, setMode] = useState<"manual" | "auto" | "trial">(initialMode);
 
-  // Step 2: 배송당 수량 (4개 카테고리)
-  const [saladCount, setSaladCount] = useState(2);
-  const [mealCount, setMealCount] = useState(0);
-  const [banchanCount, setBanchanCount] = useState(0);
-  const [drinkCount, setDrinkCount] = useState(0);
-  const itemsPerDelivery = saladCount + mealCount + banchanCount + drinkCount;
+  // Step 2: 배송당 수량 — 카테고리 slug → 개수.
+  // 카테고리를 DB에서 받아 그리므로 관리자가 카테고리를 추가해도 이 화면이 따라온다.
+  const [categories, setCategories] = useState<Cat[]>([]);
+  const [slotCounts, setSlotCounts] = useState<Record<string, number>>({ salad: 2 });
+  const itemsPerDelivery = useMemo(
+    () => Object.values(slotCounts).reduce((sum, n) => sum + n, 0),
+    [slotCounts],
+  );
+  const setSlot = (slug: string, value: number) =>
+    setSlotCounts((prev) => ({ ...prev, [slug]: Math.max(0, value) }));
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data: Cat[]) => {
+        if (!Array.isArray(data)) return;
+        setCategories(data);
+        // 기본 구성(샐러드 2개)은 유지하고, 그 외 카테고리는 0으로 시작
+        setSlotCounts((prev) => {
+          const next: Record<string, number> = {};
+          for (const c of data) next[c.slug] = prev[c.slug] ?? 0;
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, []);
   const [config, setConfig] = useState({ minItems: 2, maxItems: 10 });
 
   // 약관 동의
@@ -260,15 +290,16 @@ function SubscribeContent() {
     return menu.find((m) => m.productId === productId)?.product.category.slug || "";
   };
 
-  const getSelectedByCategory = (dateStr: string) => {
-    const ids = selection[dateStr] || [];
-    let salads = 0;
-    let meals = 0;
-    for (const id of ids) {
-      if (getCategoryOfProduct(dateStr, id) === "salad") salads++;
-      else meals++;
+  // 선택 현황을 카테고리 slug 기준으로 집계.
+  // 예전에는 "샐러드 vs 나머지" 2분류라 반찬·음료가 간편식 쿼터를 소진했다.
+  const getSelectedByCategory = (dateStr: string): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    for (const id of selection[dateStr] || []) {
+      const slug = getCategoryOfProduct(dateStr, id);
+      if (!slug) continue;
+      counts[slug] = (counts[slug] ?? 0) + 1;
     }
-    return { salads, meals };
+    return counts;
   };
 
   const getItemCount = (dateStr: string, productId: string) =>
@@ -280,8 +311,8 @@ function SubscribeContent() {
       const currentItemCount = current.filter((id) => id === productId).length;
       const cat = getCategoryOfProduct(dateStr, productId);
       const counts = getSelectedByCategory(dateStr);
-      const catLimit = cat === "salad" ? saladCount : mealCount;
-      const catCount = cat === "salad" ? counts.salads : counts.meals;
+      const catLimit = slotCounts[cat] ?? 0;
+      const catCount = counts[cat] ?? 0;
 
       // 카테고리 여유가 있고 총 수량도 여유 있으면 → 1개 추가 (중복 허용)
       if (catCount < catLimit && current.length < itemsPerDelivery) {
@@ -306,15 +337,6 @@ function SubscribeContent() {
   // 완료 체크
   const completedCount = activeDates.filter((d) => getSelectedCount(d.dateStr) >= itemsPerDelivery).length;
 
-  // 카테고리 슬롯 카운트 → 카테고리 slug 매핑
-  // (state 이름은 한국 도메인 약어, slug는 DB 저장 값)
-  const categorySlots: Record<string, number> = {
-    salad: saladCount,
-    simple: mealCount,
-    banchan: banchanCount,
-    drink: drinkCount,
-  };
-
   // AUTO 모드: 그날 메뉴풀에서 카테고리별로 slot 개수만큼 선택
   // - 1차: 각 카테고리 slug 로 필터 → sortOrder 순으로 앞에서부터 count개
   // - 2차(fallback): 해당 카테고리가 부족하면 남은 슬롯을 다른 본품(isOption=false)으로 채움
@@ -326,7 +348,7 @@ function SubscribeContent() {
     const used = new Set<string>();
 
     // 1차: 카테고리 슬롯 그대로
-    for (const [slug, count] of Object.entries(categorySlots)) {
+    for (const [slug, count] of Object.entries(slotCounts)) {
       if (count <= 0) continue;
       const catItems = menus.filter((m) => m.product.category?.slug === slug).slice(0, count);
       for (const m of catItems) {
@@ -524,14 +546,16 @@ function SubscribeContent() {
                 </Link>
               </div>
 
-              {/* 수량 +/- (4개 카테고리 카드) */}
+              {/* 수량 +/- (카테고리 카드 — DB 카테고리를 그대로 그린다) */}
               {(() => {
-                const cats = [
-                  { key: "salad",   label: "샐러드",  icon: "eco",          color: "#1D9E75", value: saladCount,   set: setSaladCount },
-                  { key: "meal",    label: "간편식",  icon: "lunch_dining", color: "#EF9F27", value: mealCount,    set: setMealCount },
-                  { key: "banchan", label: "반찬·국", icon: "rice_bowl",    color: "#7c3aed", value: banchanCount, set: setBanchanCount },
-                  { key: "drink",   label: "음료",    icon: "local_cafe",   color: "#0ea5e9", value: drinkCount,   set: setDrinkCount },
-                ];
+                const cats = categories.map((c) => ({
+                  key: c.slug,
+                  label: c.name,
+                  icon: c.icon || "restaurant",
+                  color: c.color || "#1D9E75",
+                  value: slotCounts[c.slug] ?? 0,
+                  set: (v: number) => setSlot(c.slug, v),
+                }));
                 return (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
@@ -815,11 +839,16 @@ function SubscribeContent() {
                     </div>
                   </div>
 
-                  {/* 카테고리별 잔여 표시 */}
+                  {/* 카테고리별 잔여 표시 (수량을 지정한 카테고리만) */}
                   {(() => { const c = getSelectedByCategory(selectedDate); return (
-                    <div className="flex gap-3 mb-3 text-xs">
-                      <span className="text-[#1D9E75] font-medium">샐러드 {c.salads}/{saladCount}</span>
-                      {mealCount > 0 && <span className="text-[#EF9F27] font-medium">간편식 {c.meals}/{mealCount}</span>}
+                    <div className="flex flex-wrap gap-3 mb-3 text-xs">
+                      {categories
+                        .filter((cat) => (slotCounts[cat.slug] ?? 0) > 0)
+                        .map((cat) => (
+                          <span key={cat.slug} className="font-medium" style={{ color: cat.color || "#1D9E75" }}>
+                            {cat.name} {c[cat.slug] ?? 0}/{slotCounts[cat.slug]}
+                          </span>
+                        ))}
                     </div>
                   ); })()}
 
@@ -829,7 +858,7 @@ function SubscribeContent() {
                       const qty = getItemCount(selectedDate, m.productId);
                       const cat = m.product.category.slug;
                       const counts = getSelectedByCategory(selectedDate);
-                      const catFull = cat === "salad" ? counts.salads >= saladCount : counts.meals >= mealCount;
+                      const catFull = (counts[cat] ?? 0) >= (slotCounts[cat] ?? 0);
                       const full = (catFull && !selected) || (getSelectedCount(selectedDate) >= itemsPerDelivery && !selected);
                       const p = m.product;
                       return (
@@ -903,7 +932,10 @@ function SubscribeContent() {
                     {mode === "manual" ? "직접 골라먹기" : mode === "auto" ? "잘 챙겨서 보내줘" : "맛보기"}
                   </span>
                   <span className="text-[#7aaa90] text-xs">
-                    샐러드 {saladCount}{mealCount > 0 ? ` + 간편식 ${mealCount}` : ""}
+                    {categories
+                      .filter((c) => (slotCounts[c.slug] ?? 0) > 0)
+                      .map((c) => `${c.name} ${slotCounts[c.slug]}`)
+                      .join(" + ")}
                   </span>
                 </div>
 

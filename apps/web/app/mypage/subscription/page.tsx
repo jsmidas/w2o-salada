@@ -15,6 +15,9 @@ type Subscription = {
   nextDeliveryDate: string | null;
   startedAt: string | null;
   pausedAt: string | null;
+  cycleWeeks?: number;
+  autoRenew?: boolean;
+  creditBalance?: number;
   address: {
     id: string; label: string | null; name: string; phone: string; address1: string; address2: string | null;
     buildingName: string | null; areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
@@ -23,11 +26,20 @@ type Subscription = {
     id: string;
     year: number;
     month: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    weeks?: number | null;
     status: string;
     totalAmount: number;
     paidAt: string | null;
   }[];
 };
+
+function cycleLabel(start: string, end: string, weeks?: number | null) {
+  const s = new Date(start), e = new Date(new Date(end).getTime() - 86400000);
+  const f = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return `${f(s)}~${f(e)}${weeks ? ` (${weeks}주)` : ""}`;
+}
 
 const statusLabels: Record<string, string> = {
   PENDING: "결제 대기",
@@ -116,7 +128,9 @@ export default function SubscriptionPage() {
                         </span>
                       </div>
                       <p className="text-[#0A1A0F] font-bold text-lg">
-                        월 {sub.price.toLocaleString()}원
+                        {sub.cycleWeeks ? `${sub.cycleWeeks}주 ` : "월 "}{sub.price.toLocaleString()}원
+                        {sub.autoRenew === false && <span className="ml-2 text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">이번 주기만</span>}
+                        {(sub.creditBalance ?? 0) > 0 && <span className="ml-2 text-[10px] font-semibold text-[#1D9E75] bg-[#1D9E75]/10 px-1.5 py-0.5 rounded">다음 결제 {sub.creditBalance!.toLocaleString()}원 차감</span>}
                       </p>
                       <p className="text-[#7aaa90] text-xs">
                         배송당 {sub.itemsPerDelivery}개
@@ -170,7 +184,7 @@ export default function SubscriptionPage() {
                       <div className="space-y-1.5">
                         {sub.periods.slice(0, 3).map((p) => (
                           <div key={p.id} className="flex items-center justify-between text-sm">
-                            <span className="text-[#4a7a5e]">{p.year}년 {p.month}월</span>
+                            <span className="text-[#4a7a5e]">{p.startDate && p.endDate ? cycleLabel(p.startDate, p.endDate, p.weeks) : `${p.year}년 ${p.month}월`}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-[#0A1A0F] font-medium">{p.totalAmount.toLocaleString()}원</span>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded ${

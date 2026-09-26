@@ -287,6 +287,9 @@ model Subscription {
   planType          PlanType?          // deprecated, optional로 유지
   frequency         Frequency?         // deprecated, optional로 유지
   selectionMode     SelectionMode      @default(MANUAL)
+  cycleWeeks        Int                @default(4)  // 청구 주기(주) — 2/4/6/8. 배송은 화·목이라 4주 = 8회
+  autoRenew         Boolean            @default(true) // false 면 이번 주기만 결제하고 종료 (빌링키 없음)
+  creditBalance     Int                @default(0)  // 결제 후 건너뛴 배송분 — 다음 결제에서 차감
   itemsPerDelivery  Int                @default(2)  // 배송당 수량 (슬롯 합과 동기화)
   slots             Json?              // 카테고리별 슬롯 { "salad": 2, "simple": 1, ... } — key=Category.slug
   status            SubscriptionStatus @default(PENDING)
@@ -482,8 +485,12 @@ model SubscriptionPeriod {
   id             String       @id @default(cuid())
   subscriptionId String
   subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  year           Int
+  year           Int          // 레거시(달력 월 청구) — startDate 의 연·월을 넣는다
   month          Int
+  // 롤링 청구 주기 — [startDate, endDate) 안의 배송일이 이 주기의 배송. 월말 시작 고객도 어색하지 않게
+  startDate      DateTime?
+  endDate        DateTime?    // exclusive
+  weeks          Int?         // 2 / 4 / 6 / 8
   status         PeriodStatus @default(PENDING)
   totalAmount    Int          @default(0)
   orderId        String?
@@ -492,7 +499,7 @@ model SubscriptionPeriod {
 
   selections SubscriptionSelection[]
 
-  @@unique([subscriptionId, year, month])
+  @@index([subscriptionId, startDate])
   @@map("subscription_periods")
 }
 

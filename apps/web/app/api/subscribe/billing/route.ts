@@ -96,14 +96,21 @@ export async function POST(request: Request) {
 
       // 구독 처리: subscriptionId 있으면 기존 구독 활성화, 없으면 신규 생성 (레거시 호환)
       if (subscriptionId) {
+        const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, select: { nextBillingDate: true } });
         await prisma.subscription.update({
           where: { id: subscriptionId },
           data: {
             status: "ACTIVE",
             billingKey: encryptedBillingKey,
             startedAt: new Date(),
-            nextBillingDate: getNextBillingDate(),
+            // 롤링 주기: /api/subscribe 가 주기 종료 이틀 전으로 정해둔 값을 쓴다. 레거시(없음)만 한 달 뒤
+            nextBillingDate: sub?.nextBillingDate ?? getNextBillingDate(),
           },
+        });
+        // 첫 주기 결제 완료
+        await prisma.subscriptionPeriod.updateMany({
+          where: { subscriptionId, status: "PENDING", ...(orderId ? { OR: [{ orderId }, { orderId: null }] } : {}) },
+          data: { status: "PAID", paidAt: new Date(), ...(orderId ? { orderId } : {}) },
         });
       } else {
         await prisma.subscription.create({

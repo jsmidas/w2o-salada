@@ -93,6 +93,18 @@ export async function POST(request: Request) {
         include: { user: true },
       });
 
+      // "이번 주기만" 구독(자동 갱신 없음, 빌링키 없음)은 일반결제로 들어온다 → 구독·주기를 활성화
+      if (order.subscriptionId) {
+        await prisma.subscription.update({
+          where: { id: order.subscriptionId },
+          data: { status: "ACTIVE", startedAt: new Date() },
+        });
+        await prisma.subscriptionPeriod.updateMany({
+          where: { subscriptionId: order.subscriptionId, status: "PENDING", OR: [{ orderId: order.id }, { orderId: null }] },
+          data: { status: "PAID", paidAt: new Date(), orderId: order.id },
+        });
+      }
+
       // 배송일 KST 포맷 ("M월 D일") — null이면 "다음" 으로 fallback
       const formatDeliveryDate = (d: Date | null): string => {
         if (!d) return "다음";

@@ -31,28 +31,9 @@ export async function GET(request: Request) {
     }
     nextDate = new Date(nextDate);
 
-    // 현재 Period 로드 (배송일 포함 년월 기준)
-    const now = new Date();
-    let period = await prisma.subscriptionPeriod.findUnique({
-      where: {
-        subscriptionId_year_month: {
-          subscriptionId,
-          year: nextDate.getFullYear(),
-          month: nextDate.getMonth() + 1,
-        },
-      },
-    });
-    if (!period) {
-      period = await prisma.subscriptionPeriod.create({
-        data: {
-          subscriptionId,
-          year: nextDate.getFullYear(),
-          month: nextDate.getMonth() + 1,
-          status: "PENDING",
-          totalAmount: 0,
-        },
-      });
-    }
+    // 배송일이 속한 청구 주기 (없으면 다음 주기를 PENDING 으로 만든다)
+    const { getOrCreatePeriodForDate } = await import("../../../lib/subscription-cycle");
+    const period = await getOrCreatePeriodForDate(subscription, nextDate);
 
     // 해당 배송일 Selection 로드
     let selections = await prisma.subscriptionSelection.findMany({

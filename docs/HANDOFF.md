@@ -71,6 +71,18 @@
 - 기사 3명 + 코스 A/B/C 시드: `cd packages/db && npx tsx ../../tools/seed_routes.cts` (driver01~03 / driver1234). 이름은 운영 시 관리자 화면에서 변경
 - 다음: 기사 페이지 `/driver`(DRIVER 로그인 → 오늘 내 코스만, 출입 정보·품목·전화·지도·완료 체크), 피킹 페이지 분리, 배송 관리에서 금액 제거
 
+### 🔁 구독 캘린더 개편 + 롤링 청구 주기 (2026-09-28, 마이그레이션 `20260928020000_rolling_billing_cycle` 필요)
+- **캘린더**: 월 탭 폐지 → 첫 주문 가능일부터 N주를 한 화면에 이어서(칸 높이 절반, 월 바뀌는 칸에 "10월"). 체크된 날짜/칩을 누르면 **그 날만 수량 변경·건너뛰기**
+  (AUTO 는 날짜별 슬롯 `dateSlots`, MANUAL 은 메뉴 선택). 상단에 "날짜별 변경 N건"
+- **기간**: "8회 ±" → **2/4/6/8주 칩**. 최소 2회. 회당 최대는 설정(기본 10)
+- **자동 갱신 토글**: 켜면 빌링키(카드 등록) + N주마다 자동 결제, 끄면 이번 주기만 일반결제(빌링키 없음). 결제 승인 API가 구독을 활성화
+- **롤링 청구**: `Subscription.cycleWeeks/autoRenew/creditBalance`, `SubscriptionPeriod.startDate/endDate/weeks`(연·월 유니크 제거).
+  주기 = [첫 배송일, +N주). 결제일 = 주기 종료 이틀 전 06:00. 금액 = 그 주기 배송일 × 선택 상품가 − 크레딧
+- **변동 금액 고지**: renewal-notify 가 다음 주기 예정 금액(배송 횟수·차감 포함)을 계산해 7일 전 발송. 약관 문구에 변동 가능 명시
+- **크레딧**: 결제된 주기의 배송을 건너뛰면 그 금액을 `creditBalance`에 적립, 다음 자동 결제에서 차감(환불 대신). "이번 주기만"은 적립 없음(안내만)
+- 알림톡 템플릿 변수 추가: SUB_RENEWAL_NOTICE(결제일·배송횟수·기간·차감), SUB_RENEWED(기간·배송횟수) — 솔라피 템플릿 등록 시 반영 필요
+- `lib/subscription-cycle.ts`: cycleWindow · billingDateFor · previewCycle(DB 쓰기 없음) · nextCycleWindow · getOrCreatePeriodForDate
+
 ### 🔜 남은 것
 - **서버 측 주문 마감 검증**(②) — 단건 주문에 아직 `deliveryDate`가 없다. 장바구니의 배송일을 주문에 싣고 `isOrderable`로 막아야 한다
 - 배송 출발·완료 알림톡을 **주문자와 수령인 중 누구에게** 보낼지 — 부모님 댁 배송이면 둘 다일 수 있다

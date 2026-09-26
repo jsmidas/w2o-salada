@@ -10,14 +10,19 @@ export async function POST(request: Request) {
       getSessionUserId(),
     ]);
 
-    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address } = body as {
+    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address, slots, cycleWeeks: rawWeeks, autoRenew: rawAutoRenew } = body as {
       plan: "trial" | "subscription";
       selectionMode?: "MANUAL" | "AUTO";
       itemsPerDelivery?: number;
+      slots?: Record<string, number>;
+      cycleWeeks?: number;   // 2 / 4 / 6 / 8 — 롤링 청구 주기
+      autoRenew?: boolean;   // false 면 이번 주기만 결제 (빌링키 없음)
       selections: { date: string; productIds: string[] }[];
       addressId?: string | null;
       address?: import("../../lib/address-resolve").AddressInput | null;
     };
+    const cycleWeeks = [2, 4, 6, 8].includes(Number(rawWeeks)) ? Number(rawWeeks) : 4;
+    const autoRenew = plan === "subscription" && rawAutoRenew !== false;
 
     if (!plan || !selections || selections.length === 0) {
       return NextResponse.json({ error: "plan, selections 필수" }, { status: 400 });
@@ -129,23 +134,35 @@ export async function POST(request: Request) {
       });
 
       if (plan !== "trial") {
-        const now = new Date();
+        // 주기 = 첫 선택 배송일부터 N주. 결제일은 주기 종료 이틀 전 (자동 갱신일 때만)
+        const { cycleWindow, billingDateFor } = await import("../../lib/subscription-cycle");
+        const firstDate = [...selections].map((s) => s.date).sort()[0]!;
+        const { startDate, endDate } = cycleWindow(new Date(firstDate + "T00:00:00Z"), cycleWeeks);
+
         const subscription = await tx.subscription.create({
           data: {
             userId,
             addressId: resolved.addressId,
             selectionMode: selectionMode === "AUTO" ? "AUTO" : "MANUAL",
             itemsPerDelivery: itemsPerDelivery || 2,
+            slots: slots && typeof slots === "object" ? slots : undefined,
+            cycleWeeks,
+            autoRenew,
             status: "PENDING",
             price: totalAmount,
+            nextDeliveryDate: startDate,
+            nextBillingDate: autoRenew ? billingDateFor(endDate) : null,
           },
         });
 
         const period = await tx.subscriptionPeriod.create({
           data: {
             subscriptionId: subscription.id,
-            year: now.getFullYear(),
-            month: now.getMonth() + 1,
+            year: startDate.getUTCFullYear(),
+            month: startDate.getUTCMonth() + 1,
+            startDate,
+            endDate,
+            weeks: cycleWeeks,
             status: "PENDING",
             totalAmount,
           },
@@ -168,8 +185,10 @@ export async function POST(request: Request) {
 
         await Promise.all([
           selectionData.length > 0 ? tx.subscriptionSelection.createMany({ data: selectionData }) : null,
-          tx.order.update({ where: { id: order.id }, data: { subscriptionId: subscription.id } }),
+          tx.order.update({ where: { id: order.id }, data: { subscriptionId: subscription.id, deliveryDate: startDate } }),
+          tx.subscriptionPeriod.update({ where: { id: period.id }, data: { orderId: order.id } }),
         ]);
+        return { orderId: order.id, orderNo: order.orderNo, subscriptionId: subscription.id, autoRenew };
       }
 
       return { orderId: order.id, orderNo: order.orderNo };
@@ -179,6 +198,7 @@ export async function POST(request: Request) {
       ...result,
       totalAmount,
       plan,
+      cycleWeeks,
       addressId: resolved.addressId,
       areaStatus: resolved.areaStatus,
       deliveryHold: resolved.deliveryHold,

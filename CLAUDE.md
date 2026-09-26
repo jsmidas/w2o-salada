@@ -362,3 +362,12 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 - 주문 생성 4곳(단건·구독 신청·갱신 확정·자동결제)은 반드시 `addressId`를 채운다 (`lib/address-resolve.ts`)
 - 출입 방법·비밀번호·층수·갖다둘 곳·별칭은 **회원이 아니라 배송지(Address)** 에 둔다. 한 회원이 부모님 댁 등 여러 곳에 보낼 수 있다
 - `buildingName`은 다음 API 원문 그대로 저장(단지 묶음 키). 주소 문자열에 합치지 않는다
+
+## 구독 청구 주기 규칙 (2026-09-28)
+
+- 청구는 달력 월이 아니라 **롤링 주기**: 첫 배송일부터 N주(2/4/6/8, `Subscription.cycleWeeks`). `SubscriptionPeriod.startDate/endDate`가 주기
+- 결제일 = 주기 종료 **이틀 전** 06:00 (`renewal-charge`). 금액 = 그 주기의 실제 배송일 × 선택 상품가 − `creditBalance`. 7일 전 `renewal-notify`가 예정 금액을 고지한다 (변동 금액 정기결제라 고지 필수)
+- `autoRenew=false`는 "이번 주기만": 일반결제 1회, 빌링키 없음, 갱신 크론 대상 아님
+- 결제된 주기의 배송을 마감 전에 건너뛰면 환불 대신 크레딧 적립 → 다음 결제에서 차감
+- 배송 관리·피킹은 `SUBSCRIPTION_DELIVERY` 배송 건(배송일별)을 보고, 월/주기 결제 주문(`SUBSCRIPTION`)은 돈의 기록일 뿐이다
+

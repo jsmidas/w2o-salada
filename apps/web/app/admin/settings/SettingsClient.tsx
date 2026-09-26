@@ -10,6 +10,7 @@ const defaultSettings = {
   email: "hello@w2osalada.co.kr",
   address: "대구광역시 달서구",
   businessNumber: "000-00-00000",
+  mailOrderNumber: "", // 통신판매업 신고번호 — 전자상거래법 필수 표기, 간편결제 심사에서 확인하는 항목
   cutoffTime: "14:00",
   deliveryStart: "03:00",
   deliveryEnd: "06:00",
@@ -143,10 +144,15 @@ export default function SettingsClient({
               <label className="text-sm font-medium text-gray-600 block mb-1">사업자등록번호</label>
               <input type="text" value={settings.businessNumber} onChange={(e) => update("businessNumber", e.target.value)} className={inputClass} />
             </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">통신판매업 신고번호</label>
+              <input type="text" value={settings.mailOrderNumber} onChange={(e) => update("mailOrderNumber", e.target.value)} placeholder="예: 2026-대구달서-0000" className={inputClass} />
+              <p className="text-xs text-gray-400 mt-1">회사명·대표자·사업자등록번호·신고번호는 사이트 하단에 표시됩니다. 카카오페이·삼성페이 등 간편결제 심사에서 이 표기를 확인합니다.</p>
+            </div>
           </div>
           <div className="mt-5 flex items-center gap-3">
             <button
-              onClick={() => handleSave("basic", ["shopName", "companyName", "ownerName", "phone", "email", "address", "businessNumber"])}
+              onClick={() => handleSave("basic", ["shopName", "companyName", "ownerName", "phone", "email", "address", "businessNumber", "mailOrderNumber"])}
               className="px-5 py-2 bg-[#1D9E75] text-white text-sm font-medium rounded-lg hover:bg-[#178a64] transition"
             >
               저장

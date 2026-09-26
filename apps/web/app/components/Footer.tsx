@@ -4,7 +4,7 @@ import { prisma } from "@repo/db";
 // 어드민 설정(Setting 테이블)에서 사업자 정보를 읽어와 렌더링.
 // 부모 페이지의 revalidate 캐시에 자연스럽게 흡수됨.
 async function getBusinessInfo() {
-  const keys = ["shopName", "companyName", "ownerName", "phone", "email", "address", "businessNumber"];
+  const keys = ["shopName", "companyName", "ownerName", "phone", "email", "address", "businessNumber", "mailOrderNumber"];
   try {
     const rows = await prisma.setting.findMany({
       where: { key: { in: keys } },
@@ -19,9 +19,10 @@ async function getBusinessInfo() {
       email: map.email ?? "",
       address: map.address ?? "",
       businessNumber: map.businessNumber ?? "",
+      mailOrderNumber: map.mailOrderNumber ?? "",
     };
   } catch {
-    return { shopName: "W2O SALADA", companyName: "", ownerName: "", phone: "", email: "", address: "", businessNumber: "" };
+    return { shopName: "W2O SALADA", companyName: "", ownerName: "", phone: "", email: "", address: "", businessNumber: "", mailOrderNumber: "" };
   }
 }
 
@@ -106,6 +107,11 @@ export default async function Footer() {
             {info.businessNumber && (
               <>
                 <span className="text-gray-400 ml-3">사업자등록번호:</span> {info.businessNumber}
+              </>
+            )}
+            {info.mailOrderNumber && (
+              <>
+                <span className="text-gray-400 ml-3">통신판매업신고:</span> {info.mailOrderNumber}
               </>
             )}
           </p>

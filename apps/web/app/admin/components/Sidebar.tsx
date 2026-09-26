@@ -22,6 +22,7 @@ const menuGroups: MenuGroup[] = [
     permission: "orders",
     items: [
       { href: "/admin/orders", icon: "receipt_long", label: "주문 관리" },
+      { href: "/admin/production", icon: "factory", label: "생산 집계" },
       { href: "/admin/delivery", icon: "local_shipping", label: "배송 관리" },
       { href: "/admin/delivery-calendar", icon: "calendar_month", label: "배송 캘린더" },
     ],
@@ -96,10 +97,10 @@ export default function Sidebar({
       </div>
 
       {/* 메뉴 */}
-      <nav className="flex-1 py-3 overflow-y-auto">
+      <nav className="flex-1 py-1.5 overflow-y-auto">
         {visibleGroups.map((group, gi) => (
-          <div key={group.title} className={gi === 0 ? "" : "mt-3"}>
-            <div className="px-5 pt-2 pb-1 text-[10px] font-bold tracking-wider text-white/30 uppercase">
+          <div key={group.title} className={gi === 0 ? "" : "mt-1.5"}>
+            <div className="px-5 pt-1 pb-0.5 text-[10px] font-bold tracking-wider text-white/30 uppercase">
               {group.title}
             </div>
             {group.items.map((item) => {
@@ -108,7 +109,7 @@ export default function Sidebar({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-5 py-1.5 text-sm transition ${
+                  className={`flex items-center gap-3 px-5 py-[3px] text-sm transition ${
                     active
                       ? "bg-[#1D9E75]/10 text-[#1D9E75] border-r-2 border-[#1D9E75]"
                       : "text-gray-400 hover:text-white hover:bg-white/5"

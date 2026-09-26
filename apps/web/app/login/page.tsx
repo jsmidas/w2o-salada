@@ -4,6 +4,7 @@ import { signIn, getSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordToggle from "../components/PasswordToggle";
 
 const SAVED_KEY = "w2o_saved_login";
 
@@ -101,7 +102,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+                className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
               />
             </div>
             <div>
@@ -116,17 +117,12 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   className="w-full px-4 py-3 pr-12 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 text-sm transition"
-                >
-                  {showPassword ? "숨기기" : "보기"}
-                </button>
+                <PasswordToggle shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
               </div>
             </div>
 
             {/* 아이디/비밀번호 저장 */}
+            <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -139,6 +135,10 @@ export default function LoginPage() {
               />
               <span className="text-sm text-white/40">아이디 저장</span>
             </label>
+            <Link href="/find-account" className="text-sm text-white/40 hover:text-[#5DCAA5] transition">
+              아이디·비밀번호 찾기
+            </Link>
+            </div>
 
             {error && (
               <div className="text-red-400 text-sm text-center bg-red-400/10 rounded-lg px-4 py-2.5">

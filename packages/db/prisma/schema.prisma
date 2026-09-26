@@ -543,6 +543,24 @@ enum InquiryStatus {
   RESOLVED
 }
 
+// ── 휴대폰 인증 (아이디·비밀번호 찾기) ──
+// 한 행 = 인증코드 1회 발송. 코드는 해시로만 저장, 검증 성공 시 resetTokenHash 발급.
+model PhoneVerification {
+  id             String    @id @default(cuid())
+  phone          String    // 숫자만 (01012345678)
+  purpose        String    @default("FIND_ACCOUNT")
+  codeHash       String    // sha256(code + salt)
+  attempts       Int       @default(0)   // 코드 검증 시도 횟수 (5회 초과 시 폐기)
+  expiresAt      DateTime  // 코드 만료 (발송 + 5분)
+  verifiedAt     DateTime?
+  resetTokenHash String?   // 검증 후 발급되는 비밀번호 재설정 토큰(해시)
+  usedAt         DateTime? // 재설정 완료 시각
+  createdAt      DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@map("phone_verifications")
+}
+
 // ── 쇼핑몰 설정 (key-value) ──
 model Setting {
   id        String   @id @default(cuid())

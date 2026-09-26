@@ -5,12 +5,22 @@ import { prisma } from "@repo/db";
 export async function POST(request: Request) {
   const { username, email, password, name, phone } = await request.json();
 
-  if (!username || !email || !password || !name) {
+  if (!username || !email || !password || !name || !phone) {
     return NextResponse.json(
-      { error: "아이디, 이메일, 비밀번호, 이름은 필수입니다." },
+      { error: "아이디, 이메일, 비밀번호, 이름, 휴대폰 번호는 필수입니다." },
       { status: 400 }
     );
   }
+
+  // 휴대폰 번호는 아이디·비밀번호 찾기(SMS 인증)와 배송 연락에 쓰이므로 필수 + 형식 검증
+  const phoneDigits = String(phone).replace(/[^0-9]/g, "");
+  if (!/^01[016789][0-9]{7,8}$/.test(phoneDigits)) {
+    return NextResponse.json(
+      { error: "휴대폰 번호 형식이 올바르지 않습니다. (예: 010-1234-5678)" },
+      { status: 400 }
+    );
+  }
+  const normalizedPhone = phoneDigits.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3");
 
   // 아이디 중복 체크
   const existingUsername = await prisma.user.findUnique({ where: { username } });
@@ -38,7 +48,7 @@ export async function POST(request: Request) {
       email,
       password: hashedPassword,
       name,
-      phone: phone ?? null,
+      phone: normalizedPhone,
       provider: "email",
       role: "CUSTOMER",
     },

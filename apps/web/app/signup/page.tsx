@@ -94,7 +94,7 @@ export default function SignupPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+              className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>
           <div>
@@ -106,18 +106,18 @@ export default function SignupPage() {
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
               autoComplete="username"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+              className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-white/50 mb-1.5">이메일</label>
             <input
               type="email"
-              placeholder="이메일 주소 (비밀번호 찾기용)"
+              placeholder="이메일 주소"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+              className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>
           <div>
@@ -129,17 +129,22 @@ export default function SignupPage() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
               minLength={6}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+              className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-white/50 mb-1.5">전화번호 (선택)</label>
+            <label className="block text-xs font-medium text-white/50 mb-1.5">휴대폰 번호</label>
             <input
               type="tel"
               placeholder="010-0000-0000"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
+              required
+              inputMode="numeric"
+              autoComplete="tel"
+              pattern="01[016789]-?[0-9]{3,4}-?[0-9]{4}"
+              title="휴대폰 번호를 입력하세요 (예: 010-1234-5678)"
+              className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>
 

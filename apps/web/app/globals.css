@@ -15,6 +15,17 @@
   --font-sans: "Pretendard", system-ui, -apple-system, sans-serif;
 }
 
+/* 다크 배경 로그인/회원가입 입력칸 — 브라우저 자동완성의 연한 배경(#E8F0FE)이 덮지 않도록 고정 */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #17301f inset;
+  box-shadow: 0 0 0 1000px #17301f inset;
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 body {
   color: #222;
   background: #fff;

@@ -95,7 +95,8 @@ export default function DeliveryAddressPicker({
     return () => { cancelled = true; };
   }, [loggedIn]);
 
-  // 이름·전화 프리필 (새 배송지 폼)
+  // 이름·전화 프리필 (새 배송지 폼) — props 값 우선, 없으면 회원 프로필에서 가져온다.
+  // 채워진 값은 그 자리에서 고칠 수 있고, 저장 후에는 마이페이지 배송지에서 수정한다.
   useEffect(() => {
     setForm((prev) => ({
       ...prev,
@@ -103,6 +104,30 @@ export default function DeliveryAddressPicker({
       phone: prev.phone || defaultPhone || "",
     }));
   }, [defaultName, defaultPhone]);
+
+  useEffect(() => {
+    if (!loggedIn || (defaultName && defaultPhone)) return;
+    let cancelled = false;
+    fetch("/api/user/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((profile: { name?: string | null; phone?: string | null } | null) => {
+        if (cancelled || !profile) return;
+        setForm((prev) => ({
+          ...prev,
+          name: prev.name || profile.name || "",
+          phone: prev.phone || profile.phone || "",
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [loggedIn, defaultName, defaultPhone]);
+
+  // 새 배송지 폼에서 아직 비어 있는 필수 항목
+  const missing = [
+    !form.name.trim() && "받는 분",
+    !form.phone.trim() && "받는 분 전화번호",
+    !form.picked && "주소",
+  ].filter(Boolean) as string[];
 
   // 유효한 선택을 부모에 알린다
   useEffect(() => {
@@ -176,8 +201,8 @@ export default function DeliveryAddressPicker({
       {mode === "new" && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <input type="text" placeholder="받는 분" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
-            <input type="tel" placeholder="받는 분 전화번호" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} />
+            <input type="text" placeholder="받는 분 *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
+            <input type="tel" placeholder="받는 분 전화번호 *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} />
           </div>
           <div className="flex gap-2">
             <input
@@ -185,7 +210,7 @@ export default function DeliveryAddressPicker({
               readOnly
               onClick={search}
               value={form.picked ? formatAddressLine(form.picked.address1, form.picked.buildingName) : ""}
-              placeholder="주소를 검색하세요"
+              placeholder="주소를 검색하세요 *"
               className={`${input} cursor-pointer flex-1`}
             />
             <button type="button" onClick={search} className={`px-4 py-2 rounded-lg text-sm font-semibold shrink-0 ${dark ? "bg-brand-green text-white hover:bg-brand-mint" : "bg-[#1D9E75] text-white hover:bg-[#167A5B]"}`}>
@@ -196,9 +221,13 @@ export default function DeliveryAddressPicker({
           <AreaCheckNotice picked={form.picked} theme={theme} />
           <DeliveryDetailFields value={form.details} onChange={(details) => setForm({ ...form, details })} theme={theme} />
           <input type="text" placeholder="배송 메모 (선택)" value={form.deliveryMemo} onChange={(e) => setForm({ ...form, deliveryMemo: e.target.value })} className={input} />
-          {loggedIn && (
-            <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>결제하면 이 주소가 배송지 목록에 저장됩니다.</p>
-          )}
+          {missing.length > 0 ? (
+            <p className={`text-[11px] ${dark ? "text-amber-300" : "text-amber-600"}`}>
+              필수 항목(*)이 비어 있습니다: {missing.join(" · ")}. 나머지는 선택이며 나중에 마이페이지 배송지에서 수정할 수 있습니다.
+            </p>
+          ) : loggedIn ? (
+            <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>결제하면 이 주소가 배송지 목록에 저장되고, 마이페이지에서 수정할 수 있습니다.</p>
+          ) : null}
         </div>
       )}
     </div>

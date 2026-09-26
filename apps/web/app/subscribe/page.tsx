@@ -869,7 +869,7 @@ function SubscribeContent() {
                   : !meetsMinimum ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
                   : mode !== "auto" && completedCount < activeDates.length ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
                   : !allMeetMinAmount ? `회당 ${minOrderAmount.toLocaleString()}원 미달 ${insufficientDates.length}회`
-                  : addressSel === null ? "배송지를 입력해주세요"
+                  : addressSel === null ? "배송지의 필수 항목(받는 분·전화번호·주소)을 채워주세요"
                   : mode === "trial" ? "맛보기 결제하기"
                   : autoRenew ? `${totalPrice.toLocaleString()}원 결제하고 구독 시작` : `${totalPrice.toLocaleString()}원 결제 (이번 ${cycleWeeks}주만)`}
               </button>

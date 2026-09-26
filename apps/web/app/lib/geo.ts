@@ -63,8 +63,15 @@ function kakaoKey(): string | null {
   return process.env.KAKAO_REST_API_KEY || process.env.KAKAO_CLIENT_ID || null;
 }
 
+function vworldKey(): string | null {
+  return process.env.VWORLD_API_KEY || null;
+}
+
 // 같은 주소를 반복 조회하지 않도록 프로세스 내 캐시 (서버리스라 수명은 짧지만 체크아웃 중 재조회를 막는다)
 const geocodeCache = new Map<string, GeocodeResult | null>();
+
+// 카카오가 "서비스 비활성"으로 거부하면 이 프로세스에서는 다시 두드리지 않는다 (비즈월렛 미등록 등)
+let kakaoDisabledUntil = 0;
 
 type KakaoAddressDoc = {
   address_name: string;
@@ -74,79 +81,142 @@ type KakaoAddressDoc = {
   address?: { address_name: string; region_1depth_name: string; region_2depth_name: string; region_3depth_name: string } | null;
 };
 
-/** 주소 문자열 → 좌표·행정구역. 실패하면 null (예외를 던지지 않는다) */
+function finite(r: GeocodeResult | null): GeocodeResult | null {
+  return r && Number.isFinite(r.lat) && Number.isFinite(r.lng) ? r : null;
+}
+
+/** 제공자 1: 카카오 로컬 API (주소 검색 → 키워드 검색). 앱에 "카카오맵" 서비스가 켜져 있어야 한다 */
+async function kakaoGeocode(q: string, signal: AbortSignal): Promise<GeocodeResult | null> {
+  const key = kakaoKey();
+  if (!key || Date.now() < kakaoDisabledUntil) return null;
+  const headers = { Authorization: `KakaoAK ${key}` };
+
+  let res = await fetch(
+    `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=1`,
+    { headers, signal, cache: "no-store" },
+  );
+  let json = (await res.json().catch(() => ({}))) as { documents?: KakaoAddressDoc[]; message?: string; errorType?: string };
+  if (!res.ok) {
+    console.warn("[geo] 카카오 주소 검색 실패:", res.status, json.message);
+    if (json.errorType === "NotAuthorizedError") kakaoDisabledUntil = Date.now() + 10 * 60 * 1000;
+    return null;
+  }
+  let doc = json.documents?.[0];
+
+  // 주소 검색이 비면 키워드 검색으로 한 번 더 (단지명이 섞인 문자열 대비)
+  if (!doc) {
+    res = await fetch(
+      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=1`,
+      { headers, signal, cache: "no-store" },
+    );
+    json = (await res.json().catch(() => ({}))) as { documents?: KakaoAddressDoc[] };
+    const k = json.documents?.[0] as (KakaoAddressDoc & { road_address_name?: string; place_name?: string }) | undefined;
+    if (k) {
+      doc = {
+        address_name: k.address_name,
+        x: k.x,
+        y: k.y,
+        road_address: k.road_address_name
+          ? { address_name: k.road_address_name, region_1depth_name: "", region_2depth_name: "", region_3depth_name: "", building_name: k.place_name ?? "" }
+          : null,
+        address: null,
+      };
+    }
+  }
+  if (!doc) return null;
+
+  const region = doc.address ?? doc.road_address ?? null;
+  return finite({
+    lat: Number(doc.y),
+    lng: Number(doc.x),
+    roadAddress: doc.road_address?.address_name ?? null,
+    jibunAddress: doc.address?.address_name ?? null,
+    sido: region?.region_1depth_name || null,
+    sigungu: region?.region_2depth_name || null,
+    bname: region?.region_3depth_name || null,
+    buildingName: doc.road_address?.building_name || null,
+  });
+}
+
+type VworldResponse = {
+  response?: {
+    status?: "OK" | "NOT_FOUND" | "ERROR";
+    error?: { text?: string };
+    refined?: { text?: string; structure?: { level1?: string; level2?: string; level3?: string; level4L?: string; level4A?: string; level5?: string } };
+    result?: { point?: { x: string; y: string } };
+  };
+};
+
+/**
+ * 제공자 2: 국토교통부 VWorld 지오코더 (무료, 결제수단 불필요, 일 4만 건).
+ * 도로명으로 먼저 찾고 없으면 지번으로. 건물명은 주지 않으므로 다음 API 값을 그대로 쓴다.
+ */
+async function vworldGeocode(q: string, signal: AbortSignal): Promise<GeocodeResult | null> {
+  const key = vworldKey();
+  if (!key) return null;
+  const referer = process.env.NEXTAUTH_URL || "https://www.w2o.co.kr";
+
+  for (const type of ["road", "parcel"] as const) {
+    const url =
+      `https://api.vworld.kr/req/address?service=address&request=getcoord&version=2.0&crs=epsg:4326` +
+      `&refine=true&simple=false&format=json&type=${type}&key=${encodeURIComponent(key)}&address=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { signal, cache: "no-store", headers: { Referer: referer } });
+    const json = (await res.json().catch(() => ({}))) as VworldResponse;
+    const r = json.response;
+    if (!r || r.status !== "OK" || !r.result?.point) {
+      if (r?.status === "ERROR") console.warn("[geo] VWorld 오류:", r.error?.text);
+      continue;
+    }
+    const s = r.refined?.structure ?? {};
+    const text = r.refined?.text ?? null;
+    return finite({
+      lat: Number(r.result.point.y),
+      lng: Number(r.result.point.x),
+      roadAddress: type === "road" ? text : null,
+      jibunAddress: type === "parcel" ? text : null,
+      sido: s.level1 || null,
+      sigungu: s.level2 || null,
+      bname: s.level3 || s.level4A || null,
+      buildingName: null,
+    });
+  }
+  return null;
+}
+
+/** 어느 제공자가 살아 있는지 (관리자 화면 안내용) */
+export function geocoderStatus(): { kakao: boolean; vworld: boolean } {
+  return { kakao: !!kakaoKey() && Date.now() >= kakaoDisabledUntil, vworld: !!vworldKey() };
+}
+
+/** 주소 문자열 → 좌표·행정구역. 카카오 → VWorld 순으로 시도, 모두 실패하면 null (예외를 던지지 않는다) */
 export async function geocodeAddress(query: string, timeoutMs = 4000): Promise<GeocodeResult | null> {
   const q = query.trim();
   if (!q) return null;
   if (geocodeCache.has(q)) return geocodeCache.get(q) ?? null;
 
-  const key = kakaoKey();
-  if (!key) {
-    console.warn("[geo] KAKAO_REST_API_KEY 없음 — 좌표 조회 생략");
+  if (!kakaoKey() && !vworldKey()) {
+    console.warn("[geo] 지오코딩 키 없음 (KAKAO_REST_API_KEY / VWORLD_API_KEY) — 좌표 조회 생략");
     return null;
   }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const headers = { Authorization: `KakaoAK ${key}` };
-    let res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=1`,
-      { headers, signal: controller.signal, cache: "no-store" },
-    );
-    let json = (await res.json().catch(() => ({}))) as { documents?: KakaoAddressDoc[]; message?: string };
-    if (!res.ok) {
-      console.warn("[geo] 카카오 주소 검색 실패:", res.status, json.message);
-      geocodeCache.set(q, null);
-      return null;
+    let result: GeocodeResult | null = null;
+    try {
+      result = await kakaoGeocode(q, controller.signal);
+    } catch (err) {
+      console.warn("[geo] 카카오 예외:", err instanceof Error ? err.message : err);
     }
-    let doc = json.documents?.[0];
-
-    // 주소 검색이 비면 키워드 검색으로 한 번 더 (단지명이 섞인 문자열 대비)
-    if (!doc) {
-      res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=1`,
-        { headers, signal: controller.signal, cache: "no-store" },
-      );
-      json = (await res.json().catch(() => ({}))) as { documents?: KakaoAddressDoc[] };
-      const k = json.documents?.[0] as (KakaoAddressDoc & { road_address_name?: string; place_name?: string }) | undefined;
-      if (k) {
-        doc = {
-          address_name: k.address_name,
-          x: k.x,
-          y: k.y,
-          road_address: k.road_address_name
-            ? { address_name: k.road_address_name, region_1depth_name: "", region_2depth_name: "", region_3depth_name: "", building_name: k.place_name ?? "" }
-            : null,
-          address: null,
-        };
+    if (!result) {
+      try {
+        result = await vworldGeocode(q, controller.signal);
+      } catch (err) {
+        console.warn("[geo] VWorld 예외:", err instanceof Error ? err.message : err);
       }
-    }
-    if (!doc) {
-      geocodeCache.set(q, null);
-      return null;
-    }
-
-    const region = doc.address ?? doc.road_address ?? null;
-    const result: GeocodeResult = {
-      lat: Number(doc.y),
-      lng: Number(doc.x),
-      roadAddress: doc.road_address?.address_name ?? null,
-      jibunAddress: doc.address?.address_name ?? null,
-      sido: region?.region_1depth_name || null,
-      sigungu: region?.region_2depth_name || null,
-      bname: region?.region_3depth_name || null,
-      buildingName: doc.road_address?.building_name || null,
-    };
-    if (!Number.isFinite(result.lat) || !Number.isFinite(result.lng)) {
-      geocodeCache.set(q, null);
-      return null;
     }
     geocodeCache.set(q, result);
     return result;
-  } catch (err) {
-    console.warn("[geo] 지오코딩 예외:", err instanceof Error ? err.message : err);
-    return null;
   } finally {
     clearTimeout(timer);
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../lib/auth-guard";
-import { enrichLocation, geocodeAddress, getDeliveryCenter, judgeArea, locationToAddressData } from "../../../lib/geo";
+import { enrichLocation, geocodeAddress, geocoderStatus, getDeliveryCenter, judgeArea, locationToAddressData } from "../../../lib/geo";
 
 /**
  * POST /api/admin/delivery-area
@@ -21,12 +21,13 @@ export async function POST(request: Request) {
       if (!address) return NextResponse.json({ error: "주소를 입력하세요." }, { status: 400 });
       const geo = await geocodeAddress(address);
       if (!geo) {
-        return NextResponse.json(
-          { error: "좌표를 찾지 못했습니다. 주소를 확인하거나 카카오 개발자 콘솔에서 '카카오맵' 서비스가 켜져 있는지 확인하세요." },
-          { status: 404 },
-        );
+        const st = geocoderStatus();
+        const hint = !st.kakao && !st.vworld
+          ? "지오코딩 키가 없거나 카카오맵 서비스가 꺼져 있습니다. Vercel 환경변수에 VWORLD_API_KEY(무료)를 넣거나 카카오 비즈월렛에 결제수단을 등록하세요."
+          : "주소를 확인하세요 (도로명 주소 권장).";
+        return NextResponse.json({ error: `좌표를 찾지 못했습니다. ${hint}` }, { status: 404 });
       }
-      return NextResponse.json({ lat: geo.lat, lng: geo.lng, roadAddress: geo.roadAddress });
+      return NextResponse.json({ lat: geo.lat, lng: geo.lng, roadAddress: geo.roadAddress, geocoder: geocoderStatus() });
     }
 
     if (body.action === "backfill" || body.action === "rejudge") {

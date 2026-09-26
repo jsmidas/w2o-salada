@@ -92,12 +92,15 @@ function SubscribeContent() {
 
   // 회당 권장 상한(설정값)은 막지 않고 한 번 확인만 받는다 — 많이 시키는 걸 굳이 줄일 이유가 없다
   const [overLimitOk, setOverLimitOk] = useState(false);
-  const confirmOverLimit = (nextTotal: number, max: number): boolean => {
-    if (nextTotal <= max || overLimitOk) return true;
-    const ok = window.confirm(`회당 ${max}개를 초과합니다.
-${max}개 이상 주문하시겠습니까?`);
+  const [overLimitPrompt, setOverLimitPrompt] = useState<{ nextTotal: number; max: number; resolve: (ok: boolean) => void } | null>(null);
+  const confirmOverLimit = (nextTotal: number, max: number): Promise<boolean> => {
+    if (nextTotal <= max || overLimitOk) return Promise.resolve(true);
+    return new Promise((resolve) => setOverLimitPrompt({ nextTotal, max, resolve }));
+  };
+  const answerOverLimit = (ok: boolean) => {
+    overLimitPrompt?.resolve(ok);
     if (ok) setOverLimitOk(true);
-    return ok;
+    setOverLimitPrompt(null);
   };
 
   useEffect(() => {
@@ -447,7 +450,7 @@ ${max}개 이상 주문하시겠습니까?`);
                             className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold disabled:opacity-25 disabled:cursor-not-allowed transition"
                             style={{ borderColor: `${c.color}50`, color: c.color }} aria-label={`${c.label} 감소`}>−</button>
                           <span className="text-2xl font-black text-[#0A1A0F] min-w-[1.5ch] text-center">{c.value}</span>
-                          <button type="button" onClick={() => { if (confirmOverLimit(itemsPerDelivery + 1, config.maxItems)) c.set(c.value + 1); }}
+                          <button type="button" onClick={async () => { if (await confirmOverLimit(itemsPerDelivery + 1, config.maxItems)) c.set(c.value + 1); }}
                             title={totalReached ? `회당 권장 ${config.maxItems}개를 넘습니다 (확인 후 추가 가능)` : undefined}
                             className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold transition"
                             style={{ borderColor: `${c.color}50`, color: c.color }} aria-label={`${c.label} 증가`}>+</button>
@@ -637,7 +640,7 @@ ${max}개 이상 주문하시겠습니까?`);
                           <button type="button" onClick={() => setDateSlot(selectedDate, c.slug, v - 1)} disabled={v <= 0}
                             className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold disabled:opacity-25" aria-label={`${c.name} 감소`}>−</button>
                           <span className="text-sm font-black min-w-[1.2ch] text-center">{v}</span>
-                          <button type="button" onClick={() => { if (confirmOverLimit(itemsFor(selectedDate) + 1, config.maxItems)) setDateSlot(selectedDate, c.slug, v + 1); }}
+                          <button type="button" onClick={async () => { if (await confirmOverLimit(itemsFor(selectedDate) + 1, config.maxItems)) setDateSlot(selectedDate, c.slug, v + 1); }}
                             className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold" aria-label={`${c.name} 증가`}>+</button>
                         </div>
                       );
@@ -886,6 +889,52 @@ ${max}개 이상 주문하시겠습니까?`);
           </div>
         </div>
       </div>
+
+      {/* 회당 상한 초과 확인 — 모바일은 아래 시트, PC는 가운데 카드 */}
+      {overLimitPrompt && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center" onClick={() => answerOverLimit(false)}>
+          <div className="absolute inset-0 bg-[#0A1A0F]/50 backdrop-blur-[2px]" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="over-limit-title"
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-6 animate-[slideUp_.25s_ease-out]"
+          >
+            <div className="mx-auto w-10 h-1 rounded-full bg-gray-200 mb-4 sm:hidden" />
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#EF9F27] to-[#f0b54a] flex items-center justify-center shadow-lg shadow-[#EF9F27]/30 mb-4">
+              <span className="material-symbols-outlined text-white text-3xl">shopping_basket</span>
+            </div>
+            <h3 id="over-limit-title" className="text-center text-lg font-black text-[#0A1A0F]">
+              회당 {overLimitPrompt.max}개를 넘겨요
+            </h3>
+            <p className="text-center text-sm text-gray-600 mt-2 leading-relaxed">
+              지금 구성은 <b className="text-[#0A1A0F]">회당 {overLimitPrompt.nextTotal}개</b>가 됩니다.<br />
+              배송은 그대로 한 번에 오고, 금액만 그만큼 늘어나요.
+            </p>
+            <div className="mt-3 rounded-xl bg-[#f7fdf9] border border-[#1D9E75]/15 px-3 py-2 text-[11px] text-[#4a7a5e] text-center">
+              한 번 확인하면 이 화면에서는 다시 묻지 않습니다
+            </div>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => answerOverLimit(false)}
+                className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition"
+              >
+                그만 담기
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => answerOverLimit(true)}
+                className="flex-1 py-3 rounded-xl bg-[#1D9E75] text-white font-black text-sm shadow-lg shadow-[#1D9E75]/30 hover:bg-[#167A5B] transition"
+              >
+                네, {overLimitPrompt.max}개 이상 주문할게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

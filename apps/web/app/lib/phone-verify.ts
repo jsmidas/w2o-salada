@@ -9,6 +9,9 @@
 import crypto from "crypto";
 import { prisma } from "@repo/db";
 import { sendSmsDirect } from "./notification";
+import { isValidMobile, normalizePhone } from "./phone-format";
+
+export { isValidMobile, normalizePhone };
 
 export const CODE_TTL_MS = 5 * 60 * 1000; // 코드 유효 5분
 export const TOKEN_TTL_MS = 15 * 60 * 1000; // 재설정 토큰 유효 15분 (검증 시각 기준)
@@ -17,14 +20,6 @@ export const SEND_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 export const SEND_LIMIT_COUNT = 5;
 export const MAX_ATTEMPTS = 5;
 const PURPOSE = "FIND_ACCOUNT";
-
-export function normalizePhone(phone: string): string {
-  return (phone ?? "").replace(/[^0-9]/g, "");
-}
-
-export function isValidMobile(digits: string): boolean {
-  return /^01[016789][0-9]{7,8}$/.test(digits);
-}
 
 function sha256(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");

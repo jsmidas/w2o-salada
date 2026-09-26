@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { formatPhone } from "../lib/phone-format";
 
 export default function SignupPage() {
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "", phone: "" });
@@ -139,11 +140,10 @@ export default function SignupPage() {
               placeholder="010-0000-0000"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onBlur={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
               required
               inputMode="numeric"
-              autoComplete="tel"
-              pattern="01[016789]-?[0-9]{3,4}-?[0-9]{4}"
-              title="휴대폰 번호를 입력하세요 (예: 010-1234-5678)"
+              autoComplete="tel-national"
               className="auth-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#1D9E75]/50 focus:ring-1 focus:ring-[#1D9E75]/25 transition"
             />
           </div>

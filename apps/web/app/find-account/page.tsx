@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PasswordToggle from "../components/PasswordToggle";
+import { formatPhone } from "../lib/phone-format";
 
 type Step = "input" | "code" | "result" | "reset" | "done";
 
@@ -78,7 +79,9 @@ export default function FindAccountPage() {
 
   const sendCode = () =>
     run(async () => {
-      const data = await post("/api/auth/find/send-code", { name, phone });
+      const localPhone = formatPhone(phone);
+      setPhone(localPhone);
+      const data = await post("/api/auth/find/send-code", { name, phone: localPhone });
       setCode("");
       setCooldown(60);
       setNotice(
@@ -160,10 +163,11 @@ export default function FindAccountPage() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={(e) => setPhone(formatPhone(e.target.value))}
                   placeholder="010-0000-0000"
                   required
                   inputMode="numeric"
-                  autoComplete="tel"
+                  autoComplete="tel-national"
                   className={inputClass}
                 />
               </div>

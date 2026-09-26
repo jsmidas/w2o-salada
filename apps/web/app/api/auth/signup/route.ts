@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/db";
+import { formatPhone, isValidMobile, normalizePhone } from "../../../lib/phone-format";
 
 export async function POST(request: Request) {
   const { username, email, password, name, phone } = await request.json();
@@ -13,14 +14,14 @@ export async function POST(request: Request) {
   }
 
   // 휴대폰 번호는 아이디·비밀번호 찾기(SMS 인증)와 배송 연락에 쓰이므로 필수 + 형식 검증
-  const phoneDigits = String(phone).replace(/[^0-9]/g, "");
-  if (!/^01[016789][0-9]{7,8}$/.test(phoneDigits)) {
+  const phoneDigits = normalizePhone(String(phone));
+  if (!isValidMobile(phoneDigits)) {
     return NextResponse.json(
       { error: "휴대폰 번호 형식이 올바르지 않습니다. (예: 010-1234-5678)" },
       { status: 400 }
     );
   }
-  const normalizedPhone = phoneDigits.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3");
+  const normalizedPhone = formatPhone(phoneDigits);
 
   // 아이디 중복 체크
   const existingUsername = await prisma.user.findUnique({ where: { username } });

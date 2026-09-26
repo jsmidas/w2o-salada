@@ -15,6 +15,10 @@ type Subscription = {
   nextDeliveryDate: string | null;
   startedAt: string | null;
   pausedAt: string | null;
+  address: {
+    id: string; label: string | null; name: string; phone: string; address1: string; address2: string | null;
+    buildingName: string | null; areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+  } | null;
   periods: {
     id: string;
     year: number;
@@ -116,6 +120,22 @@ export default function SubscriptionPage() {
                       </p>
                       <p className="text-[#7aaa90] text-xs">
                         배송당 {sub.itemsPerDelivery}개
+                      </p>
+                      {/* 배송지 — 구독이 여러 개일 때 어디로 가는 구독인지 구분 */}
+                      <p className="text-xs mt-1.5 flex items-start gap-1">
+                        <span className="material-symbols-outlined text-sm text-[#1D9E75] mt-px">location_on</span>
+                        {sub.address ? (
+                          <span className="text-gray-600">
+                            <b className="text-[#0A1A0F]">{sub.address.label || sub.address.name}</b>
+                            {sub.address.label && <span className="text-gray-400"> · {sub.address.name}</span>}
+                            <span className="block text-gray-400 truncate max-w-[16rem]">
+                              {sub.address.address1}{sub.address.buildingName && !sub.address.address1.includes(sub.address.buildingName) ? ` (${sub.address.buildingName})` : ""} {sub.address.address2}
+                            </span>
+                            {sub.address.areaStatus === "OUT_OF_RANGE" && <span className="text-amber-600">배송 권역 밖 · 확인 중</span>}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600">배송지 미지정 — 상세에서 지정해주세요</span>
+                        )}
                       </p>
                     </div>
                     <span className="material-symbols-outlined text-[#1D9E75] text-2xl">

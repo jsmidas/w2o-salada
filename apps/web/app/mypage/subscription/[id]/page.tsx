@@ -25,7 +25,31 @@ type Subscription = {
   cancelledAt: string | null;
   createdAt: string;
   items: SubItem[];
+  address: SubAddress | null;
 };
+
+type SubAddress = {
+  id: string;
+  label: string | null;
+  name: string;
+  phone: string;
+  zipCode: string;
+  address1: string;
+  address2: string | null;
+  buildingName: string | null;
+  areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+  distanceKm: number | null;
+  dropLocation: string;
+  entranceMethod: string | null;
+  floor: string | null;
+};
+
+const DROP_LABEL: Record<string, string> = { DOOR: "문 앞", SECURITY_OFFICE: "경비실", PARCEL_BOX: "택배함", OTHER: "기타" };
+
+function addressLine(a: SubAddress) {
+  const b = a.buildingName && !a.address1.includes(a.buildingName) ? ` (${a.buildingName})` : "";
+  return `${a.address1}${b} ${a.address2 ?? ""}`.trim();
+}
 
 const planLabels: Record<string, string> = {
   LIGHT: "라이트",
@@ -64,6 +88,40 @@ export default function SubscriptionDetailPage() {
   const [sub, setSub] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+
+  // 배송지 변경 — 저장된 배송지 중에서 고른다 (새 주소는 배송지 관리에서 추가)
+  const [pickingAddress, setPickingAddress] = useState(false);
+  const [myAddresses, setMyAddresses] = useState<SubAddress[]>([]);
+
+  const openAddressPicker = async () => {
+    setPickingAddress(true);
+    try {
+      const r = await fetch("/api/addresses");
+      const list = r.ok ? await r.json() : [];
+      setMyAddresses(Array.isArray(list) ? list : []);
+    } catch {
+      setMyAddresses([]);
+    }
+  };
+
+  const changeAddress = async (addressId: string) => {
+    if (!sub || addressId === sub.address?.id) { setPickingAddress(false); return; }
+    setActing(true);
+    try {
+      const res = await fetch(`/api/subscriptions/${subId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addressId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error ?? "변경에 실패했습니다."); return; }
+      setPickingAddress(false);
+      if (data.movedOrders > 0) alert(`배송지를 바꿨습니다. 배송 전인 주문 ${data.movedOrders}건도 새 배송지로 갑니다.`);
+      loadSubscription();
+    } finally {
+      setActing(false);
+    }
+  };
 
   const loadSubscription = useCallback(() => {
     fetch(`/api/subscriptions/${subId}`)
@@ -205,6 +263,72 @@ export default function SubscriptionDetailPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* 배송지 — 구독마다 고정. 부모님 댁 등 다른 곳으로 옮길 수 있다 */}
+            <div className="bg-white/5 rounded-xl p-5 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-white font-bold">배송지</h2>
+                {sub.status !== "CANCELLED" && !pickingAddress && (
+                  <button type="button" onClick={openAddressPicker} className="text-xs text-brand-green hover:underline">
+                    배송지 변경
+                  </button>
+                )}
+              </div>
+              {sub.address ? (
+                <div className="text-sm">
+                  <p className="text-white font-semibold">
+                    {sub.address.label && <span className="text-brand-green mr-1">[{sub.address.label}]</span>}
+                    {sub.address.name} <span className="text-gray-400 font-normal">· {sub.address.phone}</span>
+                  </p>
+                  <p className="text-gray-300 mt-0.5">({sub.address.zipCode}) {addressLine(sub.address)}</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    {DROP_LABEL[sub.address.dropLocation] ?? "문 앞"}
+                    {sub.address.floor && ` · ${sub.address.floor}`}
+                    {sub.address.entranceMethod && ` · ${sub.address.entranceMethod}`}
+                    {sub.address.areaStatus === "OUT_OF_RANGE" && <span className="text-amber-400"> · 배송 권역 밖, 담당자 확인 중</span>}
+                    {sub.address.areaStatus === "UNKNOWN" && <span className="text-gray-400"> · 위치 확인 중</span>}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-amber-400 text-sm">배송지가 지정되지 않았습니다. 배송지를 선택해주세요.</p>
+              )}
+
+              {pickingAddress && (
+                <div className="mt-3 space-y-2">
+                  {myAddresses.length === 0 ? (
+                    <p className="text-gray-500 text-xs">저장된 배송지가 없습니다.</p>
+                  ) : (
+                    myAddresses.map((a) => {
+                      const current = a.id === sub.address?.id;
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          disabled={acting || current}
+                          onClick={() => changeAddress(a.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition ${
+                            current ? "border-brand-green bg-brand-green/10 cursor-default" : "border-white/10 hover:border-brand-green/60"
+                          }`}
+                        >
+                          <span className="text-white font-medium">{a.label || a.name}</span>
+                          {a.label && <span className="text-gray-400"> · {a.name}</span>}
+                          {current && <span className="text-[10px] text-brand-green ml-2">현재</span>}
+                          <span className="block text-gray-400 text-xs">{addressLine(a)}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                  <div className="flex items-center justify-between pt-1">
+                    <Link href="/mypage/addresses" className="text-xs text-gray-400 hover:text-white">
+                      + 새 배송지는 배송지 관리에서 추가
+                    </Link>
+                    <button type="button" onClick={() => setPickingAddress(false)} className="text-xs text-gray-400 hover:text-white">
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 구독 메뉴 */}

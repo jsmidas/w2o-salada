@@ -13,6 +13,7 @@ export async function GET() {
       where: { userId },
       include: {
         items: { include: { product: true } },
+        address: { select: { id: true, label: true, name: true, phone: true, address1: true, address2: true, buildingName: true, areaStatus: true } },
         periods: {
           orderBy: { year: "desc" },
           take: 5,

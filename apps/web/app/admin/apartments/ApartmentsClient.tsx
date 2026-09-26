@@ -22,9 +22,13 @@ type Apartment = {
 
 const inputCls = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30 focus:border-[#1D9E75]";
 
+type Unregistered = { buildingName: string; sigungu: string | null; bname: string | null; addressCount: number };
+type Payload = { apartments: Apartment[]; unregistered: Unregistered[] };
+
 export default function ApartmentsClient() {
-  const { data, isLoading, mutate } = useSWR<Apartment[]>("/api/admin/apartments", fetcher, { revalidateOnFocus: false });
-  const list = Array.isArray(data) ? data : [];
+  const { data, isLoading, mutate } = useSWR<Payload>("/api/admin/apartments", fetcher, { revalidateOnFocus: false });
+  const list = data?.apartments ?? [];
+  const unregistered = data?.unregistered ?? [];
 
   const [form, setForm] = useState({ name: "", address: "", households: "", aliases: "" });
   const [bulk, setBulk] = useState("");
@@ -134,6 +138,26 @@ export default function ApartmentsClient() {
         )}
         {msg && <p className="text-xs text-gray-600 mt-2">{msg}</p>}
       </div>
+
+      {/* 미등록 단지 — 고객 주소에서 나왔지만 사전 등록이 없어 묶이지 않는 단지 */}
+      {unregistered.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <h3 className="text-sm font-bold text-amber-900 mb-2">미등록 단지 {unregistered.length}곳 — 고객 주소에는 있는데 등록이 없습니다</h3>
+          <div className="flex flex-wrap gap-2">
+            {unregistered.map((u) => (
+              <button
+                key={`${u.buildingName}|${u.bname}`}
+                type="button"
+                onClick={() => { setShowBulk(false); setForm({ name: u.buildingName, address: [u.sigungu, u.bname].filter(Boolean).join(" "), households: "", aliases: "" }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs text-amber-900 hover:bg-amber-100"
+                title="클릭하면 등록 폼에 채워집니다 — 주소를 정확히 입력하면 좌표·거리가 계산됩니다"
+              >
+                {u.buildingName} <span className="text-amber-600">({u.bname ?? u.sigungu ?? "?"} · 배송지 {u.addressCount})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 목록 */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

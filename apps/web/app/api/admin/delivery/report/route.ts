@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
+import { DELIVERABLE_ORDER_TYPES, ensureSubscriptionDeliveries } from "../../../../lib/subscription-delivery";
 
 // Delivery.driverId는 Phase 4 기사 배정 전까지 "코스 라벨"로 재사용한다.
 // (예: "A", "강남-1") — 실제 DRIVER User 연결은 향후 별도 필드로 분리.
+//
+// 배송 대상 = 단건 주문(SINGLE) + 구독 배송일별 배송 건(SUBSCRIPTION_DELIVERY).
+// 구독 월 결제 주문(SUBSCRIPTION)은 돈의 기록이라 여기서 제외한다.
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin("orders");
@@ -23,11 +27,15 @@ export async function GET(request: NextRequest) {
     const nextDay = new Date(targetDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
+    // 구독 배송 건을 이 날짜 선택분과 맞춘다 (마감 전이면 최신 선택분 반영, 멱등)
+    await ensureSubscriptionDeliveries(targetDate);
+
     const fetchOrders = () =>
       prisma.order.findMany({
         where: {
           deliveryDate: { gte: targetDate, lt: nextDay },
           status: { in: ["PAID", "PREPARING", "SHIPPING", "DELIVERED"] },
+          type: { in: [...DELIVERABLE_ORDER_TYPES] },
         },
         include: {
           user: true,
@@ -145,6 +153,7 @@ export async function GET(request: NextRequest) {
         name: o.user.name,
         phone: o.user.phone ?? o.address?.phone ?? "",
       },
+      addressId: o.addressId,
       deliveryHold: o.deliveryHold && !o.deliveryHoldResolvedAt,
       deliveryHoldReason: o.deliveryHoldReason,
       address: o.address
@@ -191,10 +200,18 @@ export async function GET(request: NextRequest) {
         : null,
     }));
 
+    // ── 배송지 확인 대기(반경 밖·좌표 불명, 미처리)는 코스 편성·출력에서 뺀다 ──
+    const heldOrders = simplifiedOrders.filter((o) => o.deliveryHold);
+    const deliverable = simplifiedOrders.filter((o) => !o.deliveryHold);
+
+    // 같은 집(배송지)은 1스톱 — 단건 + 구독이 같은 날 같은 주소면 나란히 놓고 하나로 센다
+    const stopKey = (o: (typeof simplifiedOrders)[number]) => o.addressId ?? `order:${o.id}`;
+    const stops = new Set(deliverable.map(stopKey)).size;
+
     // ── 코스별 그룹핑 (미배정 = "") ──
     type SimplifiedOrder = (typeof simplifiedOrders)[number];
     const routeMap = new Map<string, SimplifiedOrder[]>();
-    for (const order of simplifiedOrders) {
+    for (const order of deliverable) {
       const label = order.delivery?.routeLabel || "";
       const list = routeMap.get(label) ?? [];
       list.push(order);
@@ -204,10 +221,12 @@ export async function GET(request: NextRequest) {
       .map(([label, list]) => ({
         label: label || null,
         orderCount: list.length,
+        stopCount: new Set(list.map(stopKey)).size,
         totalAmount: list.reduce((sum, o) => sum + o.totalAmount, 0),
-        orders: list.sort(
-          (a, b) => (a.delivery?.sortOrder ?? 0) - (b.delivery?.sortOrder ?? 0)
-        ),
+        orders: list.sort((a, b) => {
+          const d = (a.delivery?.sortOrder ?? 0) - (b.delivery?.sortOrder ?? 0);
+          return d !== 0 ? d : stopKey(a).localeCompare(stopKey(b)); // 같은 집은 붙여서
+        }),
       }))
       .sort((a, b) => {
         if (!a.label) return 1;
@@ -220,19 +239,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       date: dateParam,
       totals: {
-        orderCount: orders.length,
-        totalBoxes: orders.length,
+        orderCount: deliverable.length,
+        totalBoxes: deliverable.length,
+        stops,
+        heldCount: heldOrders.length,
         totalRevenue,
         mainRevenue,
         optionRevenue,
         productKinds: products.length,
-        assignedCount: simplifiedOrders.filter((o) => o.delivery?.routeLabel).length,
-        unassignedCount: simplifiedOrders.filter((o) => !o.delivery?.routeLabel).length,
+        assignedCount: deliverable.filter((o) => o.delivery?.routeLabel).length,
+        unassignedCount: deliverable.filter((o) => !o.delivery?.routeLabel).length,
       },
       categories,
       products,
       routes,
-      orders: simplifiedOrders,
+      orders: deliverable,
+      heldOrders,
     });
   } catch (err) {
     console.error("GET /api/admin/delivery/report error:", err);

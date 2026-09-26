@@ -72,6 +72,9 @@ export async function GET(request: NextRequest) {
         where: {
           deliveryDate: { gte: start, lt: end },
           status: { notIn: EXCLUDED_ORDER_STATUS as never[] },
+          // 구독 물량은 위의 선택분(SubscriptionSelection)으로 센다.
+          // 월 결제 주문(SUBSCRIPTION)·배송일별 배송 건(SUBSCRIPTION_DELIVERY)까지 더하면 2~3중 계산이 된다
+          type: "SINGLE",
         },
         include: { items: { include: { product: { include: { category: true } } } } },
       }),

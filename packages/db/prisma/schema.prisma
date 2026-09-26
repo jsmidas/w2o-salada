@@ -211,12 +211,14 @@ model Order {
   delivery  Delivery?
 
   @@index([deliveryHold])
+  @@unique([subscriptionId, deliveryDate, type]) // 구독 배송 건은 배송일당 1건 (멱등 생성)
   @@map("orders")
 }
 
 enum OrderType {
   SINGLE
-  SUBSCRIPTION
+  SUBSCRIPTION          // 구독 월 결제 주문 (돈의 기록 — 배송 대상 아님)
+  SUBSCRIPTION_DELIVERY // 구독 배송일별 배송 건 (금액 0 — 배송·피킹·기사 출력 대상)
 }
 
 enum OrderStatus {

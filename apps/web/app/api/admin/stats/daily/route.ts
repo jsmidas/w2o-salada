@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       where: {
         deliveryDate: { gte: fromDate, lt: toDate },
         status: { in: ["PAID", "PREPARING", "SHIPPING", "DELIVERED"] },
+        type: { not: "SUBSCRIPTION_DELIVERY" }, // 금액 0 배송 건은 매출·주문 수에서 제외
       },
       include: {
         items: {
@@ -162,6 +163,7 @@ async function getDateDetail(dateParam: string) {
     where: {
       deliveryDate: { gte: targetDate, lt: nextDay },
       status: { in: ["PAID", "PREPARING", "SHIPPING", "DELIVERED"] },
+      type: { not: "SUBSCRIPTION_DELIVERY" },
     },
     include: {
       items: {

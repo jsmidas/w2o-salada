@@ -48,10 +48,11 @@ type ReportOrderItem = {
 type ReportOrder = {
   id: string;
   orderNo: string;
-  type: "SINGLE" | "SUBSCRIPTION";
+  type: "SINGLE" | "SUBSCRIPTION" | "SUBSCRIPTION_DELIVERY";
   status: string;
   totalAmount: number;
   customer: { id: string; name: string; phone: string };
+  addressId?: string | null;
   deliveryHold?: boolean;
   deliveryHoldReason?: string | null;
   address: {
@@ -93,17 +94,19 @@ const DROP_LABEL: Record<string, string> = {
 type ReportRoute = {
   label: string | null;
   orderCount: number;
+  stopCount?: number;
   totalAmount: number;
   orders: ReportOrder[];
 };
 
 type Report = {
   date: string;
-  totals: ReportTotals;
+  totals: ReportTotals & { stops?: number; heldCount?: number };
   categories: ReportCategory[];
   products: ReportProduct[];
   routes: ReportRoute[];
   orders: ReportOrder[];
+  heldOrders?: ReportOrder[]; // 배송지 확인 대기 — 코스 편성·출력에서 제외
 };
 
 const statusLabels: Record<string, string> = {
@@ -153,6 +156,14 @@ export default function DeliveryClient({
     });
   }, [data, drafts]);
 
+  // 같은 집(배송지)에 주문이 몇 건인지 — 단건 + 구독이 같은 날 같은 주소면 1스톱
+  const stopKey = (o: ReportOrder) => o.addressId ?? `order:${o.id}`;
+  const houseCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const o of mergedOrders) m.set(stopKey(o), (m.get(stopKey(o)) ?? 0) + 1);
+    return m;
+  }, [mergedOrders]);
+
   // 편집 반영 후 코스별 재그룹
   const mergedRoutes = useMemo(() => {
     const map = new Map<string, ReportOrder[]>();
@@ -166,10 +177,12 @@ export default function DeliveryClient({
       .map(([label, orders]) => ({
         label: label || null,
         orderCount: orders.length,
+        stopCount: new Set(orders.map(stopKey)).size,
         totalAmount: orders.reduce((s, o) => s + o.totalAmount, 0),
-        orders: orders.sort(
-          (a, b) => (a.delivery?.sortOrder ?? 0) - (b.delivery?.sortOrder ?? 0)
-        ),
+        orders: orders.sort((a, b) => {
+          const d = (a.delivery?.sortOrder ?? 0) - (b.delivery?.sortOrder ?? 0);
+          return d !== 0 ? d : stopKey(a).localeCompare(stopKey(b));
+        }),
       }))
       .sort((a, b) => {
         if (!a.label) return 1;
@@ -180,13 +193,23 @@ export default function DeliveryClient({
 
   const updateDraft = (deliveryId: string, patch: Partial<{ routeLabel: string; sortOrder: number }>) => {
     setDrafts((prev) => {
-      const base = prev[deliveryId] ?? {
-        routeLabel:
-          data?.orders.find((o) => o.delivery?.id === deliveryId)?.delivery?.routeLabel ?? "",
-        sortOrder:
-          data?.orders.find((o) => o.delivery?.id === deliveryId)?.delivery?.sortOrder ?? 0,
+      const next = { ...prev };
+      const apply = (id: string) => {
+        const base = next[id] ?? {
+          routeLabel: data?.orders.find((o) => o.delivery?.id === id)?.delivery?.routeLabel ?? "",
+          sortOrder: data?.orders.find((o) => o.delivery?.id === id)?.delivery?.sortOrder ?? 0,
+        };
+        next[id] = { ...base, ...patch };
       };
-      return { ...prev, [deliveryId]: { ...base, ...patch } };
+      apply(deliveryId);
+      // 같은 집의 다른 주문(단건+구독)도 같은 코스·순번으로 — 한 집은 한 번에 배송한다
+      const me = data?.orders.find((o) => o.delivery?.id === deliveryId);
+      if (me?.addressId) {
+        for (const o of data?.orders ?? []) {
+          if (o.addressId === me.addressId && o.delivery && o.delivery.id !== deliveryId) apply(o.delivery.id);
+        }
+      }
+      return next;
     });
   };
 
@@ -301,7 +324,7 @@ export default function DeliveryClient({
         <div className="text-center py-20">
           <div className="inline-block w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : !data || data.orders.length === 0 ? (
+      ) : !data || (data.orders.length === 0 && (data.heldOrders?.length ?? 0) === 0) ? (
         <div className="bg-white rounded-xl p-12 shadow-sm border text-center">
           <span className="material-symbols-outlined text-5xl text-gray-200 block mb-3">inbox</span>
           <p className="text-gray-400">해당 날짜에 배송 대상 주문이 없습니다.</p>
@@ -310,7 +333,11 @@ export default function DeliveryClient({
         <>
           {/* 상단 요약 카드 */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-            <SummaryCard label="배송 박스" value={`${totals?.totalBoxes ?? 0}개`} icon="package_2" />
+            <SummaryCard
+              label="배송 집 (스톱)"
+              value={`${totals?.stops ?? totals?.totalBoxes ?? 0}집 · ${totals?.totalBoxes ?? 0}건`}
+              icon="home_pin"
+            />
             <SummaryCard
               label="총 매출"
               value={`${fmt(totals?.totalRevenue ?? 0)}원`}
@@ -403,8 +430,30 @@ export default function DeliveryClient({
             </div>
           </Section>
 
+          {/* 배송지 확인 대기 — 코스 편성·피킹·출력에서 제외 */}
+          {(data.heldOrders?.length ?? 0) > 0 && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-amber-900 text-sm flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">phone_in_talk</span>
+                  배송지 확인 대기 {data.heldOrders!.length}건 — 코스에 넣지 않았습니다
+                </h3>
+                <a href="/admin/orders" className="text-xs text-amber-800 underline">주문 관리에서 처리</a>
+              </div>
+              <ul className="text-xs text-amber-900 space-y-1">
+                {data.heldOrders!.map((o) => (
+                  <li key={o.id}>
+                    <b>{o.address?.receiver ?? o.customer.name}</b> · {o.address?.phone ?? o.customer.phone} · {o.address?.address1} {o.address?.address2}
+                    <span className="text-amber-700"> — {o.deliveryHoldReason}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-amber-700 mt-2">고객과 통화해 "확인 완료"를 누르면 다음 새로고침부터 코스 편성에 들어옵니다. 취소면 주문 상태를 취소로 바꾸세요.</p>
+            </div>
+          )}
+
           {/* 2. 코스 편성 */}
-          <Section title="2. 코스 편성" subtitle="각 주문에 코스명과 순번을 배정하세요 (저장 전까지 편집 중)">
+          <Section title="2. 코스 편성" subtitle="각 주문에 코스명과 순번을 배정하세요 (같은 집의 단건·구독은 함께 움직입니다)">
             <div className="bg-white rounded-xl border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
@@ -427,11 +476,16 @@ export default function DeliveryClient({
                         <tr key={o.id} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="px-3 py-2 text-xs text-gray-500">{o.orderNo.slice(-8)}</td>
                           <td className="px-3 py-2">
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
                               <span className="text-gray-800">{o.customer.name}</span>
-                              {o.type === "SUBSCRIPTION" && (
+                              {(o.type === "SUBSCRIPTION" || o.type === "SUBSCRIPTION_DELIVERY") && (
                                 <span className="text-[10px] text-[#1D9E75] bg-[#1D9E75]/10 px-1 rounded">
                                   구독
+                                </span>
+                              )}
+                              {(houseCount.get(stopKey(o)) ?? 1) > 1 && (
+                                <span className="text-[10px] text-blue-700 bg-blue-50 px-1 rounded" title="같은 배송지 주문이 여러 건 — 1스톱으로 함께 배송">
+                                  같은 집 {houseCount.get(stopKey(o))}건
                                 </span>
                               )}
                             </div>
@@ -532,7 +586,7 @@ export default function DeliveryClient({
                         {route.label ? `코스 ${route.label}` : "미배정"}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
-                        {route.orderCount}박스 · {fmt(route.totalAmount)}원
+                        {route.stopCount ?? route.orderCount}집 · {route.orderCount}건 · {fmt(route.totalAmount)}원
                       </span>
                     </div>
                     <button

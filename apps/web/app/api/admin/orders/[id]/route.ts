@@ -71,9 +71,18 @@ export async function PATCH(
       const updated = await prisma.order.update({
         where: { id },
         data,
-        select: { id: true, deliveryHold: true, deliveryHoldReason: true, deliveryHoldResolvedAt: true, deliveryHoldNote: true },
+        select: { id: true, addressId: true, deliveryHold: true, deliveryHoldReason: true, deliveryHoldResolvedAt: true, deliveryHoldNote: true },
       });
-      if (!status) return NextResponse.json(updated);
+      // 같은 배송지의 다른 보류 주문도 한 통화로 끝난 것 — 함께 처리해 두 번 전화하지 않게 한다
+      let siblings = 0;
+      if (resolveHold === true && updated.addressId) {
+        const r = await prisma.order.updateMany({
+          where: { id: { not: id }, addressId: updated.addressId, deliveryHold: true, deliveryHoldResolvedAt: null },
+          data: { deliveryHoldResolvedAt: new Date(), deliveryHoldNote: (data.deliveryHoldNote as string | null) ?? undefined },
+        });
+        siblings = r.count;
+      }
+      if (!status) return NextResponse.json({ ...updated, siblingsResolved: siblings });
     }
 
     if (!status) {

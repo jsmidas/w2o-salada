@@ -20,7 +20,7 @@ export async function GET() {
       totalMembers,
       activeSubscriptions,
     ] = await Promise.all([
-      prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
+      prisma.order.count({ where: { createdAt: { gte: todayStart }, type: { not: "SUBSCRIPTION_DELIVERY" } } }),
       prisma.payment.aggregate({
         where: { status: "DONE", createdAt: { gte: todayStart } },
         _sum: { amount: true },

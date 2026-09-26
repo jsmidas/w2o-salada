@@ -17,9 +17,21 @@ export async function GET() {
       prisma.address.groupBy({ by: ["apartmentId"], _count: { _all: true }, where: { apartmentId: { not: null } } }),
     ]);
     const countMap = new Map(counts.map((c) => [c.apartmentId, c._count._all]));
-    return NextResponse.json(
-      apartments.map((a) => ({ ...a, addressCount: countMap.get(a.id) ?? 0 })),
-    );
+
+    // 고객 주소에서는 나왔는데 사전 등록이 없는 단지 — 등록 후보
+    const unregisteredRows = await prisma.address.groupBy({
+      by: ["buildingName", "sigungu", "bname"],
+      where: { isApartment: true, apartmentId: null, buildingName: { not: null } },
+      _count: { _all: true },
+    });
+    const unregistered = unregisteredRows
+      .map((r) => ({ buildingName: r.buildingName!, sigungu: r.sigungu, bname: r.bname, addressCount: r._count._all }))
+      .sort((a, b) => b.addressCount - a.addressCount);
+
+    return NextResponse.json({
+      apartments: apartments.map((a) => ({ ...a, addressCount: countMap.get(a.id) ?? 0 })),
+      unregistered,
+    });
   } catch (err) {
     console.error("GET /api/admin/apartments error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

@@ -20,15 +20,19 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
 
     if (status === "hold") {
-      // 배송지 확인 큐 — 반경 밖·좌표 불명 주소로 들어온 미처리 주문
+      // 배송지 확인 큐 — 반경 밖·좌표 불명 주소로 들어온 미처리 주문.
+      // 결제 전(PENDING)·취소 건은 전화할 일이 없으므로 뺀다
       where.deliveryHold = true;
       where.deliveryHoldResolvedAt = null;
-      where.status = { notIn: ["CANCELLED", "REFUNDED", "FAILED"] };
+      where.status = { in: ["PAID", "PREPARING", "SHIPPING"] };
     } else if (status) {
       where.status = status;
     }
     if (type) {
       where.type = type;
+    } else {
+      // 구독 배송일별 배송 건(금액 0)은 내부 레코드 — 주문 목록에서는 숨긴다
+      where.type = { not: "SUBSCRIPTION_DELIVERY" };
     }
     if (search) {
       where.OR = [

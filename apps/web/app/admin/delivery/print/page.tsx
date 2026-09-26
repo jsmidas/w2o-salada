@@ -243,7 +243,7 @@ export default function DeliveryPrintPage() {
                     <td>
                       <div style={{ fontWeight: 700 }}>
                         {o.address?.receiver ?? o.customer.name}
-                        {o.type === "SUBSCRIPTION" && (
+                        {(o.type === "SUBSCRIPTION" || o.type === "SUBSCRIPTION_DELIVERY") && (
                           <span style={{ fontSize: "8pt", color: "#1d9e75", marginLeft: 4 }}>
                             [구독]
                           </span>

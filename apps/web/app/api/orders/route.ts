@@ -157,7 +157,8 @@ export async function GET() {
     const userId = (session!.user as { id: string }).id;
 
     const orders = await prisma.order.findMany({
-      where: { userId },
+      // 구독 배송일별 배송 건은 내부용 — 고객에게는 구독 관리 화면이 그 역할을 한다
+      where: { userId, type: { not: "SUBSCRIPTION_DELIVERY" } },
       include: {
         items: { include: { product: true } },
       },

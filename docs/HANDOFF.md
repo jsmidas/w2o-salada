@@ -52,6 +52,18 @@
 확인할 화면: /admin/delivery(두 배송일), /admin/orders 배송지 확인 필터, /admin/production, /admin/apartments, 기사 출력본.
 **미리 알고 있는 문제**: 배송 관리는 `Order.deliveryDate`로만 모으므로 구독 고객은 월 주문의 첫 배송일에만 나타나고 두 번째 배송일 코스 편성에서 빠진다.
 
+### 🔧 시나리오에서 찾은 문제와 수정 (2026-09-27 밤, 마이그레이션 `20260927140000_subscription_delivery_orders` 필요)
+1. **구독 고객이 두 번째 배송일 코스 편성에서 누락** / 2. **첫 배송일에 한 달치 품목이 실림** / 3. **생산 집계 이중 계산** — 원인은 하나.
+   배송 관리가 `Order.deliveryDate`만 보는데 구독은 월 결제 주문 1건뿐이었다.
+   → `OrderType.SUBSCRIPTION_DELIVERY`(금액 0, 배송일별) 신설. `lib/subscription-delivery.ts`의 `ensureSubscriptionDeliveries(date)`가
+   리포트를 열 때마다 그날 선택분으로 배송 건을 만들고(마감 전엔 최신 선택분으로 갱신, 마감 후 고정), 배송 관리는 SINGLE + SUBSCRIPTION_DELIVERY만,
+   생산 집계는 선택분 + SINGLE만 센다. 통계·고객 주문 목록·관리자 주문 목록은 SUBSCRIPTION_DELIVERY를 숨긴다
+4. **같은 집이 2스톱** — 배송지(addressId) 기준 스톱 수 집계, 코스 배정 시 같은 집 주문은 같이 이동, "같은 집 N건" 표시
+5. **권역 밖 주문이 코스에 섞임** — `heldOrders`로 분리해 코스·피킹·출력에서 제외, 배송 관리 상단에 대기 목록
+6. **미결제 주문이 전화 큐에** — 보류 큐는 PAID/PREPARING/SHIPPING만
+7. **같은 고객에게 두 번 전화** — 확인 완료 시 같은 배송지의 다른 보류 주문도 함께 처리
+8. **미등록 단지** — 단지 관리에 "고객 주소에 있는데 미등록인 단지" 목록, 클릭하면 등록 폼에 채움
+
 ### 🔜 남은 것
 - **서버 측 주문 마감 검증**(②) — 단건 주문에 아직 `deliveryDate`가 없다. 장바구니의 배송일을 주문에 싣고 `isOrderable`로 막아야 한다
 - 배송 출발·완료 알림톡을 **주문자와 수령인 중 누구에게** 보낼지 — 부모님 댁 배송이면 둘 다일 수 있다

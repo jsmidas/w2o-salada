@@ -93,6 +93,15 @@ function SubscribeContent() {
   const setSlot = (slug: string, value: number) =>
     setSlotCounts((prev) => ({ ...prev, [slug]: Math.max(0, value) }));
 
+  // 요일별 구성 — "화요일은 샐러드 2, 목요일은 샐러드 1 + 오니기리 1". 켜면 해당 요일은 기본 구성 대신 이걸 쓴다.
+  // 우선순위: 날짜별 예외(dateSlots) > 요일별(weekdaySlots) > 기본(slotCounts). 서버에 저장되므로 갱신 주기에도 그대로 이어진다.
+  const [weekdayMode, setWeekdayMode] = useState(false);
+  const [weekdaySlots, setWeekdaySlots] = useState<Record<string, SlotMap>>({});
+  const dowOf = (dateStr: string) => new Date(dateStr + "T00:00:00").getDay();
+  const sumSlots = (m: SlotMap) => Object.values(m).reduce((s, n) => s + n, 0);
+  const setWeekdaySlot = (dow: number, slug: string, value: number) =>
+    setWeekdaySlots((prev) => ({ ...prev, [String(dow)]: { ...(prev[String(dow)] ?? slotCounts), [slug]: Math.max(0, value) } }));
+
   // 회당 권장 상한(설정값)은 막지 않고 한 번 확인만 받는다 — 많이 시키는 걸 굳이 줄일 이유가 없다
   const [overLimitOk, setOverLimitOk] = useState(false);
   const [overLimitPrompt, setOverLimitPrompt] = useState<{ nextTotal: number; max: number; resolve: (ok: boolean) => void } | null>(null);
@@ -221,8 +230,37 @@ function SubscribeContent() {
   const windowDateSet = useMemo(() => new Set(deliveryDates.map((d) => d.dateStr)), [deliveryDates]);
   const allDeliveryDateSet = useMemo(() => new Set(allActiveDates.map((d) => d.dateStr)), [allActiveDates]);
 
-  // 날짜별 수량 (기본 구성 또는 그 날짜만 바꾼 값)
-  const slotsFor = (dateStr: string): SlotMap => dateSlots[dateStr] ?? slotCounts;
+  // 이 주기에 배송이 있는 요일들 (캘린더에서 유도 — 토요일이 추가돼도 자동으로 따라온다)
+  const deliveryWeekdays = useMemo(
+    () => [...new Set(deliveryDates.map((d) => dowOf(d.dateStr)))].sort((a, b) => a - b),
+    [deliveryDates],
+  );
+  const toggleWeekdayMode = (on: boolean) => {
+    setWeekdayMode(on);
+    if (on) {
+      // 처음 켤 때 각 요일을 기본 구성으로 채워 두고 고객이 요일별로 고치게 한다
+      setWeekdaySlots((prev) => {
+        const next = { ...prev };
+        for (const dow of deliveryWeekdays) next[String(dow)] = next[String(dow)] ?? { ...slotCounts };
+        return next;
+      });
+    }
+    setSelectedDate(null);
+  };
+  // 서버로 보낼 요일별 구성 — 켜져 있을 때만, 이 주기에 있는 요일만
+  const weekdaySlotsPayload = useMemo(() => {
+    if (!weekdayMode) return null;
+    const out: Record<string, SlotMap> = {};
+    for (const dow of deliveryWeekdays) {
+      const m = weekdaySlots[String(dow)];
+      if (m) out[String(dow)] = m;
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  }, [weekdayMode, weekdaySlots, deliveryWeekdays]);
+
+  // 날짜별 수량: 그 날짜만 바꾼 값 > 요일별 구성 > 기본 구성
+  const slotsFor = (dateStr: string): SlotMap =>
+    dateSlots[dateStr] ?? (weekdayMode ? weekdaySlots[String(dowOf(dateStr))] : undefined) ?? slotCounts;
   const itemsFor = (dateStr: string): number => Object.values(slotsFor(dateStr)).reduce((s, n) => s + n, 0);
   const setDateSlot = (dateStr: string, slug: string, value: number) =>
     setDateSlots((prev) => ({ ...prev, [dateStr]: { ...slotsFor(dateStr), [slug]: Math.max(0, value) } }));
@@ -353,6 +391,7 @@ function SubscribeContent() {
           selectionMode: mode === "auto" ? "AUTO" : "MANUAL",
           itemsPerDelivery,
           slots: slotCounts,
+          weekdaySlots: weekdaySlotsPayload,
           cycleWeeks,
           autoRenew: isSub && autoRenew,
           selections,
@@ -498,11 +537,59 @@ function SubscribeContent() {
                     ))}
                   </div>
 
+                  {/* 요일별 구성 — 배송 요일이 둘 이상일 때만 의미가 있다 */}
+                  {mode !== "trial" && deliveryWeekdays.length > 1 && (
+                    <div className="mb-3 bg-white rounded-2xl border border-[#1D9E75]/10 px-4 py-3">
+                      <label className="flex flex-wrap items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" checked={weekdayMode} onChange={(e) => toggleWeekdayMode(e.target.checked)} className="w-4 h-4 accent-[#1D9E75]" />
+                        <span className="text-sm font-bold text-[#0A1A0F]">요일마다 다르게 받기</span>
+                        <span className="text-[11px] text-[#7aaa90]">예: 화요일은 샐러드 2개, 목요일은 샐러드 1개 + 오니기리 1개</span>
+                      </label>
+                      {weekdayMode && (
+                        <div className="mt-3 space-y-2">
+                          {deliveryWeekdays.map((dow) => {
+                            const m = weekdaySlots[String(dow)] ?? slotCounts;
+                            const total = sumSlots(m);
+                            return (
+                              <div key={dow} className="flex flex-wrap items-center gap-2 py-1.5 border-t border-gray-50 first:border-t-0">
+                                <span className={`w-14 text-sm font-black ${dow === 0 ? "text-red-400" : dow === 6 ? "text-blue-400" : "text-[#0A1A0F]"}`}>{WEEKDAYS[dow]}요일</span>
+                                {categories.map((c) => {
+                                  const v = m[c.slug] ?? 0;
+                                  return (
+                                    <div key={c.slug} className="flex items-center gap-1.5 bg-[#f7fdf9] rounded-full pl-3 pr-1 py-1 border" style={{ borderColor: `${c.color || "#1D9E75"}30` }}>
+                                      <span className="text-xs font-bold" style={{ color: c.color || "#1D9E75" }}>{c.name}</span>
+                                      <button type="button" onClick={() => setWeekdaySlot(dow, c.slug, v - 1)} disabled={v <= 0}
+                                        className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold disabled:opacity-25" aria-label={`${WEEKDAYS[dow]}요일 ${c.name} 감소`}>−</button>
+                                      <span className="text-sm font-black min-w-[1.2ch] text-center">{v}</span>
+                                      <button type="button" onClick={async () => { if (await confirmOverLimit(total + 1, config.maxItems)) setWeekdaySlot(dow, c.slug, v + 1); }}
+                                        className="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-sm font-bold" aria-label={`${WEEKDAYS[dow]}요일 ${c.name} 증가`}>+</button>
+                                    </div>
+                                  );
+                                })}
+                                <span className={`ml-auto text-xs font-bold ${total === 0 ? "text-red-500" : "text-[#7aaa90]"}`}>{total}개</span>
+                              </div>
+                            );
+                          })}
+                          <p className="text-[11px] text-[#7aaa90] pt-1">위 기본 구성은 요일 설정이 없는 날에 쓰입니다. 특정 날짜만 바꾸려면 아래 캘린더에서 날짜를 누르세요.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* 합계 + 기간 선택 */}
                   <div className="flex flex-wrap items-center gap-3 mb-4 bg-white rounded-2xl border border-[#1D9E75]/10 px-5 py-3">
                     <span className="text-base font-bold text-[#0A1A0F]">
-                      총 <span className="text-xl">{itemsPerDelivery}</span>개 / 회
-                      {itemsPerDelivery > config.maxItems && <span className="ml-2 text-xs font-medium text-[#EF9F27]">회당 {config.maxItems}개 초과</span>}
+                      {weekdayMode ? (
+                        <>
+                          {deliveryWeekdays.map((dow, i) => (
+                            <span key={dow}>{i > 0 && <span className="text-gray-300 mx-1">·</span>}{WEEKDAYS[dow]} <span className="text-xl">{sumSlots(weekdaySlots[String(dow)] ?? slotCounts)}</span>개</span>
+                          ))}
+                          <span className="text-sm font-medium text-[#7aaa90] ml-1">/ 회</span>
+                        </>
+                      ) : (
+                        <>총 <span className="text-xl">{itemsPerDelivery}</span>개 / 회</>
+                      )}
+                      {!weekdayMode && itemsPerDelivery > config.maxItems && <span className="ml-2 text-xs font-medium text-[#EF9F27]">회당 {config.maxItems}개 초과</span>}
                       {Object.keys(dateSlots).length > 0 && <span className="ml-2 text-[11px] font-medium text-[#7aaa90]">날짜별 변경 {Object.keys(dateSlots).length}건</span>}
                     </span>
 
@@ -629,7 +716,7 @@ function SubscribeContent() {
                 );
               })}
               <p className="text-[11px] text-[#7aaa90] px-3 py-1.5 border-t border-gray-50">
-숫자는 그 날 받을 개수입니다. 날짜를 누르면 그 날만 수량을 바꾸거나 건너뛸 수 있고, 주황색은 기본 구성과 다르게 바꾼 날입니다.
+숫자는 그 날 받을 개수입니다. 날짜를 누르면 그 날만 수량을 바꾸거나 건너뛸 수 있고, 주황색은 {weekdayMode ? "요일 구성" : "기본 구성"}과 다르게 바꾼 날입니다.
               </p>
             </div>
 
@@ -657,7 +744,7 @@ function SubscribeContent() {
                   </h3>
                   <div className="flex items-center gap-3">
                     {dateSlots[selectedDate] && (
-                      <button type="button" onClick={() => resetDateSlots(selectedDate)} className="text-xs text-[#7aaa90] hover:text-[#1D9E75] underline">기본 구성으로</button>
+                      <button type="button" onClick={() => resetDateSlots(selectedDate)} className="text-xs text-[#7aaa90] hover:text-[#1D9E75] underline">{weekdayMode ? "요일 구성으로" : "기본 구성으로"}</button>
                     )}
                     {mode !== "trial" && (
                       <button type="button" onClick={() => toggleSkip(selectedDate)} className="text-xs text-gray-400 hover:text-red-500 transition">이 날 건너뛰기</button>
@@ -806,7 +893,12 @@ function SubscribeContent() {
                   {mode === "manual" ? "직접 골라먹기" : mode === "auto" ? "잘 챙겨서 보내줘" : "맛보기"}
                 </span>
                 <span className="text-[#7aaa90] text-xs">
-                  {categories.filter((c) => (slotCounts[c.slug] ?? 0) > 0).map((c) => `${c.name} ${slotCounts[c.slug]}`).join(" + ")}
+                  {weekdayMode
+                    ? deliveryWeekdays.map((dow) => {
+                        const m = weekdaySlots[String(dow)] ?? slotCounts;
+                        return `${WEEKDAYS[dow]} ${categories.filter((c) => (m[c.slug] ?? 0) > 0).map((c) => `${c.name} ${m[c.slug]}`).join("+") || "없음"}`;
+                      }).join(" / ")
+                    : categories.filter((c) => (slotCounts[c.slug] ?? 0) > 0).map((c) => `${c.name} ${slotCounts[c.slug]}`).join(" + ")}
                 </span>
               </div>
 
@@ -823,7 +915,12 @@ function SubscribeContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#7aaa90]">회당 수량</span>
-                  <span className="text-[#0A1A0F] font-medium">{itemsPerDelivery}개{Object.keys(dateSlots).length > 0 ? " (일부 날짜 변경)" : ""}</span>
+                  <span className="text-[#0A1A0F] font-medium">
+                    {weekdayMode
+                      ? deliveryWeekdays.map((dow) => `${WEEKDAYS[dow]} ${sumSlots(weekdaySlots[String(dow)] ?? slotCounts)}개`).join(" · ")
+                      : `${itemsPerDelivery}개`}
+                    {Object.keys(dateSlots).length > 0 ? " (일부 날짜 변경)" : ""}
+                  </span>
                 </div>
               </div>
 

@@ -9,7 +9,7 @@
  * 대신 결제 7일 전 알림에 예정 금액을 반드시 넣는다.
  */
 import { prisma } from "@repo/db";
-import { autoAssignForDelivery, type SlotMap } from "./auto-assign";
+import { autoAssignForDelivery, slotsForDate, type SlotMap, type WeekdaySlotMap } from "./auto-assign";
 
 export const CYCLE_WEEK_OPTIONS = [2, 4, 6, 8] as const;
 export const BILLING_LEAD_DAYS = 2;
@@ -38,10 +38,11 @@ export type CycleItem = { deliveryDate: Date; productId: string; quantity: numbe
 export async function previewCycle(params: {
   subscriptionId: string;
   slots: SlotMap;
+  weekdaySlots?: WeekdaySlotMap | null; // 요일별 구성 — 있는 요일은 slots 대신 이걸 쓴다
   startDate: Date;
   endDate: Date;
 }): Promise<{ items: CycleItem[]; amount: number; deliveryDates: Date[] }> {
-  const { subscriptionId, slots, startDate, endDate } = params;
+  const { subscriptionId, slots: baseSlots, weekdaySlots, startDate, endDate } = params;
   const days = await prisma.deliveryCalendar.findMany({
     where: { isActive: true, date: { gte: startDate, lt: endDate } },
     orderBy: { date: "asc" },
@@ -50,6 +51,7 @@ export async function previewCycle(params: {
   const items: CycleItem[] = [];
   const productIds = new Set<string>();
   for (const d of days) {
+    const slots = slotsForDate(baseSlots, weekdaySlots, d.date);
     const r = await autoAssignForDelivery({ subscriptionId, slots, deliveryDate: d.date });
     for (const f of r.filled) {
       items.push({ deliveryDate: d.date, productId: f.productId, quantity: 1, unitPrice: 0 });

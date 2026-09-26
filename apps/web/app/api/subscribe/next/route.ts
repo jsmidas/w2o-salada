@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autoAssignForDelivery, findNextDeliveryDate, type SlotMap } from "../../../lib/auto-assign";
+import { autoAssignForDelivery, findNextDeliveryDate, slotsForDate, type SlotMap, type WeekdaySlotMap } from "../../../lib/auto-assign";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
 const RECENT_DAYS = 14;
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "구독을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    const slots = (subscription.slots as unknown as SlotMap) ?? {};
+    const baseSlots = (subscription.slots as unknown as SlotMap) ?? {};
 
     // 다음 배송일: 구독에 저장된 값 또는 조회
     let nextDate = subscription.nextDeliveryDate ?? (await findNextDeliveryDate());
@@ -30,6 +30,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "활성화된 배송일이 없습니다." }, { status: 400 });
     }
     nextDate = new Date(nextDate);
+
+    // 이 배송일(요일)에 적용되는 슬롯 — 요일별 구성이 있으면 그걸, 없으면 기본 구성
+    const slots = slotsForDate(baseSlots, subscription.weekdaySlots as WeekdaySlotMap | null, nextDate);
 
     // 배송일이 속한 청구 주기 (없으면 다음 주기를 PENDING 으로 만든다)
     const { getOrCreatePeriodForDate } = await import("../../../lib/subscription-cycle");

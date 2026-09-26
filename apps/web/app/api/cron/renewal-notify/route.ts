@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { nextCycleWindow, previewCycle } from "../../../lib/subscription-cycle";
-import type { SlotMap } from "../../../lib/auto-assign";
+import type { SlotMap, WeekdaySlotMap } from "../../../lib/auto-assign";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const NOTICE_DAYS = 7;
@@ -41,7 +41,13 @@ export async function POST(request: Request) {
           continue;
         }
         const { startDate, endDate } = await nextCycleWindow(sub);
-        const preview = await previewCycle({ subscriptionId: sub.id, slots: (sub.slots as SlotMap | null) ?? { salad: sub.itemsPerDelivery }, startDate, endDate });
+        const preview = await previewCycle({
+          subscriptionId: sub.id,
+          slots: (sub.slots as SlotMap | null) ?? { salad: sub.itemsPerDelivery },
+          weekdaySlots: sub.weekdaySlots as WeekdaySlotMap | null,
+          startDate,
+          endDate,
+        });
         const credit = Math.min(sub.creditBalance, preview.amount);
         const charge = preview.amount - credit;
 

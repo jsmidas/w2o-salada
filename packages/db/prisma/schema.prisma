@@ -292,6 +292,7 @@ model Subscription {
   creditBalance     Int                @default(0)  // 결제 후 건너뛴 배송분 — 다음 결제에서 차감
   itemsPerDelivery  Int                @default(2)  // 배송당 수량 (슬롯 합과 동기화)
   slots             Json?              // 카테고리별 슬롯 { "salad": 2, "simple": 1, ... } — key=Category.slug
+  weekdaySlots      Json?              // 요일별 슬롯 { "2": { "salad": 2 }, "4": { "salad": 1, "onigiri": 1 } } — key=요일(0=일~6=토). 없는 요일은 slots 사용
   status            SubscriptionStatus @default(PENDING)
   billingKey        String?            // 토스 빌링키 (암호화)
   cardCompany       String?            // 등록 카드 표시용 (예: 현대) — 빌링키 발급 응답에서 저장

@@ -10,11 +10,12 @@ export async function POST(request: Request) {
       getSessionUserId(),
     ]);
 
-    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address, slots, cycleWeeks: rawWeeks, autoRenew: rawAutoRenew } = body as {
+    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address, slots, weekdaySlots: rawWeekdaySlots, cycleWeeks: rawWeeks, autoRenew: rawAutoRenew } = body as {
       plan: "trial" | "subscription";
       selectionMode?: "MANUAL" | "AUTO";
       itemsPerDelivery?: number;
       slots?: Record<string, number>;
+      weekdaySlots?: Record<string, Record<string, number>> | null; // 요일별 구성 { "2": {...}, "4": {...} } — 없으면 slots 만 쓴다
       cycleWeeks?: number;   // 2 / 4 / 6 / 8 — 롤링 청구 주기
       autoRenew?: boolean;   // false 면 이번 주기만 결제 (빌링키 없음)
       selections: { date: string; productIds: string[] }[];
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
       address?: import("../../lib/address-resolve").AddressInput | null;
     };
     const cycleWeeks = [2, 4, 6, 8].includes(Number(rawWeeks)) ? Number(rawWeeks) : 4;
+    const { sanitizeWeekdaySlots } = await import("../../lib/auto-assign");
+    const weekdaySlots = sanitizeWeekdaySlots(rawWeekdaySlots);
     const autoRenew = plan === "subscription" && rawAutoRenew !== false;
 
     if (!plan || !selections || selections.length === 0) {
@@ -146,6 +149,7 @@ export async function POST(request: Request) {
             selectionMode: selectionMode === "AUTO" ? "AUTO" : "MANUAL",
             itemsPerDelivery: itemsPerDelivery || 2,
             slots: slots && typeof slots === "object" ? slots : undefined,
+            weekdaySlots: weekdaySlots ?? undefined,
             cycleWeeks,
             autoRenew,
             status: "PENDING",

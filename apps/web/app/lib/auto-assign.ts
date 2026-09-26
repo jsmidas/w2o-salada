@@ -2,6 +2,38 @@ import { prisma } from "@repo/db";
 
 export type SlotMap = Record<string, number>;
 
+/** 요일별 슬롯 — key = 요일 문자열("0"=일 ~ "6"=토). 없는 요일은 기본 slots 를 쓴다 */
+export type WeekdaySlotMap = Record<string, SlotMap>;
+
+/**
+ * 배송일에 적용할 슬롯. 우선순위: 요일별 구성 > 기본 구성.
+ * 배송 캘린더 날짜는 UTC 자정으로 저장되므로 요일도 UTC 기준으로 읽는다.
+ */
+export function slotsForDate(base: SlotMap, weekday: WeekdaySlotMap | null | undefined, date: Date): SlotMap {
+  if (!weekday) return base;
+  const override = weekday[String(date.getUTCDay())];
+  return override && typeof override === "object" ? override : base;
+}
+
+/**
+ * 클라이언트에서 온 요일별 슬롯 검증 — 요일 키 0~6, 값은 slug→음이 아닌 정수. 형식이 틀리면 null.
+ * 요일이 하나도 없으면 null (기본 구성만 쓰는 것과 같다)
+ */
+export function sanitizeWeekdaySlots(input: unknown): WeekdaySlotMap | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const out: WeekdaySlotMap = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (!/^[0-6]$/.test(k) || !v || typeof v !== "object" || Array.isArray(v)) continue;
+    const m: SlotMap = {};
+    for (const [slug, n] of Object.entries(v as Record<string, unknown>)) {
+      const num = Number(n);
+      if (Number.isInteger(num) && num >= 0) m[slug] = num;
+    }
+    out[k] = m;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 type PoolProduct = {
   id: string;
   name: string;

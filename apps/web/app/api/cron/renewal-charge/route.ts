@@ -7,7 +7,7 @@ import { decryptBillingKey } from "../../../lib/billing-crypto";
 import { pickAddressForUser } from "../../../lib/address-resolve";
 import { DEFAULT_RADIUS_KM, holdFromStatus } from "../../../lib/geo";
 import { billingDateFor, nextCycleWindow, previewCycle } from "../../../lib/subscription-cycle";
-import type { SlotMap } from "../../../lib/auto-assign";
+import type { SlotMap, WeekdaySlotMap } from "../../../lib/auto-assign";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
@@ -40,7 +40,8 @@ export async function POST(request: Request) {
       try {
         const { startDate, endDate } = await nextCycleWindow(sub);
         const slots = (sub.slots as SlotMap | null) ?? { salad: sub.itemsPerDelivery };
-        const preview = await previewCycle({ subscriptionId: sub.id, slots, startDate, endDate });
+        const weekdaySlots = sub.weekdaySlots as WeekdaySlotMap | null;
+        const preview = await previewCycle({ subscriptionId: sub.id, slots, weekdaySlots, startDate, endDate });
 
         if (preview.items.length === 0) {
           // 배송 캘린더가 아직 없으면 내일 다시 시도 (결제일만 하루 미룸)

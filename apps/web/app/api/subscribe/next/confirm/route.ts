@@ -103,9 +103,9 @@ export async function POST(request: Request) {
 
     // 배송지: 구독에 고정된 배송지 → 없으면 기본 배송지. 반경 밖이면 보류 표시
     const { pickAddressForUser } = await import("../../../../lib/address-resolve");
-    const { holdFromStatus } = await import("../../../../lib/geo");
+    const { holdFromStatus, DEFAULT_RADIUS_KM } = await import("../../../../lib/geo");
     const addr = await pickAddressForUser(userId, subscription.addressId);
-    const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm, 5) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+    const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm, DEFAULT_RADIUS_KM) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
 
     const orderNo = generateOrderNo();
     const order = await prisma.order.create({

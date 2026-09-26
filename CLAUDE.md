@@ -357,7 +357,7 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 
 ## 배송 권역 · 배송지 규칙 (2026-09-27)
 
-- 배송 가능 판정은 **물류센터 반경**(Setting `deliveryRadiusKm`, 기본 5km) 기준. 행정구역 화이트리스트(`deliveryAllowedDongs`)는 예외 열기용 보조 수단
+- 배송 가능 판정은 **물류센터 반경**(Setting `deliveryRadiusKm`, 기본 10km — "10km 안이면 어디든" 현장 판단) 기준. 행정구역 화이트리스트(`deliveryAllowedDongs`)는 예외 열기용 보조 수단
 - 좌표는 카카오 로컬 API(`apps/web/app/lib/geo.ts`). 실패하면 `UNKNOWN` → 주문은 받되 `Order.deliveryHold`로 보류, 관리자 "배송지 확인" 큐에서 전화 후 처리. **결제를 막지 않는다**
 - 주문 생성 4곳(단건·구독 신청·갱신 확정·자동결제)은 반드시 `addressId`를 채운다 (`lib/address-resolve.ts`)
 - 출입 방법·비밀번호·층수·갖다둘 곳·별칭은 **회원이 아니라 배송지(Address)** 에 둔다. 한 회원이 부모님 댁 등 여러 곳에 보낼 수 있다

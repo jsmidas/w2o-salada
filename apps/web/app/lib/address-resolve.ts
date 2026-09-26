@@ -9,7 +9,7 @@
  */
 import { prisma } from "@repo/db";
 import type { DropLocation } from "@prisma/client";
-import { enrichLocation, holdFromStatus, locationToAddressData, type DaumFields } from "./geo";
+import { DEFAULT_RADIUS_KM, enrichLocation, holdFromStatus, locationToAddressData, type DaumFields } from "./geo";
 
 export type AddressInput = DaumFields & {
   name: string;
@@ -145,7 +145,7 @@ export async function resolveAddress(params: {
 async function radiusKm(): Promise<number> {
   const s = await prisma.setting.findUnique({ where: { key: "deliveryRadiusKm" } });
   const n = Number(s?.value);
-  return Number.isFinite(n) && n > 0 ? n : 5;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_RADIUS_KM;
 }
 
 /** 구독 갱신 주문 등 — 구독 배송지 없으면 사용자의 기본 배송지 */

@@ -21,7 +21,7 @@ const defaultSettings = {
   deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
   deliveryCenterLat: "",
   deliveryCenterLng: "",
-  deliveryRadiusKm: "5",
+  deliveryRadiusKm: "10",
   deliveryAllowedDongs: "",
   orderConfirm: "true",
   deliveryStart_noti: "true",

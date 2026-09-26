@@ -39,12 +39,15 @@ export const CENTER_SETTING_KEYS = [
   "deliveryAllowedDongs",
 ] as const;
 
+/** 기본 배송 반경 — 현장 판단 "10km 안이면 어디든" (2026-09-27). Setting deliveryRadiusKm 로 조정 */
+export const DEFAULT_RADIUS_KM = 10;
+
 const DEFAULT_CENTER: DeliveryCenter = {
   name: "1센터 (성서)",
   address: "대구 달서구 성서공단로 332-10",
   lat: null,
   lng: null,
-  radiusKm: 5,
+  radiusKm: DEFAULT_RADIUS_KM,
   allowedDongs: [],
 };
 

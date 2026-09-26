@@ -10,7 +10,7 @@ const FIELDS = [
   { key: "subscribe.salad.price", label: "샐러드 구독가", desc: "정기구독 시 샐러드 1개 가격", type: "number", unit: "원" },
   { key: "subscribe.salad.originalPrice", label: "샐러드 정가", desc: "할인 전 원래 가격 (취소선 표시용)", type: "number", unit: "원" },
   { key: "subscribe.trial.price", label: "맛보기 단가", desc: "맛보기(1회) 주문 시 1개 가격", type: "number", unit: "원" },
-  { key: "subscribe.deliveryFee", label: "배송비", desc: "1회 배송당 배송비 (0 = 무료)", type: "number", unit: "원" },
+  { key: "subscribe.deliveryFee", label: "배송비", desc: "구독은 현재 무료 고정 — 이 값은 결제에 반영되지 않습니다", type: "number", unit: "원" },
   { key: "subscribe.weeksPerMonth", label: "월 배송 주수", desc: "한 달에 몇 주 배송하는지", type: "number", unit: "주" },
   { key: "subscribe.deliveryDays", label: "배송 요일", desc: "배송 요일 (tue=화, thu=목, 콤마 구분)", type: "text", unit: "" },
 ];

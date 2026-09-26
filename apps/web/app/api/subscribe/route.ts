@@ -104,6 +104,7 @@ export async function POST(request: Request) {
           type: plan === "trial" ? "SINGLE" : "SUBSCRIPTION",
           status: "PENDING",
           totalAmount,
+          // 정기구독은 금액과 무관하게 무료배송 (단건 주문에만 배송비를 받는다)
           deliveryFee: 0,
           items: {
             create: validProductIds.map((pid: string) => {

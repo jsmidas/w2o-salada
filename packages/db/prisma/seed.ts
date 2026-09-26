@@ -111,11 +111,11 @@ async function main() {
     // 반찬·국 (집반찬 세트는 본품 1개만으로 최소 주문액 달성 가능, 약 11,000원선)
     { categoryId: banchanCat!.id, name: "집반찬 A세트 (나물·김치·조림)", description: "매일 바뀌는 오늘의 반찬 3종 A구성",  originalPrice: 14000, price: 11000, sortOrder: 1, tags: "BEST" },
     { categoryId: banchanCat!.id, name: "집반찬 B세트 (볶음·무침·구이)", description: "매일 바뀌는 오늘의 반찬 3종 B구성",  originalPrice: 13500, price: 10500, sortOrder: 2 },
-    { categoryId: banchanCat!.id, name: "소고기 무국 1인분",             description: "깊은 국물의 소고기 무국",              originalPrice: 5900,  price: 4500,  sortOrder: 3 },
+    { categoryId: banchanCat!.id, name: "소고기 무국",                  description: "깊은 국물의 소고기 무국 1인분",         originalPrice: 5900,  price: 4500,  sortOrder: 3 },
 
     // 주스·음료 (옵션 상품, 최소 주문액 계산 제외)
-    { categoryId: drinkCat!.id, name: "착즙 당근주스 300ml",   description: "100% 착즙 당근주스",                    originalPrice: 4500, price: 3500, sortOrder: 1 },
-    { categoryId: drinkCat!.id, name: "콜드브루 아메리카노 300ml", description: "깔끔한 콜드브루 커피",                originalPrice: 4500, price: 3500, sortOrder: 2 },
+    { categoryId: drinkCat!.id, name: "착즙 당근주스",         description: "100% 착즙 당근주스 300ml",              originalPrice: 4500, price: 3500, sortOrder: 1 },
+    { categoryId: drinkCat!.id, name: "콜드브루 아메리카노",     description: "깔끔한 콜드브루 커피 300ml",            originalPrice: 4500, price: 3500, sortOrder: 2 },
   ];
 
   let extraAdded = 0;

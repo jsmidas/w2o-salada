@@ -29,6 +29,7 @@ model User {
   notifications Notification[]
   reviews       Review[]
   inquiries     Inquiry[]
+  driverRoutes  DeliveryRoute[] @relation("RouteDriver") // 기사 계정(DRIVER)이 맡은 코스
 
   @@map("users")
 }
@@ -78,6 +79,9 @@ model Address {
   // 사전 등록 단지와 매칭된 결과 (buildingName ↔ Apartment.name/aliases)
   apartmentId  String?
   apartment    Apartment? @relation(fields: [apartmentId], references: [id])
+  // 고정 코스 원칙 — 같은 배송지는 지난번 코스를 기본값으로 채운다 (관리자는 새 주소만 배정)
+  lastRouteId  String?
+  lastRoute    DeliveryRoute? @relation("AddressLastRoute", fields: [lastRouteId], references: [id])
   createdAt    DateTime @default(now())
 
   orders        Order[]
@@ -346,7 +350,9 @@ model Delivery {
   id            String         @id @default(cuid())
   orderId       String         @unique
   order         Order          @relation(fields: [orderId], references: [id])
-  driverId      String?
+  driverId      String?        // 레거시: 코스명 표시용 라벨 (routeId 가 정식 참조, 코스명 변경 시 동기화)
+  routeId       String?
+  route         DeliveryRoute? @relation(fields: [routeId], references: [id])
   status        DeliveryStatus @default(PENDING)
   scheduledDate DateTime?
   startedAt     DateTime?
@@ -355,7 +361,35 @@ model Delivery {
   memo          String?
   sortOrder     Int            @default(0) // 배송 코스 순서
 
+  @@index([routeId, scheduledDate])
   @@map("deliveries")
+}
+
+// ── 배송 코스 마스터 — 코스 = 차량 1대의 하루. 기사 계정과 연결 ──
+model DeliveryRoute {
+  id           String         @id @default(cuid())
+  name         String         @unique // "A코스" — 운영 시 지역명으로 바꿔도 배정은 id 로 유지된다
+  driverUserId String?
+  driver       User?          @relation("RouteDriver", fields: [driverUserId], references: [id])
+  vehicleNo    String?
+  ownership    RouteOwnership @default(OWN) // 자차 / 용차 — 자동 배정 시 자차부터 채운다
+  maxStops     Int            @default(100) // 집 수 기준 목표
+  departOrder  Int            @default(0)   // 출고·상차 순번
+  color        String?        // 화면 구분색
+  memo         String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  deliveries    Delivery[]
+  lastAddresses Address[]     @relation("AddressLastRoute")
+
+  @@map("delivery_routes")
+}
+
+enum RouteOwnership {
+  OWN        // 자차 (주간 차량 야간 재사용 — 고정비 없음)
+  OUTSOURCED // 용차 (최소비용 보장)
 }
 
 enum DeliveryStatus {

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
           user: true,
           address: true,
           items: { include: { product: { include: { category: true } } } },
-          delivery: true,
+          delivery: { include: { route: { select: { id: true, name: true, isActive: true } } } },
         },
         orderBy: { createdAt: "asc" },
       });
@@ -64,6 +64,29 @@ export async function GET(request: NextRequest) {
       );
       orders = await fetchOrders();
     }
+
+    // 고정 코스 원칙 — 미배정인데 배송지가 지난번 코스를 기억하면 그 코스로 자동 채운다 (보류 건 제외)
+    const routeMaster = await prisma.deliveryRoute.findMany({
+      where: { isActive: true },
+      orderBy: [{ departOrder: "asc" }, { name: "asc" }],
+      include: { driver: { select: { name: true } } },
+    });
+    const activeRoute = new Map(routeMaster.map((r) => [r.id, r]));
+    const autoFill = orders.filter(
+      (o) => o.delivery && !o.delivery.routeId && o.address?.lastRouteId && activeRoute.has(o.address.lastRouteId) && !(o.deliveryHold && !o.deliveryHoldResolvedAt),
+    );
+    if (autoFill.length > 0) {
+      await prisma.$transaction(
+        autoFill.map((o) =>
+          prisma.delivery.update({
+            where: { id: o.delivery!.id },
+            data: { routeId: o.address!.lastRouteId!, driverId: activeRoute.get(o.address!.lastRouteId!)!.name },
+          }),
+        ),
+      );
+      orders = await fetchOrders();
+    }
+    const autoFilledIds = new Set(autoFill.map((o) => o.id));
 
     // ── 상품 집계 (생산·패킹 리스트용) ──
     type ProductAgg = {
@@ -193,7 +216,9 @@ export async function GET(request: NextRequest) {
       delivery: o.delivery
         ? {
             id: o.delivery.id,
-            routeLabel: o.delivery.driverId ?? "",
+            routeId: o.delivery.routeId,
+            routeLabel: o.delivery.route?.name ?? o.delivery.driverId ?? "",
+            autoFilled: autoFilledIds.has(o.id),
             sortOrder: o.delivery.sortOrder,
             status: o.delivery.status,
           }
@@ -255,6 +280,16 @@ export async function GET(request: NextRequest) {
       routes,
       orders: deliverable,
       heldOrders,
+      // 코스 마스터 — 편성 드롭다운·코스 카드(기사·용량)용
+      routeMaster: routeMaster.map((r) => ({
+        id: r.id,
+        name: r.name,
+        driverName: r.driver?.name ?? null,
+        maxStops: r.maxStops,
+        ownership: r.ownership,
+        departOrder: r.departOrder,
+        color: r.color,
+      })),
     });
   } catch (err) {
     console.error("GET /api/admin/delivery/report error:", err);

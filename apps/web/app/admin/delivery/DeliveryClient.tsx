@@ -78,10 +78,22 @@ type ReportOrder = {
   items: ReportOrderItem[];
   delivery: {
     id: string;
+    routeId?: string | null;
     routeLabel: string;
+    autoFilled?: boolean; // 지난번 코스로 자동 채워짐
     sortOrder: number;
     status: string;
   } | null;
+};
+
+type RouteMaster = {
+  id: string;
+  name: string;
+  driverName: string | null;
+  maxStops: number;
+  ownership: "OWN" | "OUTSOURCED";
+  departOrder: number;
+  color: string | null;
 };
 
 const DROP_LABEL: Record<string, string> = {
@@ -107,6 +119,7 @@ type Report = {
   routes: ReportRoute[];
   orders: ReportOrder[];
   heldOrders?: ReportOrder[]; // 배송지 확인 대기 — 코스 편성·출력에서 제외
+  routeMaster?: RouteMaster[];
 };
 
 const statusLabels: Record<string, string> = {
@@ -128,7 +141,7 @@ export default function DeliveryClient({
   initialReport: Report | null;
 }) {
   const [date, setDate] = useState<string>(initialDate);
-  const [drafts, setDrafts] = useState<Record<string, { routeLabel: string; sortOrder: number }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { routeId: string | null; routeLabel: string; sortOrder: number }>>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -149,6 +162,7 @@ export default function DeliveryClient({
         ...o,
         delivery: {
           ...o.delivery,
+          routeId: draft.routeId,
           routeLabel: draft.routeLabel,
           sortOrder: draft.sortOrder,
         },
@@ -191,13 +205,15 @@ export default function DeliveryClient({
       });
   }, [mergedOrders]);
 
-  const updateDraft = (deliveryId: string, patch: Partial<{ routeLabel: string; sortOrder: number }>) => {
+  const updateDraft = (deliveryId: string, patch: Partial<{ routeId: string | null; routeLabel: string; sortOrder: number }>) => {
     setDrafts((prev) => {
       const next = { ...prev };
       const apply = (id: string) => {
+        const cur = data?.orders.find((o) => o.delivery?.id === id)?.delivery;
         const base = next[id] ?? {
-          routeLabel: data?.orders.find((o) => o.delivery?.id === id)?.delivery?.routeLabel ?? "",
-          sortOrder: data?.orders.find((o) => o.delivery?.id === id)?.delivery?.sortOrder ?? 0,
+          routeId: cur?.routeId ?? null,
+          routeLabel: cur?.routeLabel ?? "",
+          sortOrder: cur?.sortOrder ?? 0,
         };
         next[id] = { ...base, ...patch };
       };
@@ -213,10 +229,14 @@ export default function DeliveryClient({
     });
   };
 
-  const assignToRoute = (deliveryId: string, label: string) => {
-    const current = data?.routes.find((r) => (r.label ?? "") === label);
-    const nextSort = (current?.orders.length ?? 0) + 1;
-    updateDraft(deliveryId, { routeLabel: label, sortOrder: nextSort });
+  const routeMaster = data?.routeMaster ?? [];
+
+  const assignToRoute = (deliveryId: string, routeId: string | null) => {
+    const route = routeMaster.find((r) => r.id === routeId) ?? null;
+    const label = route?.name ?? "";
+    const current = mergedRoutes.find((r) => (r.label ?? "") === label);
+    const nextSort = routeId ? (current?.orders.length ?? 0) + 1 : 0;
+    updateDraft(deliveryId, { routeId, routeLabel: label, sortOrder: nextSort });
   };
 
   const hasChanges = Object.keys(drafts).length > 0;
@@ -227,7 +247,7 @@ export default function DeliveryClient({
     try {
       const assignments = Object.entries(drafts).map(([deliveryId, d]) => ({
         deliveryId,
-        routeLabel: d.routeLabel.trim() || null,
+        routeId: d.routeId,
         sortOrder: d.sortOrder,
       }));
       const res = await fetch("/api/admin/delivery/assign", {
@@ -259,11 +279,6 @@ export default function DeliveryClient({
   };
 
   const totals = data?.totals;
-  const existingCourseLabels = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of mergedRoutes) if (r.label) set.add(r.label);
-    return Array.from(set).sort();
-  }, [mergedRoutes]);
 
   return (
     <div>
@@ -531,14 +546,28 @@ export default function DeliveryClient({
                             {fmt(o.totalAmount)}
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={routeLabel}
-                              onChange={(e) => updateDraft(d.id, { routeLabel: e.target.value })}
-                              placeholder="미배정"
-                              list="course-labels"
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
-                            />
+                            <select
+                              value={d.routeId ?? ""}
+                              onChange={(e) => assignToRoute(d.id, e.target.value || null)}
+                              aria-label="코스 선택"
+                              className={`w-full px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#1D9E75] ${
+                                d.routeId ? "border-gray-200" : "border-amber-300 bg-amber-50"
+                              }`}
+                            >
+                              <option value="">미배정</option>
+                              {routeMaster.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name}{r.driverName ? ` · ${r.driverName}` : ""}
+                                </option>
+                              ))}
+                              {/* 마스터에 없는 옛 라벨(비활성 코스 등)은 그대로 보여준다 */}
+                              {d.routeId && !routeMaster.some((r) => r.id === d.routeId) && (
+                                <option value={d.routeId}>{routeLabel || "(비활성 코스)"}</option>
+                              )}
+                            </select>
+                            {d.autoFilled && !drafts[d.id] && (
+                              <div className="text-[10px] text-gray-400 mt-0.5" title="이 배송지의 지난번 코스를 자동으로 채웠습니다">지난 코스 자동</div>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <input
@@ -560,16 +589,23 @@ export default function DeliveryClient({
                 </table>
               </div>
             </div>
-            <datalist id="course-labels">
-              {existingCourseLabels.map((l) => (
-                <option key={l} value={l} />
-              ))}
-            </datalist>
-            {existingCourseLabels.length > 0 && (
-              <div className="mt-2 text-xs text-gray-400">
-                기존 코스: {existingCourseLabels.map((l) => `"${l}"`).join(", ")} — 코스명 칸을 클릭하면 자동완성
-              </div>
-            )}
+            <div className="mt-2 text-xs text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {routeMaster.length === 0 ? (
+                <span className="text-amber-600">등록된 코스가 없습니다. 배송 코스 메뉴에서 코스와 기사를 먼저 만드세요.</span>
+              ) : (
+                routeMaster.map((r) => {
+                  const cnt = mergedRoutes.find((mr) => mr.label === r.name);
+                  const stops = cnt?.stopCount ?? 0;
+                  return (
+                    <span key={r.id} className={stops > r.maxStops ? "text-red-600 font-semibold" : ""}>
+                      {r.name}{r.driverName ? `(${r.driverName})` : ""} {stops}/{r.maxStops}집
+                    </span>
+                  );
+                })
+              )}
+              <a href="/admin/routes" className="text-[#1D9E75] underline">코스·기사 관리</a>
+              <span>· 한 번 배정한 배송지는 다음 배송일에 같은 코스로 자동 채워집니다</span>
+            </div>
           </Section>
 
           {/* 3. 코스별 피킹 리스트 */}

@@ -31,9 +31,9 @@ const DEFAULT_CONFIG: SidebarConfig = {
   hero: { line1: "새벽배송", line2: "안내", subtitle: "W2O SALADA", href: "/about-service" },
   support: { kakaoUrl: "https://pf.kakao.com/_xfLLuX/chat", phone: "053-721-7794" },
   faqs: [
-    { id: "area", q: "배송 지역", a: "서울 전 지역, 인천 일부, 경기 주요 신도시(판교·분당·일산·수원·용인)에 새벽배송 가능합니다.", href: "/about-service" },
-    { id: "cutoff", q: "주문 마감", a: "매일 밤 11시까지 주문하시면 다음날 새벽 6시 이전에 도착합니다.", href: "/about-service" },
-    { id: "fee", q: "배송비", a: "3만원 이상 주문 시 무료 배송, 미만 시 3,000원. 정기구독은 전 상품 무료배송.", href: "/about-service" },
+    { id: "area", q: "배송 지역", a: "대구 달서구와 달성군 일부 지역에 새벽배송합니다. 서비스 지역은 순차적으로 넓혀갑니다.", href: "/about-service" },
+    { id: "cutoff", q: "주문 마감", a: "화·목 새벽 배송이며, 배송 전날 오후 2시까지 주문하시면 됩니다.", href: "/about-service" },
+    { id: "fee", q: "배송비", a: "배송비는 받지 않습니다. 본품 11,000원 이상부터 주문하실 수 있습니다.", href: "/about-service" },
     { id: "pack", q: "신선 포장", a: "친환경 보냉팩 + 드라이아이스로 0~4도 콜드체인 유지.", href: "/about-service" },
   ],
 };

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "../store/cart";
+import { firstOrderableDate } from "../lib/cutoff";
 
 type Category = {
   id: string;
@@ -86,11 +87,8 @@ export default function WeeklyMenuSection({ initialData }: { initialData?: Initi
     }).catch(() => setLoading(false));
   }, [initialData]);
 
-  const cutoffDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
+  // 배송 전날 14:00 마감 — 마감된 배송일은 목록에서 빼고 보여준다
+  const cutoffDate = firstOrderableDate();
 
   const hasCalendar = calendar.length > 0;
 

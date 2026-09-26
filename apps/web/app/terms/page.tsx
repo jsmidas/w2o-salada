@@ -65,8 +65,8 @@ export default function TermsOfServicePage() {
                 주기(매일/격일/주 3회 등)로 상품을 자동 결제·배송받는 서비스를 말합니다.
               </li>
               <li>
-                <strong>&quot;새벽배송&quot;</strong>이란 전날 마감 시간(오후 11시) 이전에 주문된 상품을
-                익일 이른 아침(오전 7시 이전)까지 배송하는 서비스를 말합니다.
+                <strong>&quot;새벽배송&quot;</strong>이란 배송일 전날 마감 시간(오후 2시) 이전에 주문된
+                상품을 배송일 이른 아침(오전 6시 이전)까지 배송하는 서비스를 말합니다.
               </li>
               <li>
                 <strong>&quot;빌링키&quot;</strong>란 정기구독 자동결제를 위해 결제대행사(토스페이먼츠)를
@@ -198,8 +198,8 @@ export default function TermsOfServicePage() {
                 있습니다.
               </li>
               <li>
-                새벽배송 특성상, 당일 오후 11시(주문 마감) 이후에는 이미 조리·포장이 시작되므로
-                주문 취소가 불가할 수 있습니다.
+                새벽배송 특성상, 배송 전날 오후 2시(주문 마감) 이후에는 이미 조리·포장이
+                시작되므로 주문 취소가 불가할 수 있습니다.
               </li>
               <li>
                 주문 취소 시 결제 금액은 원래 결제수단으로 환불되며, 환불 소요 기간은 결제수단에
@@ -222,7 +222,8 @@ export default function TermsOfServicePage() {
             <h2 className="mb-3 text-lg font-semibold text-gray-900">제8조 (배송)</h2>
             <ol className="list-decimal space-y-2 pl-5">
               <li>
-                새벽배송은 오후 11시 이전 주문 건에 대해 익일 오전 7시 이전 배송을 원칙으로 합니다.
+                새벽배송은 배송일 전날 오후 2시 이전 주문 건에 대해 배송일 오전 6시 이전 배송을
+                원칙으로 합니다. 배송일은 회사가 지정한 요일(화·목)에 한합니다.
               </li>
               <li>
                 배송은 회사가 지정한 배송 가능 지역에 한하며, 자세한 배송 가능 지역은 서비스 내에서

@@ -46,7 +46,7 @@ export default function AboutServicePage() {
           </div>
           <ul className="ml-5 list-disc space-y-2 text-gray-700">
             <li>
-              <strong>주문 마감:</strong> PM 11:00
+              <strong>주문 마감:</strong> 배송 전날 PM 2:00
             </li>
             <li>
               <strong>배송 완료:</strong> AM 6:00 문 앞 도착

@@ -1,6 +1,6 @@
 const steps = [
-  { icon: "shopping_cart", time: "PM 11:00", label: "주문 마감", desc: "당일 주문 마감" },
-  { icon: "blender", time: "AM 12:00", label: "신선 준비", desc: "신선한 재료로 조리" },
+  { icon: "shopping_cart", time: "전날 PM 2:00", label: "주문 마감", desc: "배송 전날 오후 2시" },
+  { icon: "blender", time: "전날 오후", label: "신선 조리", desc: "조리·포장 후 냉장 보관" },
   { icon: "local_shipping", time: "AM 3:00", label: "냉장 출발", desc: "냉장 차량 배송 시작" },
   { icon: "home", time: "AM 6:00", label: "문 앞 도착", desc: "문 앞에서 만나요" },
 ];

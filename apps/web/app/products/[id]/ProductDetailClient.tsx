@@ -197,7 +197,7 @@ export default function ProductDetailClient({
           <div className="mt-8 space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <span className="material-symbols-outlined text-[#1D9E75]">local_shipping</span>
-              <span className="text-[#4a7a5e]">PM 11시 이전 주문 시 <span className="text-[#0A1A0F] font-medium">내일 새벽 배송</span></span>
+              <span className="text-[#4a7a5e]">배송 전날 PM 2시 마감 · <span className="text-[#0A1A0F] font-medium">화·목 새벽 배송</span></span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <span className="material-symbols-outlined text-[#1D9E75]">restaurant_menu</span>

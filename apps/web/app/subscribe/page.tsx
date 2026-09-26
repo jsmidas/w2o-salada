@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { firstOrderableDate } from "../lib/cutoff";
 
 type Product = {
   id: string;
@@ -149,12 +150,8 @@ function SubscribeContent() {
       .catch(() => setCalendar([]));
   }, [curYear, curMonth]);
 
-  // 마감 기준: 배송일 -1일 (24시간 전 마감)
-  const cutoffDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1); // 내일부터 주문 가능
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }, []);
+  // 마감 기준: 배송 전날 14:00 — 그 시각을 넘기면 다음날 배송분은 닫힌다
+  const cutoffDate = useMemo(() => firstOrderableDate(), []);
 
   // 배송일 목록 (마감 이후, 최대 12회까지)
   const MAX_DELIVERIES = 12;

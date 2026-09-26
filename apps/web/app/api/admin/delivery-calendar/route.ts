@@ -39,7 +39,8 @@ export async function POST(request: Request) {
   const { year, month, dates, replaceMonth } = body as {
     year: number;
     month: number;
-    dates: { date: string; isActive: boolean; memo?: string }[];
+    // substituteWeekday: 휴일 대체 배송일의 원래 요일(0~6). null=해제, 생략=그대로 둔다
+    dates: { date: string; isActive: boolean; memo?: string; substituteWeekday?: number | null }[];
     replaceMonth?: boolean;
   };
 
@@ -47,14 +48,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "year, month, dates 필수" }, { status: 400 });
   }
 
+  const substituteOf = (v: number | null | undefined) =>
+    v === undefined ? undefined : Number.isInteger(v) && v! >= 0 && v! <= 6 ? v : null;
+
   // 각 날짜에 대해 upsert (트랜잭션으로 일괄 처리)
   await prisma.$transaction(
     dates.map((d) => {
       const dateObj = new Date(d.date);
+      const substituteWeekday = substituteOf(d.substituteWeekday);
       return prisma.deliveryCalendar.upsert({
         where: { date: dateObj },
-        update: { isActive: d.isActive, memo: d.memo || null },
-        create: { date: dateObj, isActive: d.isActive, memo: d.memo || null },
+        update: { isActive: d.isActive, memo: d.memo || null, ...(substituteWeekday !== undefined ? { substituteWeekday } : {}) },
+        create: { date: dateObj, isActive: d.isActive, memo: d.memo || null, substituteWeekday: substituteWeekday ?? null },
       });
     })
   );

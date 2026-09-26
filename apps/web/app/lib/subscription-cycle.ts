@@ -46,12 +46,12 @@ export async function previewCycle(params: {
   const days = await prisma.deliveryCalendar.findMany({
     where: { isActive: true, date: { gte: startDate, lt: endDate } },
     orderBy: { date: "asc" },
-    select: { date: true },
+    select: { date: true, substituteWeekday: true },
   });
   const items: CycleItem[] = [];
   const productIds = new Set<string>();
   for (const d of days) {
-    const slots = slotsForDate(baseSlots, weekdaySlots, d.date);
+    const slots = slotsForDate(baseSlots, weekdaySlots, d.date, d.substituteWeekday);
     const r = await autoAssignForDelivery({ subscriptionId, slots, deliveryDate: d.date });
     for (const f of r.filled) {
       items.push({ deliveryDate: d.date, productId: f.productId, quantity: 1, unitPrice: 0 });

@@ -8,10 +8,18 @@ export type WeekdaySlotMap = Record<string, SlotMap>;
 /**
  * 배송일에 적용할 슬롯. 우선순위: 요일별 구성 > 기본 구성.
  * 배송 캘린더 날짜는 UTC 자정으로 저장되므로 요일도 UTC 기준으로 읽는다.
+ * 휴일 대체 배송일(DeliveryCalendar.substituteWeekday)이면 실제 요일 대신 원래 요일로 해석한다 —
+ * 화요일이 휴일이라 월요일에 나가는 배송은 고객의 "화요일 구성"을 받아야 한다.
  */
-export function slotsForDate(base: SlotMap, weekday: WeekdaySlotMap | null | undefined, date: Date): SlotMap {
+export function slotsForDate(
+  base: SlotMap,
+  weekday: WeekdaySlotMap | null | undefined,
+  date: Date,
+  substituteWeekday?: number | null,
+): SlotMap {
   if (!weekday) return base;
-  const override = weekday[String(date.getUTCDay())];
+  const dow = substituteWeekday ?? date.getUTCDay();
+  const override = weekday[String(dow)];
   return override && typeof override === "object" ? override : base;
 }
 

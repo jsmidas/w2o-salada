@@ -31,8 +31,10 @@ export async function GET(request: Request) {
     }
     nextDate = new Date(nextDate);
 
-    // 이 배송일(요일)에 적용되는 슬롯 — 요일별 구성이 있으면 그걸, 없으면 기본 구성
-    const slots = slotsForDate(baseSlots, subscription.weekdaySlots as WeekdaySlotMap | null, nextDate);
+    // 이 배송일(요일)에 적용되는 슬롯 — 요일별 구성이 있으면 그걸, 없으면 기본 구성.
+    // 휴일 대체 배송일이면 캘린더에 적힌 원래 요일로 해석한다
+    const calendarDay = await prisma.deliveryCalendar.findUnique({ where: { date: nextDate }, select: { substituteWeekday: true } });
+    const slots = slotsForDate(baseSlots, subscription.weekdaySlots as WeekdaySlotMap | null, nextDate, calendarDay?.substituteWeekday);
 
     // 배송일이 속한 청구 주기 (없으면 다음 주기를 PENDING 으로 만든다)
     const { getOrCreatePeriodForDate } = await import("../../../lib/subscription-cycle");

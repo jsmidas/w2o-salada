@@ -461,6 +461,7 @@ model DeliveryCalendar {
   date      DateTime @unique
   isActive  Boolean  @default(true)
   memo      String?
+  substituteWeekday Int?  // 휴일 대체 배송일이면 원래 요일(0=일~6=토). 요일별 구독 구성은 이 요일로 해석한다. null=실제 요일
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

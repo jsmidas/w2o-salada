@@ -52,10 +52,13 @@ type CalendarEntry = {
   date: string;
   isActive: boolean;
   memo: string | null;
+  substituteWeekday: number | null; // 휴일 대체 배송일이면 원래 요일 (0=일~6=토) — 요일별 구독 구성이 이 요일로 해석된다
   menuAssignments: MenuAssignmentData[];
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+/** 정규 배송 요일 — 이 요일이 아닌 날을 배송일로 켜면 "무슨 요일 대신인지" 고르게 한다 */
+const REGULAR_WEEKDAYS = [2, 4];
 
 /** 상품 썸네일 — imageUrl이 깨진 경우 카테고리 아이콘으로 폴백 */
 function ProductThumb({ product }: { product: Product }) {
@@ -236,7 +239,7 @@ export default function DeliveryCalendarClient({
         updated[idx] = { ...updated[idx]!, isActive: newActive };
         return updated;
       }
-      return [...prev, { id: "", date: dateStr, isActive: newActive, memo: null, menuAssignments: [] }];
+      return [...prev, { id: "", date: dateStr, isActive: newActive, memo: null, substituteWeekday: null, menuAssignments: [] }];
     });
 
     const res = await fetch("/api/admin/delivery-calendar", {
@@ -252,6 +255,28 @@ export default function DeliveryCalendarClient({
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) mergeCalendars(data);
+    }
+  };
+
+  // 휴일 대체 배송일의 원래 요일 지정 — 월요일에 나가는 "화요일 배송"이면 2. null 이면 실제 요일로 본다
+  const setSubstituteWeekday = async (dateStr: string, value: number | null) => {
+    const existing = calendarMap.get(dateStr);
+    setCalendars((prev) => prev.map((c) => (toDateKey(c.date) === dateStr ? { ...c, substituteWeekday: value } : c)));
+    const res = await fetch("/api/admin/delivery-calendar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        year,
+        month,
+        dates: [{ date: dateStr, isActive: true, memo: existing?.memo, substituteWeekday: value }],
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) mergeCalendars(data);
+      notify(value == null ? "대체 요일 해제" : `${WEEKDAYS[value]}요일 대체 배송일로 지정`);
+    } else {
+      notify("대체 요일 저장 실패", "error");
     }
   };
 
@@ -302,7 +327,7 @@ export default function DeliveryCalendarClient({
       setCalendars((prev) => {
         const idx = prev.findIndex((c) => toDateKey(c.date) === date);
         if (idx < 0) {
-          return [...prev, { id: "", date, isActive: true, memo: null, menuAssignments: next }];
+          return [...prev, { id: "", date, isActive: true, memo: null, substituteWeekday: null, menuAssignments: next }];
         }
         const updated = [...prev];
         updated[idx] = { ...updated[idx]!, menuAssignments: next };
@@ -558,6 +583,12 @@ export default function DeliveryCalendarClient({
                       </div>
                     )}
 
+                    {isActive && entry?.substituteWeekday != null && (
+                      <p className="text-[9px] text-[#EF9F27] font-bold mt-0.5">{WEEKDAYS[entry.substituteWeekday]}요일 대체</p>
+                    )}
+                    {isActive && entry?.substituteWeekday == null && !REGULAR_WEEKDAYS.includes(dayOfWeek) && (
+                      <p className="text-[9px] text-red-500 font-bold mt-0.5">대체 요일 미지정</p>
+                    )}
                     {entry?.memo && (
                       <p className="text-[9px] text-[#EF9F27] mt-0.5 truncate">{entry.memo}</p>
                     )}
@@ -579,6 +610,44 @@ export default function DeliveryCalendarClient({
                 {selectedEntry?.isActive ? (
                   <>
                     <span className="text-xs text-[#1D9E75] font-semibold">배송일</span>
+
+                    {/* 휴일 대체 배송일 — 정규 요일(화·목)이 아닌 날을 켰으면 어느 요일 대신인지 정한다.
+                        요일별 구독 구성("화요일은 샐러드 2")이 이 요일로 해석된다 */}
+                    {(() => {
+                      const realDow = new Date(selectedDate + "T00:00:00").getDay();
+                      if (REGULAR_WEEKDAYS.includes(realDow) && selectedEntry.substituteWeekday == null) return null;
+                      return (
+                        <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                          <p className="text-xs font-bold text-amber-800">휴일 대체 배송일</p>
+                          <p className="text-[11px] text-amber-700 mt-0.5 mb-2">
+                            {WEEKDAYS[realDow]}요일에 나가지만 고객 구독은 어느 요일 구성으로 볼까요?
+                            {selectedEntry.substituteWeekday == null && " 지정하지 않으면 기본 구성이 적용됩니다."}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {REGULAR_WEEKDAYS.map((dow) => (
+                              <button
+                                key={dow}
+                                type="button"
+                                onClick={() => setSubstituteWeekday(selectedDate, dow)}
+                                className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
+                                  selectedEntry.substituteWeekday === dow
+                                    ? "bg-[#EF9F27] border-[#EF9F27] text-white"
+                                    : "bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
+                                }`}
+                              >
+                                {WEEKDAYS[dow]}요일 대신
+                              </button>
+                            ))}
+                            {selectedEntry.substituteWeekday != null && (
+                              <button type="button" onClick={() => setSubstituteWeekday(selectedDate, null)}
+                                className="px-3 py-1 rounded-full text-xs text-gray-500 hover:text-gray-700 underline">
+                                해제
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* 배정된 메뉴 */}
                     <div className="mt-4 space-y-2">

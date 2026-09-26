@@ -35,6 +35,7 @@ type CalendarDay = {
   id: string;
   date: string;
   isActive: boolean;
+  substituteWeekday?: number | null; // 휴일 대체 배송일이면 원래 요일 (0=일~6=토)
   menuAssignments: { productId: string; sortOrder: number; product: Product }[];
 };
 
@@ -97,7 +98,6 @@ function SubscribeContent() {
   // 우선순위: 날짜별 예외(dateSlots) > 요일별(weekdaySlots) > 기본(slotCounts). 서버에 저장되므로 갱신 주기에도 그대로 이어진다.
   const [weekdayMode, setWeekdayMode] = useState(false);
   const [weekdaySlots, setWeekdaySlots] = useState<Record<string, SlotMap>>({});
-  const dowOf = (dateStr: string) => new Date(dateStr + "T00:00:00").getDay();
   const sumSlots = (m: SlotMap) => Object.values(m).reduce((s, n) => s + n, 0);
   const setWeekdaySlot = (dow: number, slug: string, value: number) =>
     setWeekdaySlots((prev) => ({ ...prev, [String(dow)]: { ...(prev[String(dow)] ?? slotCounts), [slug]: Math.max(0, value) } }));
@@ -203,6 +203,15 @@ function SubscribeContent() {
         .sort((a, b) => a.dateStr.localeCompare(b.dateStr)),
     [calendar],
   );
+
+  // 요일: 휴일 대체 배송일(substituteWeekday)은 실제 요일이 아니라 원래 요일로 본다 —
+  // 화요일이 휴일이라 월요일에 나가는 배송은 "화요일 구성"으로 받고, 요일 행도 월요일이 따로 생기지 않는다
+  const substituteByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of allActiveDates) if (d.substituteWeekday != null) m.set(d.dateStr, d.substituteWeekday);
+    return m;
+  }, [allActiveDates]);
+  const dowOf = (dateStr: string) => substituteByDate.get(dateStr) ?? new Date(dateStr + "T00:00:00").getDay();
 
   // 이 주기의 배송일 (맛보기는 첫 회만)
   const deliveryDates = useMemo(() => {
@@ -693,6 +702,9 @@ function SubscribeContent() {
                         </div>
                         {isClosed && <div className="text-[8px] text-gray-400">마감</div>}
                         {isSkipped && !isClosed && <div className="text-[8px] text-gray-400 line-through">건너뜀</div>}
+                        {isActive && !isClosed && !isSkipped && substituteByDate.has(dateStr) && (
+                          <div className="text-[8px] text-[#EF9F27] font-bold leading-none">{WEEKDAYS[substituteByDate.get(dateStr)!]} 대체</div>
+                        )}
                         {isActive && !isClosed && !narrow && (
                           <div className="flex items-center justify-center mt-1">
                             {mode === "auto" || done ? (

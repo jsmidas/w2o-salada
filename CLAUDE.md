@@ -377,3 +377,4 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 - 구독 슬롯 우선순위: **날짜별 예외(SubscriptionSelection) > 요일별(`Subscription.weekdaySlots`) > 기본(`Subscription.slots`)**. 요일별은 `{ "2": { "salad": 2 }, "4": { "salad": 1, "onigiri": 1 } }` 형태(key=0 일~6 토)
 - 배송일에 적용할 슬롯은 항상 `lib/auto-assign.ts`의 `slotsForDate()`로 구한다. 갱신 결제·고지 크론, 다음 배송 미리보기가 모두 이 함수를 거친다
 - 구독 화면의 요일 목록은 배송 캘린더에서 유도하므로 토요일 등 새 배송 요일이 생겨도 코드 수정 없이 요일 행이 추가된다
+- 휴일 대체 배송일: 화·목이 아닌 날을 배송일로 켜면 관리자 캘린더에서 "화요일 대신 / 목요일 대신"을 지정한다(`DeliveryCalendar.substituteWeekday`). 요일별 구성은 실제 요일이 아니라 이 요일로 해석되고, 구독 화면 요일 행도 이 기준으로 모인다. 미지정이면 실제 요일 → 기본 구성

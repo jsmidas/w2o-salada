@@ -109,11 +109,16 @@ const config: NextAuthConfig = {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "CUSTOMER";
         token.id = user.id;
         token.permissions = (user as { permissions?: string | null }).permissions ?? null;
+      }
+      // 프로필에서 update({ name, email }) 호출 시 토큰에 반영 — 재로그인 없이 헤더/세션이 갱신된다
+      if (trigger === "update" && session) {
+        if (typeof session.name === "string") token.name = session.name;
+        if (typeof session.email === "string") token.email = session.email;
       }
       return token;
     },

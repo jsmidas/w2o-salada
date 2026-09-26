@@ -39,11 +39,34 @@ export async function PATCH(request: Request) {
   try {
     const userId = (session!.user as { id: string }).id;
     const body = await request.json();
-    const { name, phone, currentPassword, newPassword } = body;
+    const { name, phone, email, currentPassword, newPassword } = body;
 
     const data: Record<string, unknown> = {};
     if (name !== undefined) data.name = name;
     if (phone !== undefined) data.phone = phone;
+
+    // 이메일 변경 — 계정 키는 id 이고 이메일은 unique 필드일 뿐이라 바꿀 수 있다.
+    // 단, 소셜 계정은 소셜 로그인 시 이메일로 기존 계정을 찾으므로 변경을 막는다.
+    if (email !== undefined) {
+      const nextEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+        return NextResponse.json({ error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
+      }
+      const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, provider: true } });
+      if (!me) {
+        return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
+      }
+      if (me.provider && me.provider !== "email") {
+        return NextResponse.json({ error: "소셜 로그인 계정은 이메일을 변경할 수 없습니다." }, { status: 400 });
+      }
+      if (nextEmail !== me.email) {
+        const taken = await prisma.user.findUnique({ where: { email: nextEmail }, select: { id: true } });
+        if (taken) {
+          return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
+        }
+        data.email = nextEmail;
+      }
+    }
 
     // 비밀번호 변경
     if (newPassword) {

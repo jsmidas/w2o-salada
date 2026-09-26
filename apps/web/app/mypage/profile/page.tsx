@@ -24,10 +24,16 @@ export default function ProfilePage() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
   const [showPw, setShowPw] = useState(false);
+  // 관리자 사이드바에서 들어온 경우(?from=admin) 뒤로가기를 관리자로
+  const [fromAdmin, setFromAdmin] = useState(false);
+  useEffect(() => {
+    try { setFromAdmin(new URLSearchParams(window.location.search).get("from") === "admin"); } catch { /* noop */ }
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -43,6 +49,7 @@ export default function ProfilePage() {
           setProfile(data);
           setName(data.name ?? "");
           setPhone(data.phone ?? "");
+          setEmail(data.email ?? "");
         }
         setLoading(false);
       })
@@ -54,12 +61,17 @@ export default function ProfilePage() {
       alert("이름을 입력해주세요.");
       return;
     }
+    const emailChanged = !isSocial && email.trim().toLowerCase() !== (profile?.email ?? "");
+    if (emailChanged && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      alert("이메일 형식이 올바르지 않습니다.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify({ name, phone, ...(emailChanged ? { email: email.trim() } : {}) }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -68,7 +80,8 @@ export default function ProfilePage() {
       }
       const updated = await res.json();
       setProfile((prev) => (prev ? { ...prev, ...updated } : prev));
-      await update({ name }); // 세션 갱신
+      setEmail(updated.email ?? email);
+      await update({ name, ...(emailChanged ? { email: updated.email } : {}) }); // 세션 갱신
       alert("저장되었습니다.");
     } finally {
       setSaving(false);
@@ -125,11 +138,11 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-50 bg-brand-deep/95 backdrop-blur border-b border-white/5">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link
-            href="/mypage"
+            href={fromAdmin ? "/admin/dashboard" : "/mypage"}
             className="flex items-center gap-1 text-gray-400 hover:text-white transition"
           >
             <span className="material-symbols-outlined text-xl">chevron_left</span>
-            <span className="text-sm">마이페이지</span>
+            <span className="text-sm">{fromAdmin ? "관리자" : "마이페이지"}</span>
           </Link>
           <h1 className="text-white font-bold">프로필</h1>
           <div className="w-20" />
@@ -148,12 +161,22 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">이메일</label>
-                  <input
-                    type="text"
-                    value={profile.email}
-                    readOnly
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-gray-400 text-sm"
-                  />
+                  {isSocial ? (
+                    <input
+                      type="text"
+                      value={profile.email}
+                      readOnly
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-gray-400 text-sm"
+                    />
+                  ) : (
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green"
+                      placeholder="example@domain.com"
+                    />
+                  )}
                 </div>
 
                 {profile.username && (

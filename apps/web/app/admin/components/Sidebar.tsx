@@ -127,11 +127,15 @@ export default function Sidebar({
       {/* 하단 - 사용자 정보 + 로그아웃 */}
       <div className="p-4 border-t border-white/5">
         {name && (
-          <div className="flex items-center gap-3 mb-3">
+          <Link
+            href="/mypage/profile?from=admin"
+            title="내 정보 · 비밀번호 변경"
+            className="flex items-center gap-3 mb-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition group"
+          >
             <div className="w-8 h-8 bg-[#1D9E75]/20 rounded-full flex items-center justify-center text-[#1D9E75] text-sm font-bold shrink-0">
               {name.charAt(0)}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-sm text-white/80 font-medium truncate">
                 {name}
               </div>
@@ -140,7 +144,10 @@ export default function Sidebar({
                 <div className="text-[10px] text-[#EF9F27] font-semibold mt-0.5">슈퍼관리자</div>
               )}
             </div>
-          </div>
+            <span className="material-symbols-outlined text-lg text-white/20 group-hover:text-white/60 transition">
+              manage_accounts
+            </span>
+          </Link>
         )}
         <button
           type="button"

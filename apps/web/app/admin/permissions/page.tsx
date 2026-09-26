@@ -11,8 +11,10 @@ export default async function PermissionsPage() {
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        username: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         permissions: true,
         provider: true,

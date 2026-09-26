@@ -66,6 +66,37 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
   // 결제 전(PENDING) 물량까지 합쳐 볼지. 기본은 확정 물량만 — 주방은 확정분으로 움직인다.
   const [includePending, setIncludePending] = useState(false);
 
+  // 출력 용지 — @page 의 size는 CSS 변수를 받지 못해서, 선택할 때마다
+  // <style> 을 직접 갈아끼운다. 브라우저 인쇄 대화상자의 용지도 이 값을 따라간다.
+  const [paper, setPaper] = useState<"A4" | "A3">("A4");
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+
+  const [printedAt, setPrintedAt] = useState("");
+  useEffect(() => {
+    const update = () =>
+      setPrintedAt(new Date().toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }));
+    update();
+    window.addEventListener("beforeprint", update);
+    return () => window.removeEventListener("beforeprint", update);
+  }, []);
+
+  useEffect(() => {
+    const el = document.createElement("style");
+    el.setAttribute("data-production-print", "");
+    el.textContent = `
+      @media print {
+        @page { size: ${paper} ${orientation}; margin: 12mm 10mm; }
+        /* 요약 카드·카테고리 배지의 배경색을 인쇄에도 남긴다 */
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* 여러 장으로 넘어가도 표 머리글을 반복하고, 행 중간이 잘리지 않게 */
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; }
+      }
+    `;
+    document.head.appendChild(el);
+    return () => { el.remove(); };
+  }, [paper, orientation]);
+
   const { data, isLoading } = useSWR<Report>(
     `/api/admin/production?date=${date}`,
     fetcher,
@@ -113,22 +144,55 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
   const optionTotal = shownTotal - mainTotal;
 
   return (
-    <div className="max-w-[1100px]">
+    <div className="max-w-[1100px] print:max-w-none">
       {/* 헤더 */}
-      <div className="flex items-start justify-between mb-4 print:mb-2">
+      <div className="flex items-start justify-between gap-4 mb-4 print:mb-2">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">생산 집계</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             배송일 기준으로 만들어야 할 상품과 수량 — 구독 선택분과 단건 주문을 합산합니다
           </p>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-sm font-medium print:hidden"
-        >
-          <span className="material-symbols-outlined text-lg">print</span>
-          작업지시서 출력
-        </button>
+
+        {/* 출력 — 용지와 방향을 고르면 인쇄 대화상자의 용지도 그대로 따라간다 */}
+        <div className="flex items-center gap-2 shrink-0 print:hidden">
+          <div className="flex rounded-lg border overflow-hidden">
+            {(["A4", "A3"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPaper(p)}
+                className={`px-3 py-2 text-sm font-bold transition ${
+                  paper === p ? "bg-[#1D9E75] text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-lg border overflow-hidden">
+            {([
+              ["portrait", "세로"],
+              ["landscape", "가로"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setOrientation(value)}
+                className={`px-3 py-2 text-sm font-medium transition ${
+                  orientation === value ? "bg-gray-700 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-sm font-medium"
+          >
+            <span className="material-symbols-outlined text-lg">print</span>
+            출력
+          </button>
+        </div>
       </div>
 
       {/* 날짜 선택 */}
@@ -193,12 +257,11 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
       </div>
 
       {/* 출력용 제목 */}
-      <div className="hidden print:block mb-3">
-        <h1 className="text-xl font-bold">
-          {formatKorean(date)} 생산 작업지시서
-        </h1>
-        <p className="text-xs text-gray-500">
-          {includePending ? "미결제 물량 포함" : "확정 물량"} · 총 {shownTotal}개
+      <div className="hidden print:block mb-3 pb-2 border-b-2 border-gray-800">
+        <h1 className="text-xl font-bold">{formatKorean(date)} 생산 작업지시서</h1>
+        <p className="text-xs text-gray-600">
+          {includePending ? "미결제 물량 포함" : "확정 물량"} · 총 {shownTotal}개 · {products.length}종
+          {printedAt && <span className="ml-2 text-gray-400">출력 {printedAt}</span>}
         </p>
       </div>
 

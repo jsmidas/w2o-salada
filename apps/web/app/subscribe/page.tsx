@@ -211,7 +211,8 @@ function SubscribeContent() {
     for (const d of allActiveDates) if (d.substituteWeekday != null) m.set(d.dateStr, d.substituteWeekday);
     return m;
   }, [allActiveDates]);
-  const dowOf = (dateStr: string) => substituteByDate.get(dateStr) ?? new Date(dateStr + "T00:00:00").getDay();
+  const realDow = (dateStr: string) => new Date(dateStr + "T00:00:00").getDay();
+  const dowOf = (dateStr: string) => substituteByDate.get(dateStr) ?? realDow(dateStr);
 
   // 이 주기의 배송일 (맛보기는 첫 회만)
   const deliveryDates = useMemo(() => {
@@ -278,15 +279,23 @@ function SubscribeContent() {
 
   // 압축 캘린더: 첫 주문 가능일이 속한 주(일요일)부터 주기 마지막 날이 속한 주까지 이어서 그린다
   const weekRows = useMemo(() => {
-    const first = addDays(cutoffDate, -dowOf(cutoffDate));
+    // 줄 나누기는 달력상의 실제 요일 기준 (대체 요일과 무관)
+    const first = addDays(cutoffDate, -realDow(cutoffDate));
     const lastDay = addDays(windowEnd, -1);
-    const last = addDays(lastDay, 6 - dowOf(lastDay));
+    const last = addDays(lastDay, 6 - realDow(lastDay));
     const rows: string[][] = [];
     for (let d = first; d <= last; d = addDays(d, 7)) {
       rows.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
     }
     return rows;
   }, [cutoffDate, windowEnd]);
+
+  // 열 너비: 이 주기에 배송이 있는 요일(실제 요일)만 넓게. 휴일 대체로 월요일에 나가는 주가 있으면 월요일 열도 넓어져 수량이 보인다
+  const wideCols = useMemo(() => new Set(deliveryDates.map((d) => realDow(d.dateStr))), [deliveryDates]);
+  const gridTemplateColumns = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => (wideCols.has(i) ? "2fr" : "0.7fr")).join(" "),
+    [wideCols],
+  );
 
   const getMenuForDate = (dateStr: string) =>
     calendar.find((d) => new Date(d.date).toISOString().split("T")[0] === dateStr)?.menuAssignments || [];
@@ -641,7 +650,7 @@ function SubscribeContent() {
 
             {/* 압축 캘린더 — 주기 전체를 한 화면에. 월이 바뀌는 칸에 월 표시 */}
             <div className="bg-white rounded-2xl border border-[#1D9E75]/10 overflow-hidden mb-4">
-              <div className="grid bg-gray-50 border-b border-gray-100" style={{ gridTemplateColumns: "0.7fr 0.7fr 2fr 1fr 2fr 1fr 0.7fr" }}>
+              <div className="grid bg-gray-50 border-b border-gray-100" style={{ gridTemplateColumns }}>
                 {WEEKDAYS.map((d, i) => (
                   <div key={d} className={`text-center py-1 text-[10px] font-semibold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"}`}>{d}</div>
                 ))}
@@ -658,7 +667,7 @@ function SubscribeContent() {
                     {bandStartsMid && <span className="text-[11px] text-[#1D9E75]/70">{fmtMD(row[firstOfMonthIdx]!)}부터</span>}
                   </div>
                 )}
-                <div className="grid" style={{ gridTemplateColumns: "0.7fr 0.7fr 2fr 1fr 2fr 1fr 0.7fr" }}>
+                <div className="grid" style={{ gridTemplateColumns }}>
                   {row.map((dateStr, ci) => {
                     const day = Number(dateStr.slice(8, 10));
                     const month = Number(dateStr.slice(5, 7));
@@ -672,7 +681,7 @@ function SubscribeContent() {
                     const picks = isActive ? getDatePicks(dateStr).length : 0;
                     const need = itemsFor(dateStr);
                     const done = picks >= need && need > 0;
-                    const narrow = ci === 0 || ci === 1 || ci === 6;
+                    const narrow = !wideCols.has(ci);
                     const clickable = inWindow && !isClosed;
                     const beyond = isAnyDelivery && !inWindow && dateStr >= cutoffDate;
 

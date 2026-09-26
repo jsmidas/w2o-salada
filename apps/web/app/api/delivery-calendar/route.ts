@@ -38,8 +38,9 @@ export async function GET(request: Request) {
       orderBy: { date: "asc" },
     });
 
+    // 관리자가 배송일·대체 요일을 바꾸면 고객 화면에 곧 보여야 하므로 CDN 캐시를 짧게 둔다 (전엔 5분+10분 stale)
     return NextResponse.json(calendars, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=60" },
     });
   } catch {
     return NextResponse.json([]);

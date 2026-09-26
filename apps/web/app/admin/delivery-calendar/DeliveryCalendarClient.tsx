@@ -217,6 +217,17 @@ export default function DeliveryCalendarClient({
     const existing = getEntry(day);
     const newActive = existing ? !existing.isActive : true;
 
+    // 메뉴가 배정된 날을 해제할 때만 확인한다. 배정 자체는 지워지지 않고 남는다.
+    const assigned = existing?.menuAssignments.length ?? 0;
+    if (
+      !newActive &&
+      assigned > 0 &&
+      !confirm(`${month}월 ${day}일에 메뉴 ${assigned}종이 배정돼 있습니다.
+배송일에서 해제할까요? (메뉴 배정은 그대로 남습니다)`)
+    ) {
+      return;
+    }
+
     // 낙관적 업데이트
     setCalendars((prev) => {
       const idx = prev.findIndex((c) => toDateKey(c.date) === dateStr);
@@ -246,6 +257,15 @@ export default function DeliveryCalendarClient({
 
   // 화/목 일괄 지정
   const bulkSetTueThu = async () => {
+    // 달 전체를 덮어쓰므로 직접 추가한 요일(주 3회 배송 등)이 해제된다 — 먼저 확인
+    const activeCount = calendars.filter((c) => c.isActive).length;
+    if (
+      activeCount > 0 &&
+      !confirm("이 달 배송일을 화·목으로 다시 지정합니다. 직접 추가한 다른 요일은 해제됩니다. 계속할까요?")
+    ) {
+      return;
+    }
+
     const dates: { date: string; isActive: boolean }[] = [];
     const lastDay = new Date(year, month, 0).getDate();
 
@@ -260,7 +280,7 @@ export default function DeliveryCalendarClient({
     const res = await fetch("/api/admin/delivery-calendar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year, month, dates }),
+      body: JSON.stringify({ year, month, dates, replaceMonth: true }),
     });
 
     if (res.ok) {
@@ -518,9 +538,14 @@ export default function DeliveryCalendarClient({
                       </button>
                     </div>
 
-                    {/* 메뉴 이름 목록 */}
-                    {isActive && assignments.length > 0 && (
-                      <div className="mt-1 space-y-px">
+                    {/* 메뉴 이름 목록 — 배송일이 아니어도 배정이 남아 있으면 흐리게 보여준다 */}
+                    {assignments.length > 0 && (
+                      <div className={`mt-1 space-y-px ${isActive ? "" : "opacity-40"}`}>
+                        {!isActive && (
+                          <p className="text-[9px] text-amber-600 font-bold leading-tight">
+                            배송일 아님 · {assignments.length}종
+                          </p>
+                        )}
                         {assignments.map((a) => (
                           <p
                             key={a.productId}

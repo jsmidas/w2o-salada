@@ -28,16 +28,19 @@ export async function GET(request: Request) {
   return NextResponse.json(calendars);
 }
 
-// POST: 배송일 일괄 저장 (해당 월)
+// POST: 배송일 저장
+//  - 기본: body.dates에 담긴 날짜만 반영한다 (단일 날짜 토글용)
+//  - replaceMonth=true: 달 전체를 덮어쓴다. dates에 없는 날짜는 비활성화
 export async function POST(request: Request) {
   const { error } = await requireAdmin("orders");
   if (error) return error;
 
   const body = await request.json();
-  const { year, month, dates } = body as {
+  const { year, month, dates, replaceMonth } = body as {
     year: number;
     month: number;
     dates: { date: string; isActive: boolean; memo?: string }[];
+    replaceMonth?: boolean;
   };
 
   if (!year || !month || !dates) {
@@ -56,14 +59,19 @@ export async function POST(request: Request) {
     })
   );
 
-  // 이 월에서 dates에 포함되지 않은 기존 배송일은 비활성화
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0, 23, 59, 59);
-  const activeDates = dates.filter((d) => d.isActive).map((d) => new Date(d.date));
 
-  if (activeDates.length === 0) {
+  // 달 전체를 덮어쓰는 호출(화/목 일괄 지정)에서만 나머지 날짜를 비활성화한다.
+  // 예전에는 "activeDates.length === 0이면 달 전체 비활성화"였는데,
+  // 단일 날짜 토글로 배송일 하나를 끄면 그 달 전체가 꺼지는 버그가 있었다.
+  if (replaceMonth) {
+    const touched = dates.map((d) => new Date(d.date));
     await prisma.deliveryCalendar.updateMany({
-      where: { date: { gte: startDate, lte: endDate } },
+      where: {
+        date: { gte: startDate, lte: endDate },
+        NOT: { date: { in: touched } },
+      },
       data: { isActive: false },
     });
   }

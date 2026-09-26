@@ -25,6 +25,7 @@ export async function GET(
       where: { id },
       include: {
         user: true,
+        address: true,
         items: { include: { product: true } },
         payments: true,
         delivery: true,
@@ -55,7 +56,25 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const { status, resolveHold, holdNote } = body as {
+      status?: string;
+      resolveHold?: boolean;
+      holdNote?: string | null;
+    };
+
+    // 배송지 확인 처리 — 담당자가 고객과 통화한 결과를 기록하고 큐에서 뺀다 (상태 전환과 별개)
+    if (resolveHold !== undefined || holdNote !== undefined) {
+      const data: Record<string, unknown> = {};
+      if (holdNote !== undefined) data.deliveryHoldNote = holdNote ? String(holdNote).trim() : null;
+      if (resolveHold === true) data.deliveryHoldResolvedAt = new Date();
+      if (resolveHold === false) { data.deliveryHoldResolvedAt = null; data.deliveryHold = true; }
+      const updated = await prisma.order.update({
+        where: { id },
+        data,
+        select: { id: true, deliveryHold: true, deliveryHoldReason: true, deliveryHoldResolvedAt: true, deliveryHoldNote: true },
+      });
+      if (!status) return NextResponse.json(updated);
+    }
 
     if (!status) {
       return NextResponse.json(
@@ -85,7 +104,7 @@ export async function PATCH(
 
     const updated = await prisma.order.update({
       where: { id },
-      data: { status },
+      data: { status: status as import("@prisma/client").OrderStatus },
       include: {
         user: true,
         items: { include: { product: true } },

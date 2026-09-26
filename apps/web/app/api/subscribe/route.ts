@@ -10,11 +10,13 @@ export async function POST(request: Request) {
       getSessionUserId(),
     ]);
 
-    const { plan, selectionMode, itemsPerDelivery, selections } = body as {
+    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address } = body as {
       plan: "trial" | "subscription";
       selectionMode?: "MANUAL" | "AUTO";
       itemsPerDelivery?: number;
       selections: { date: string; productIds: string[] }[];
+      addressId?: string | null;
+      address?: import("../../lib/address-resolve").AddressInput | null;
     };
 
     if (!plan || !selections || selections.length === 0) {
@@ -88,6 +90,13 @@ export async function POST(request: Request) {
       }
     }
 
+    // 배송지 확정 — 구독은 배송지가 고정되므로 Subscription 에도 연결한다
+    const { resolveAddress } = await import("../../lib/address-resolve");
+    const resolved = await resolveAddress({ userId, addressId, address });
+    if ("error" in resolved) {
+      return NextResponse.json({ error: resolved.error }, { status: 400 });
+    }
+
     // 주문번호
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -101,6 +110,9 @@ export async function POST(request: Request) {
         data: {
           orderNo,
           userId,
+          addressId: resolved.addressId,
+          deliveryHold: resolved.deliveryHold,
+          deliveryHoldReason: resolved.deliveryHoldReason,
           type: plan === "trial" ? "SINGLE" : "SUBSCRIPTION",
           status: "PENDING",
           totalAmount,
@@ -121,6 +133,7 @@ export async function POST(request: Request) {
         const subscription = await tx.subscription.create({
           data: {
             userId,
+            addressId: resolved.addressId,
             selectionMode: selectionMode === "AUTO" ? "AUTO" : "MANUAL",
             itemsPerDelivery: itemsPerDelivery || 2,
             status: "PENDING",
@@ -162,7 +175,14 @@ export async function POST(request: Request) {
       return { orderId: order.id, orderNo: order.orderNo };
     });
 
-    return NextResponse.json({ ...result, totalAmount, plan });
+    return NextResponse.json({
+      ...result,
+      totalAmount,
+      plan,
+      addressId: resolved.addressId,
+      areaStatus: resolved.areaStatus,
+      deliveryHold: resolved.deliveryHold,
+    });
   } catch (err) {
     console.error("POST /api/subscribe error:", err);
     return NextResponse.json({ error: "주문 생성 실패" }, { status: 500 });

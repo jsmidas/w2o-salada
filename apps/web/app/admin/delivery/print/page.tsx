@@ -18,6 +18,12 @@ type ReportOrder = {
     address1: string;
     address2: string;
     memo: string;
+    buildingName?: string;
+    floor?: string;
+    entranceMethod?: string;
+    entrancePassword?: string;
+    dropLocation?: string;
+    dropNote?: string;
   } | null;
   items: Array<{ productId: string; name: string; quantity: number; isOption: boolean }>;
   delivery: { id: string; routeLabel: string; sortOrder: number } | null;
@@ -38,6 +44,19 @@ type Report = {
 
 function fmt(n: number) {
   return n.toLocaleString();
+}
+
+const DROP_LABEL: Record<string, string> = { DOOR: "문 앞", SECURITY_OFFICE: "경비실", PARCEL_BOX: "택배함", OTHER: "기타" };
+
+/** 기사 출력본용 출입·수령 한 줄 — 배송지마다 다르므로 주소 바로 아래에 찍는다 */
+function accessLine(a: NonNullable<ReportOrder["address"]>): string {
+  const parts: string[] = [];
+  if (a.floor) parts.push(a.floor);
+  if (a.entranceMethod) parts.push(a.entranceMethod);
+  if (a.entrancePassword) parts.push(`비번 ${a.entrancePassword}`);
+  if (a.dropLocation && a.dropLocation !== "DOOR") parts.push(`→ ${DROP_LABEL[a.dropLocation] ?? a.dropLocation}${a.dropNote ? ` (${a.dropNote})` : ""}`);
+  else if (a.dropNote) parts.push(a.dropNote);
+  return parts.join(" · ");
 }
 
 export default function DeliveryPrintPage() {
@@ -235,7 +254,13 @@ export default function DeliveryPrintPage() {
                     <td style={{ fontSize: "9.5pt" }}>
                       {o.address ? (
                         <>
-                          [{o.address.zipCode}] {o.address.address1} {o.address.address2}
+                          [{o.address.zipCode}] {o.address.address1}
+                          {o.address.buildingName && !o.address.address1.includes(o.address.buildingName) ? ` (${o.address.buildingName})` : ""} {o.address.address2}
+                          {accessLine(o.address) && (
+                            <div style={{ color: "#1d4ed8", fontSize: "9pt", marginTop: 2, fontWeight: 600 }}>
+                              🔑 {accessLine(o.address)}
+                            </div>
+                          )}
                           {o.address.memo && (
                             <div style={{ color: "#c07500", fontSize: "9pt", marginTop: 2 }}>
                               * {o.address.memo}

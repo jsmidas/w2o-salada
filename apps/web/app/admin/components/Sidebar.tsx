@@ -25,6 +25,7 @@ const menuGroups: MenuGroup[] = [
       { href: "/admin/production", icon: "factory", label: "생산 집계" },
       { href: "/admin/delivery", icon: "local_shipping", label: "배송 관리" },
       { href: "/admin/delivery-calendar", icon: "calendar_month", label: "배송 캘린더" },
+      { href: "/admin/apartments", icon: "apartment", label: "아파트 단지" },
     ],
   },
   {

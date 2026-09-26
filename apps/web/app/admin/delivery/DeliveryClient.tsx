@@ -52,6 +52,8 @@ type ReportOrder = {
   status: string;
   totalAmount: number;
   customer: { id: string; name: string; phone: string };
+  deliveryHold?: boolean;
+  deliveryHoldReason?: string | null;
   address: {
     receiver: string;
     phone: string;
@@ -59,6 +61,18 @@ type ReportOrder = {
     address1: string;
     address2: string;
     memo: string;
+    label?: string;
+    sigungu?: string;
+    bname?: string;
+    buildingName?: string;
+    isApartment?: boolean;
+    distanceKm?: number | null;
+    areaStatus?: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+    entranceMethod?: string;
+    entrancePassword?: string;
+    floor?: string;
+    dropLocation?: "DOOR" | "SECURITY_OFFICE" | "PARCEL_BOX" | "OTHER";
+    dropNote?: string;
   } | null;
   items: ReportOrderItem[];
   delivery: {
@@ -67,6 +81,13 @@ type ReportOrder = {
     sortOrder: number;
     status: string;
   } | null;
+};
+
+const DROP_LABEL: Record<string, string> = {
+  DOOR: "문 앞",
+  SECURITY_OFFICE: "경비실",
+  PARCEL_BOX: "택배함",
+  OTHER: "기타",
 };
 
 type ReportRoute = {
@@ -419,7 +440,29 @@ export default function DeliveryClient({
                           <td className="px-3 py-2 text-xs text-gray-600">
                             {o.address ? (
                               <>
+                                {o.address.receiver !== o.customer.name && (
+                                  <span className="text-gray-400">{o.address.label ? `[${o.address.label}] ` : ""}수령 {o.address.receiver} · </span>
+                                )}
                                 {o.address.address1} {o.address.address2}
+                                <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
+                                  {o.address.bname && <span className="text-gray-500">{o.address.bname}</span>}
+                                  {o.address.buildingName && (
+                                    <span className="text-gray-500">· {o.address.buildingName}{o.address.isApartment ? " (아파트)" : ""}</span>
+                                  )}
+                                  {o.address.distanceKm != null && <span className="text-gray-400">· {o.address.distanceKm}km</span>}
+                                  {o.deliveryHold && (
+                                    <span className="px-1 rounded bg-red-50 text-red-600 font-semibold" title={o.deliveryHoldReason ?? ""}>배송지 확인</span>
+                                  )}
+                                </div>
+                                {(o.address.entranceMethod || o.address.entrancePassword || o.address.floor || (o.address.dropLocation && o.address.dropLocation !== "DOOR")) && (
+                                  <div className="text-[10px] text-blue-700 mt-0.5">
+                                    {o.address.floor && `${o.address.floor} · `}
+                                    {o.address.entranceMethod}
+                                    {o.address.entrancePassword && ` #${o.address.entrancePassword}`}
+                                    {o.address.dropLocation && o.address.dropLocation !== "DOOR" && ` · ${DROP_LABEL[o.address.dropLocation]}`}
+                                    {o.address.dropNote && ` (${o.address.dropNote})`}
+                                  </div>
+                                )}
                                 {o.address.memo && (
                                   <div className="text-[10px] text-amber-600 mt-0.5">
                                     메모: {o.address.memo}
@@ -427,7 +470,7 @@ export default function DeliveryClient({
                                 )}
                               </>
                             ) : (
-                              "-"
+                              <span className="text-red-500">배송지 없음</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-right text-xs text-gray-600">

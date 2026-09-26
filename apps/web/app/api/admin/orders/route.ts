@@ -19,7 +19,12 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (status) {
+    if (status === "hold") {
+      // 배송지 확인 큐 — 반경 밖·좌표 불명 주소로 들어온 미처리 주문
+      where.deliveryHold = true;
+      where.deliveryHoldResolvedAt = null;
+      where.status = { notIn: ["CANCELLED", "REFUNDED", "FAILED"] };
+    } else if (status) {
       where.status = status;
     }
     if (type) {
@@ -45,11 +50,23 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           orderNo: true,
+          type: true,
           status: true,
           totalAmount: true,
           deliveryFee: true,
+          deliveryDate: true,
+          deliveryHold: true,
+          deliveryHoldReason: true,
+          deliveryHoldResolvedAt: true,
+          deliveryHoldNote: true,
           createdAt: true,
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, email: true, phone: true } },
+          address: {
+            select: {
+              label: true, name: true, phone: true, address1: true, address2: true,
+              sigungu: true, bname: true, buildingName: true, distanceKm: true, areaStatus: true,
+            },
+          },
           items: {
             select: {
               id: true,

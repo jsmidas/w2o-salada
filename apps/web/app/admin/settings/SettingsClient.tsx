@@ -16,6 +16,13 @@ const defaultSettings = {
   freeShippingMin: "11000",
   deliveryFee: "0",
   deliveryAreas: "대구 달서구, 달성군 일부",
+  // 배송 권역 (센터 반경 판정)
+  deliveryCenterName: "1센터 (성서)",
+  deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
+  deliveryCenterLat: "",
+  deliveryCenterLng: "",
+  deliveryRadiusKm: "5",
+  deliveryAllowedDongs: "",
   orderConfirm: "true",
   deliveryStart_noti: "true",
   deliveryDone: "true",
@@ -58,6 +65,46 @@ export default function SettingsClient({
   };
 
   const inputClass = "px-4 py-2.5 border border-gray-200 rounded-lg text-sm w-full max-w-md focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30 focus:border-[#1D9E75] transition";
+
+  // ── 배송 권역: 센터 좌표 찾기 / 기존 주소 좌표 보정 ──
+  const [areaBusy, setAreaBusy] = useState<string | null>(null);
+  const [areaMsg, setAreaMsg] = useState<string | null>(null);
+
+  const geocodeCenter = async () => {
+    setAreaBusy("center");
+    setAreaMsg(null);
+    try {
+      const res = await fetch("/api/admin/delivery-area", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "geocodeCenter", address: settings.deliveryCenterAddress }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAreaMsg(data.error ?? "좌표를 찾지 못했습니다."); return; }
+      update("deliveryCenterLat", String(data.lat));
+      update("deliveryCenterLng", String(data.lng));
+      setAreaMsg(`좌표 확인: ${data.lat.toFixed(5)}, ${data.lng.toFixed(5)} — 저장을 눌러 반영하세요`);
+    } finally {
+      setAreaBusy(null);
+    }
+  };
+
+  const backfillAddresses = async () => {
+    setAreaBusy("backfill");
+    setAreaMsg(null);
+    try {
+      const res = await fetch("/api/admin/delivery-area", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "backfill" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAreaMsg(data.error ?? "실패"); return; }
+      setAreaMsg(`주소 ${data.total}건 재판정 — 권역 내 ${data.inRange} · 반경 밖 ${data.outOfRange} · 좌표 미확인 ${data.unknown}${data.geocodeFailed ? ` (지오코딩 실패 ${data.geocodeFailed})` : ""}`);
+    } finally {
+      setAreaBusy(null);
+    }
+  };
 
   return (
     <div>
@@ -147,6 +194,68 @@ export default function SettingsClient({
               저장
             </button>
             {saved === "delivery" && <span className="text-sm text-[#1D9E75] font-medium">저장되었습니다 ✓</span>}
+          </div>
+        </div>
+
+        {/* 배송 권역 — 센터 반경으로 배송 가능 여부를 판정한다 */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border">
+          <h3 className="font-bold text-gray-700 mb-1">배송 권역</h3>
+          <p className="text-xs text-gray-400 mb-4">
+            주소를 받을 때 센터 좌표와의 거리를 재서 반경 안이면 자동 수용, 밖이면 접수 후 &quot;배송지 확인&quot; 큐로 보냅니다.
+            행정구역과 무관하게 반경 하나로 판정하고, 예외로 열어둘 동은 아래에 적습니다.
+          </p>
+          <div className="space-y-4">
+            <div className="flex gap-4 max-w-md">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-gray-600 block mb-1">센터 이름</label>
+                <input type="text" value={settings.deliveryCenterName} onChange={(e) => update("deliveryCenterName", e.target.value)} className={inputClass} />
+              </div>
+              <div className="w-32">
+                <label className="text-sm font-medium text-gray-600 block mb-1">반경 (km)</label>
+                <input type="number" step="0.5" min="1" value={settings.deliveryRadiusKm} onChange={(e) => update("deliveryRadiusKm", e.target.value)} className={inputClass} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">센터 주소</label>
+              <div className="flex gap-2 max-w-md">
+                <input type="text" value={settings.deliveryCenterAddress} onChange={(e) => update("deliveryCenterAddress", e.target.value)} className={inputClass} />
+                <button
+                  type="button"
+                  onClick={geocodeCenter}
+                  disabled={areaBusy !== null}
+                  className="shrink-0 px-3 py-2 border border-[#1D9E75] text-[#1D9E75] text-sm rounded-lg hover:bg-[#1D9E75]/5 transition disabled:opacity-50"
+                >
+                  {areaBusy === "center" ? "찾는 중..." : "좌표 찾기"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                좌표: {settings.deliveryCenterLat && settings.deliveryCenterLng ? `${settings.deliveryCenterLat}, ${settings.deliveryCenterLng}` : "없음 — 좌표 찾기를 누르세요"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">반경 밖이라도 배송하는 동 (쉼표 구분)</label>
+              <input type="text" value={settings.deliveryAllowedDongs} onChange={(e) => update("deliveryAllowedDongs", e.target.value)} placeholder="예: 상인동, 월성동" className={inputClass} />
+              <p className="text-xs text-gray-400 mt-1">법정동 이름 그대로. 코스가 생겨 열어둘 지역이나 반경 경계에 걸친 동에 씁니다.</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => handleSave("area", ["deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedDongs"])}
+              className="px-5 py-2 bg-[#1D9E75] text-white text-sm font-medium rounded-lg hover:bg-[#178a64] transition"
+            >
+              저장
+            </button>
+            <button
+              type="button"
+              onClick={backfillAddresses}
+              disabled={areaBusy !== null}
+              className="px-4 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+              title="저장된 모든 배송지의 좌표를 채우고 현재 반경으로 다시 판정합니다"
+            >
+              {areaBusy === "backfill" ? "재판정 중..." : "기존 배송지 좌표 보정·재판정"}
+            </button>
+            {saved === "area" && <span className="text-sm text-[#1D9E75] font-medium">저장되었습니다 ✓</span>}
+            {areaMsg && <span className="text-sm text-gray-600">{areaMsg}</span>}
           </div>
         </div>
 

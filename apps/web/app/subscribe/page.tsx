@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { firstOrderableDate } from "../lib/cutoff";
+import DeliveryAddressPicker, { type AddressSelection } from "../components/address/DeliveryAddressPicker";
 
 type Product = {
   id: string;
@@ -396,7 +397,10 @@ function SubscribeContent() {
     : activeDates.filter((d) => getDateBaseTotal(d.dateStr) < minOrderAmount);
   const allMeetMinAmount = insufficientDates.length === 0;
 
-  const allReady = termsAgreed && meetsMinimum && allMeetMinAmount && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
+  // 배송지 — 저장된 배송지 선택 또는 새 입력. 없으면 결제 불가
+  const [addressSel, setAddressSel] = useState<AddressSelection | null>(null);
+
+  const allReady = termsAgreed && meetsMinimum && allMeetMinAmount && addressSel !== null && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
 
   // 가격 계산
   const calculatePrice = () => {
@@ -450,6 +454,7 @@ function SubscribeContent() {
           selectionMode: mode === "auto" ? "AUTO" : "MANUAL",
           itemsPerDelivery,
           selections,
+          ...(addressSel ?? {}),
         }),
       });
 
@@ -956,6 +961,20 @@ function SubscribeContent() {
                   </div>
                 </div>
 
+                {/* 배송지 — 구독은 배송지가 고정된다. 부모님 댁 등 다른 곳으로 보낼 때는 새 배송지 입력 */}
+                <div className="mt-5 pt-4 border-t border-[#1D9E75]/10">
+                  <h3 className="text-sm font-bold text-[#0A1A0F] mb-2 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base text-[#1D9E75]">location_on</span>
+                    배송지
+                  </h3>
+                  <DeliveryAddressPicker
+                    loggedIn={!!session?.user}
+                    defaultName={session?.user?.name}
+                    theme="light"
+                    onChange={setAddressSel}
+                  />
+                </div>
+
                 {/* 약관 동의 — 체크박스와 링크를 분리해 모바일 오터치 방지 */}
                 <div className="mt-5">
                   <label className="flex items-start gap-2.5 cursor-pointer group select-none py-1">
@@ -1004,6 +1023,7 @@ function SubscribeContent() {
                     : !meetsMinimum && mode !== "trial" ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
                     : mode !== "auto" && completedCount < activeDates.length ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
                     : !allMeetMinAmount ? `회당 ${minOrderAmount.toLocaleString()}원 미달 ${insufficientDates.length}회`
+                    : addressSel === null ? "배송지를 입력해주세요"
                     : mode === "trial" ? "맛보기 결제하기" : "구독 결제하기"}
                 </button>
 

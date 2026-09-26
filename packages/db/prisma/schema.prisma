@@ -52,9 +52,82 @@ model Address {
   isDefault    Boolean @default(false)
   deliveryMemo String?
 
-  orders Order[]
+  // ── 출입·수령 정보 (배송지마다 다르다: 공동현관 비밀번호, 갖다둘 곳, 층수) ──
+  label            String?      // "집", "부모님 댁", "사무실" — 한 회원이 여러 곳에 보낼 때 구분
+  entranceMethod   String?      // "공동현관 비밀번호" / "경비실 호출" / "자유 출입" 등 자유 서술
+  entrancePassword String?      // 공동현관 비밀번호 — 관리자 화면 기본 가림, 기사 출력본에는 배송일 당일만
+  floor            String?      // "3층", "지하1층" — 엘리베이터 없는 건물 판단용
+  dropLocation     DropLocation @default(DOOR) // 갖다둘 곳
+  dropNote         String?      // "택배함 3번", "경비실 야간 창구" 등 보조 설명
 
+  // ── 위치 정보 (배송 코스 1단계) ──
+  // 다음 우편번호 API가 주는 값을 가공 없이 저장한다. buildingName은 단지 묶음의 키.
+  sido         String?  // 대구
+  sigungu      String?  // 달서구
+  bname        String?  // 이곡동 (법정동)
+  buildingName String?  // 성서주공1단지 — 표기 그대로 보존
+  isApartment  Boolean  @default(false) // 다음 API apartment === "Y"
+  roadAddress  String?  // 도로명 주소 (지오코딩 질의용)
+  jibunAddress String?  // 지번 주소
+  // 좌표·반경 판정 (카카오 로컬 API로 수집, 실패 시 UNKNOWN)
+  lat          Float?
+  lng          Float?
+  distanceKm   Float?   // 가장 가까운 물류센터까지 거리 (캐시)
+  areaStatus   DeliveryAreaStatus @default(UNKNOWN)
+  geocodedAt   DateTime?
+  // 사전 등록 단지와 매칭된 결과 (buildingName ↔ Apartment.name/aliases)
+  apartmentId  String?
+  apartment    Apartment? @relation(fields: [apartmentId], references: [id])
+  createdAt    DateTime @default(now())
+
+  orders        Order[]
+  subscriptions Subscription[]
+
+  @@index([sigungu, bname])
+  @@index([buildingName])
+  @@index([areaStatus])
   @@map("addresses")
+}
+
+// 갖다둘 곳
+enum DropLocation {
+  DOOR            // 문 앞
+  SECURITY_OFFICE // 경비실
+  PARCEL_BOX      // 택배함
+  OTHER           // 기타 (dropNote 참고)
+}
+
+// 배송 가능 판정 — 센터 반경 기준. 좌표를 못 얻으면 UNKNOWN(사람이 확인)
+enum DeliveryAreaStatus {
+  UNKNOWN      // 좌표 없음 → 관리자 확인 필요
+  IN_RANGE     // 반경 이내 (또는 허용 동 화이트리스트)
+  OUT_OF_RANGE // 반경 초과 → 접수 후 주간에 전화 안내
+}
+
+// ── 아파트 단지 사전 등록 ──
+// 공공데이터(공동주택 단지 정보) 또는 수동 등록. 단지명 표기 흔들림 보정 + 침투율 집계 + 영업 우선순위.
+model Apartment {
+  id          String   @id @default(cuid())
+  name        String   // 단지명 (기준 표기)
+  aliases     String[] @default([]) // 표기 흔들림 보정용 ("성서주공 1단지" 등)
+  address     String?  // 대표 주소
+  sigungu     String?
+  bname       String?
+  households  Int?     // 세대수
+  dongCount   Int?     // 동수
+  lat         Float?
+  lng         Float?
+  distanceKm  Float?   // 센터에서의 거리 (캐시)
+  isServiced  Boolean  @default(false) // 배송 개시 여부
+  memo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  addresses Address[]
+
+  @@index([sigungu, bname])
+  @@index([name])
+  @@map("apartments")
 }
 
 // ── 카테고리 ──
@@ -125,6 +198,11 @@ model Order {
   paidAt          DateTime?
   deliveryDate    DateTime?   // 배송 예정일
   deliveredAt     DateTime?
+  // 배송지 확인 보류 — 반경 밖·좌표 불명 주소는 결제를 막지 않고 접수한 뒤 주간에 전화로 판단한다
+  deliveryHold           Boolean   @default(false)
+  deliveryHoldReason     String?   // "반경 초과 7.3km" / "좌표 확인 불가"
+  deliveryHoldResolvedAt DateTime?
+  deliveryHoldNote       String?   // 담당자 처리 메모 (통화 결과)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -132,6 +210,7 @@ model Order {
   payments  Payment[]
   delivery  Delivery?
 
+  @@index([deliveryHold])
   @@map("orders")
 }
 
@@ -197,6 +276,8 @@ model Subscription {
   id                String             @id @default(cuid())
   userId            String
   user              User               @relation(fields: [userId], references: [id])
+  addressId         String?            // 구독 배송지 (갱신 주문이 이 주소를 복사한다)
+  address           Address?           @relation(fields: [addressId], references: [id])
   planType          PlanType?          // deprecated, optional로 유지
   frequency         Frequency?         // deprecated, optional로 유지
   selectionMode     SelectionMode      @default(MANUAL)

@@ -145,6 +145,8 @@ export async function GET(request: NextRequest) {
         name: o.user.name,
         phone: o.user.phone ?? o.address?.phone ?? "",
       },
+      deliveryHold: o.deliveryHold && !o.deliveryHoldResolvedAt,
+      deliveryHoldReason: o.deliveryHoldReason,
       address: o.address
         ? {
             receiver: o.address.name,
@@ -153,6 +155,20 @@ export async function GET(request: NextRequest) {
             address1: o.address.address1,
             address2: o.address.address2 ?? "",
             memo: o.address.deliveryMemo ?? "",
+            label: o.address.label ?? "",
+            // 코스 편성용 위치 정보
+            sigungu: o.address.sigungu ?? "",
+            bname: o.address.bname ?? "",
+            buildingName: o.address.buildingName ?? "",
+            isApartment: o.address.isApartment,
+            distanceKm: o.address.distanceKm,
+            areaStatus: o.address.areaStatus,
+            // 출입·수령 정보 (기사 출력본용)
+            entranceMethod: o.address.entranceMethod ?? "",
+            entrancePassword: o.address.entrancePassword ?? "",
+            floor: o.address.floor ?? "",
+            dropLocation: o.address.dropLocation,
+            dropNote: o.address.dropNote ?? "",
           }
         : null,
       items: o.items.map((it) => ({

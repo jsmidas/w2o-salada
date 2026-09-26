@@ -13,11 +13,22 @@ type OrderItem = {
 type Order = {
   id: string;
   orderNo: string;
+  type?: "SINGLE" | "SUBSCRIPTION";
   status: string;
   totalAmount: number;
   deliveryFee: number;
+  deliveryDate?: string | null;
+  deliveryHold?: boolean;
+  deliveryHoldReason?: string | null;
+  deliveryHoldResolvedAt?: string | null;
+  deliveryHoldNote?: string | null;
   createdAt: string;
-  user: { name: string; email: string };
+  user: { name: string; email: string; phone?: string | null };
+  address?: {
+    label: string | null; name: string; phone: string; address1: string; address2: string | null;
+    sigungu: string | null; bname: string | null; buildingName: string | null;
+    distanceKm: number | null; areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+  } | null;
   items: OrderItem[];
 };
 
@@ -50,7 +61,15 @@ const statusLabels: Record<string, string> = {
   FAILED: "결제실패",
 };
 
-const statusFilter = ["all", "PENDING", "PAID", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"];
+// "hold" 는 상태가 아니라 배송지 확인 큐 (반경 밖·좌표 불명 주소, 미처리)
+const statusFilter = ["all", "hold", "PENDING", "PAID", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"];
+const filterLabels: Record<string, string> = { all: "전체", hold: "배송지 확인" };
+
+const areaLabel: Record<string, { text: string; cls: string }> = {
+  IN_RANGE: { text: "권역 내", cls: "bg-green-50 text-green-700" },
+  OUT_OF_RANGE: { text: "반경 밖", cls: "bg-red-50 text-red-600" },
+  UNKNOWN: { text: "좌표 미확인", cls: "bg-gray-100 text-gray-500" },
+};
 
 const nextStatus: Record<string, string> = {
   PAID: "PREPARING",
@@ -95,6 +114,26 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
     setPage(1);
   };
 
+  // 배송지 확인 완료 — 통화 결과를 메모로 남기고 큐에서 뺀다
+  const handleResolveHold = async (order: Order) => {
+    const note = prompt(
+      `${order.address?.name ?? order.user?.name ?? ""} 고객과 확인한 내용을 적어주세요.\n(예: 10/6부터 배송 가능 안내 / 취소 처리 / 대기 명단 등록)`,
+      order.deliveryHoldNote ?? "",
+    );
+    if (note === null) return;
+    const res = await fetch(`/api/admin/orders/${order.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolveHold: true, holdNote: note }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert((err as { error?: string }).error ?? "처리 실패");
+      return;
+    }
+    mutate();
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -116,10 +155,18 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
                 : "bg-white text-gray-600 border hover:bg-gray-50"
             }`}
           >
-            {s === "all" ? "전체" : statusLabels[s]}
+            {filterLabels[s] ?? statusLabels[s]}
           </button>
         ))}
       </div>
+
+      {filter === "hold" && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          배송 권역(센터 반경) 밖이거나 좌표를 확인하지 못한 주소로 들어온 주문입니다. 결제는 정상 완료된 상태이니
+          주간(08~17시)에 고객에게 전화해 배송 가능 여부를 안내하고 <b>확인 완료</b>를 눌러 주세요.
+          취소가 필요하면 확인 완료 후 상태를 취소로 바꿉니다.
+        </div>
+      )}
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -140,7 +187,7 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
               <tr>
                 <td colSpan={7} className="text-center py-16 text-gray-400">
                   <span className="material-symbols-outlined text-4xl text-gray-200 block mb-2">receipt_long</span>
-                  {filter === "all" ? "아직 주문이 없습니다." : `${statusLabels[filter]} 주문이 없습니다.`}
+                  {filter === "all" ? "아직 주문이 없습니다." : filter === "hold" ? "확인이 필요한 배송지가 없습니다." : `${statusLabels[filter]} 주문이 없습니다.`}
                 </td>
               </tr>
             ) : (
@@ -148,10 +195,41 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
                 <tr key={order.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-5 py-4">
                     <p className="font-medium text-gray-800 text-sm">{order.orderNo}</p>
+                    {order.type === "SUBSCRIPTION" && (
+                      <span className="text-[10px] text-[#1D9E75] bg-[#1D9E75]/10 px-1 rounded">구독</span>
+                    )}
+                    {order.deliveryHold && !order.deliveryHoldResolvedAt && (
+                      <span className="ml-1 text-[10px] text-red-600 bg-red-50 px-1 rounded font-semibold">배송지 확인</span>
+                    )}
                   </td>
                   <td className="px-5 py-4">
                     <p className="text-sm text-gray-800">{order.user?.name ?? "-"}</p>
                     <p className="text-xs text-gray-400">{order.user?.email}</p>
+                    {order.address && (
+                      <div className="mt-1 text-xs text-gray-500 max-w-xs">
+                        <span className="text-gray-700">
+                          {order.address.label && <span className="text-gray-400">[{order.address.label}] </span>}
+                          {order.address.name} · {order.address.phone}
+                        </span>
+                        <div className="truncate" title={`${order.address.address1} ${order.address.address2 ?? ""}`}>
+                          {order.address.address1} {order.address.address2}
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {order.address.bname && <span className="text-gray-400">{order.address.bname}</span>}
+                          {order.address.buildingName && <span className="text-gray-400">· {order.address.buildingName}</span>}
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${areaLabel[order.address.areaStatus]?.cls ?? ""}`}>
+                            {areaLabel[order.address.areaStatus]?.text}
+                            {order.address.distanceKm !== null && ` ${order.address.distanceKm}km`}
+                          </span>
+                        </div>
+                        {order.deliveryHold && order.deliveryHoldReason && (
+                          <div className="text-[11px] text-red-500 mt-0.5">{order.deliveryHoldReason}</div>
+                        )}
+                        {order.deliveryHoldNote && (
+                          <div className="text-[11px] text-gray-500 mt-0.5">확인: {order.deliveryHoldNote}</div>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-sm text-gray-600">
                     {order.items.length > 0 ? (
@@ -177,6 +255,14 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
                     })}
                   </td>
                   <td className="px-5 py-4 text-center">
+                    {order.deliveryHold && !order.deliveryHoldResolvedAt && (
+                      <button
+                        onClick={() => handleResolveHold(order)}
+                        className="mb-1 px-3 py-1 bg-amber-500 text-white text-xs rounded-lg hover:bg-amber-600 transition block mx-auto"
+                      >
+                        확인 완료
+                      </button>
+                    )}
                     {nextStatus[order.status] ? (
                       <button
                         onClick={() => handleStatusChange(order.id, nextStatus[order.status]!)}

@@ -4,6 +4,8 @@ import { prisma } from "@repo/db";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { pushDuePrices } from "../../../lib/effective-price";
 import { decryptBillingKey } from "../../../lib/billing-crypto";
+import { pickAddressForUser } from "../../../lib/address-resolve";
+import { holdFromStatus } from "../../../lib/geo";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY ?? "";
@@ -120,11 +122,18 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // 결제 성공 → DB 업데이트
+        // 결제 성공 → DB 업데이트 (배송지는 구독에 고정된 것 → 없으면 기본 배송지)
+        const addr = await pickAddressForUser(sub.userId, sub.addressId);
+        const hold = addr
+          ? holdFromStatus(addr.areaStatus, addr.distanceKm, 5)
+          : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
         const order = await prisma.order.create({
           data: {
             orderNo,
             userId: sub.userId,
+            addressId: addr?.id ?? null,
+            deliveryHold: hold.deliveryHold,
+            deliveryHoldReason: hold.deliveryHoldReason,
             type: "SUBSCRIPTION",
             status: "PAID",
             totalAmount: amount,

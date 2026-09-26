@@ -169,6 +169,8 @@ async function vworldGeocode(q: string, signal: AbortSignal): Promise<GeocodeRes
     }
     const s = r.refined?.structure ?? {};
     const text = r.refined?.text ?? null;
+    // 도로명: level3=법정동, level4A=행정동 / 지번: level3 비고 level4L 에 동이 온다
+    const bname = s.level3 || (type === "parcel" ? s.level4L : "") || s.level4A || null;
     return finite({
       lat: Number(r.result.point.y),
       lng: Number(r.result.point.x),
@@ -176,7 +178,7 @@ async function vworldGeocode(q: string, signal: AbortSignal): Promise<GeocodeRes
       jibunAddress: type === "parcel" ? text : null,
       sido: s.level1 || null,
       sigungu: s.level2 || null,
-      bname: s.level3 || s.level4A || null,
+      bname,
       buildingName: null,
     });
   }

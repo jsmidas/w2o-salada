@@ -12,6 +12,16 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // "메뉴 소개" 드롭다운에 띄울 카테고리 — DB 기준이라 추가하면 자동으로 나타난다
+  const [categories, setCategories] = useState<{ name: string; slug: string }[]>([]);
+  const [menuHover, setMenuHover] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setCategories(d); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { setMounted(true); }, []);
   const showCart = mounted && cartCount > 0;
@@ -66,17 +76,51 @@ export default function Header() {
 
         {/* 데스크톱 네비 */}
         <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-brand-green ${
-                scrolled ? "text-gray-700" : "text-white/90"
-              }`}
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const linkClass = `text-sm font-medium transition-colors hover:text-brand-green ${
+              scrolled ? "text-gray-700" : "text-white/90"
+            }`;
+
+            // 메뉴 소개: 호버하면 카테고리 목록을 펼친다
+            if (link.href === "/menu" && categories.length > 0) {
+              return (
+                <div
+                  key={link.href}
+                  className="relative"
+                  onMouseEnter={() => setMenuHover(true)}
+                  onMouseLeave={() => setMenuHover(false)}
+                >
+                  <Link href={link.href} className={`${linkClass} flex items-center gap-0.5`}>
+                    {link.label}
+                    <span className="material-symbols-outlined text-base leading-none">
+                      {menuHover ? "expand_less" : "expand_more"}
+                    </span>
+                  </Link>
+                  {menuHover && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3">
+                      <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[150px]">
+                        {categories.map((c) => (
+                          <Link
+                            key={c.slug}
+                            href={`/menu?category=${c.slug}`}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#1D9E75]/8 hover:text-brand-green transition whitespace-nowrap"
+                          >
+                            {c.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <a key={link.href} href={link.href} className={linkClass}>
+                {link.label}
+              </a>
+            );
+          })}
         </nav>
 
         {/* CTA + 로그인 */}
@@ -170,14 +214,29 @@ export default function Header() {
         <div className="md:hidden bg-white border-t">
           <nav className="flex flex-col p-6 gap-4">
             {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-gray-800 font-medium py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
+              <div key={link.href}>
+                <a
+                  href={link.href}
+                  className="block text-gray-800 font-medium py-2"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </a>
+                {link.href === "/menu" && categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-3 pb-1">
+                    {categories.map((c) => (
+                      <Link
+                        key={c.slug}
+                        href={`/menu?category=${c.slug}`}
+                        className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        {c.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
             {session && (session.user as { role?: string })?.role === "ADMIN" && (
               <Link

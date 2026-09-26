@@ -26,6 +26,12 @@ export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [filter, setFilter] = useState("all");
 
+  // 헤더 드롭다운에서 넘어온 ?category=<slug> 를 초기 필터로 적용
+  useEffect(() => {
+    const cat = new URLSearchParams(window.location.search).get("category");
+    if (cat) setFilter(cat);
+  }, []);
+
   useEffect(() => {
     fetch("/api/products")
       .then((r) => r.json())

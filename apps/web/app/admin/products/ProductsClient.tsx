@@ -25,10 +25,13 @@ type Product = {
   availableDays: string | null;
 };
 
-const categoryLabels: Record<string, string> = {
-  salad: "샐러드",
-  simple: "간편식",
-  etc: "기타",
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  sortOrder: number;
+  isActive: boolean;
 };
 
 export default function ProductsClient({ initialProducts }: { initialProducts: Product[] }) {
@@ -37,6 +40,12 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
     revalidateOnFocus: false,
   });
   const products = Array.isArray(data) ? data : [];
+  // 필터 칩은 DB 카테고리를 그대로 쓴다 (카테고리를 추가하면 자동으로 나타남).
+  // 비활성 카테고리도 포함 — 거기 묶인 상품을 관리자가 찾을 수 있어야 한다.
+  const { data: catData } = useSWR<Category[]>("/api/admin/categories", fetcher, {
+    revalidateOnFocus: false,
+  });
+  const categories = Array.isArray(catData) ? catData : [];
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,7 +87,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
       </div>
 
       {/* 필터 */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border mb-4 flex gap-4 items-center">
+      <div className="bg-white rounded-xl p-4 shadow-sm border mb-4 flex flex-wrap gap-4 items-center">
         <input
           type="text"
           placeholder="상품명 검색..."
@@ -86,8 +95,11 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
           onChange={(e) => setSearch(e.target.value)}
           className="px-4 py-2 border rounded-lg text-sm flex-1 max-w-xs focus:outline-none focus:border-[#1D9E75]"
         />
-        <div className="flex gap-2">
-          {[{ key: "all", label: "전체" }, ...Object.entries(categoryLabels).map(([key, label]) => ({ key, label }))].map((c) => (
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "all", label: "전체" },
+            ...categories.map((c) => ({ key: c.slug, label: c.name })),
+          ].map((c) => (
             <button
               key={c.key}
               onClick={() => setCategoryFilter(c.key)}

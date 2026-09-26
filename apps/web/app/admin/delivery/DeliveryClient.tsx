@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
+import DeliveryMap from "./DeliveryMap";
 
 type ReportTotals = {
   orderCount: number;
@@ -69,6 +70,8 @@ type ReportOrder = {
     isApartment?: boolean;
     distanceKm?: number | null;
     areaStatus?: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+    lat?: number | null;
+    lng?: number | null;
     entranceMethod?: string;
     entrancePassword?: string;
     floor?: string;
@@ -120,6 +123,7 @@ type Report = {
   orders: ReportOrder[];
   heldOrders?: ReportOrder[]; // 배송지 확인 대기 — 코스 편성·출력에서 제외
   routeMaster?: RouteMaster[];
+  center?: { name: string; lat: number | null; lng: number | null; radiusKm: number } | null; // 물류센터 — 지도 중심·반경 원
 };
 
 const statusLabels: Record<string, string> = {
@@ -144,6 +148,7 @@ export default function DeliveryClient({
   const [drafts, setDrafts] = useState<Record<string, { routeId: string | null; routeLabel: string; sortOrder: number }>>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(true); // 코스 편성 지도 — 핀으로 보고 핀에서 코스를 바꾼다
 
   const apiUrl = `/api/admin/delivery/report?date=${date}`;
   const isInitial = date === initialDate;
@@ -469,6 +474,22 @@ export default function DeliveryClient({
 
           {/* 2. 코스 편성 */}
           <Section title="2. 코스 편성" subtitle="각 주문에 코스명과 순번을 배정하세요 (같은 집의 단건·구독은 함께 움직입니다)">
+            {/* 지도 — 코스별 색 핀, 핀에서 코스 변경 (저장은 아래 "코스 배정 저장") */}
+            <div className="flex items-center justify-between mb-2">
+              <button
+                type="button"
+                onClick={() => setShowMap((v) => !v)}
+                className="text-xs font-medium text-[#1D9E75] hover:underline"
+              >
+                {showMap ? "지도 접기" : "지도 펼치기"}
+              </button>
+              {showMap && <span className="text-[11px] text-gray-400">핀을 누르면 집 정보와 코스 변경 · 숫자는 코스 안 순번</span>}
+            </div>
+            {showMap && (
+              <div className="mb-4">
+                <DeliveryMap orders={mergedOrders} routeMaster={routeMaster} center={data?.center} onAssign={assignToRoute} />
+              </div>
+            )}
             <div className="bg-white rounded-xl border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">

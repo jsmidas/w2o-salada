@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
 import { DELIVERABLE_ORDER_TYPES, ensureSubscriptionDeliveries } from "../../../../lib/subscription-delivery";
+import { getDeliveryCenter } from "../../../../lib/geo";
 
 // Delivery.driverId는 Phase 4 기사 배정 전까지 "코스 라벨"로 재사용한다.
 // (예: "A", "강남-1") — 실제 DRIVER User 연결은 향후 별도 필드로 분리.
@@ -195,6 +196,9 @@ export async function GET(request: NextRequest) {
             isApartment: o.address.isApartment,
             distanceKm: o.address.distanceKm,
             areaStatus: o.address.areaStatus,
+            // 지도 핀용 좌표 (카카오 지오코딩 결과, 없으면 null)
+            lat: o.address.lat,
+            lng: o.address.lng,
             // 출입·수령 정보 (기사 출력본용)
             entranceMethod: o.address.entranceMethod ?? "",
             entrancePassword: o.address.entrancePassword ?? "",
@@ -280,6 +284,8 @@ export async function GET(request: NextRequest) {
       routes,
       orders: deliverable,
       heldOrders,
+      // 물류센터 좌표·반경 — 지도 중심과 배송 권역 원
+      center: await getDeliveryCenter().then((c) => ({ name: c.name, lat: c.lat, lng: c.lng, radiusKm: c.radiusKm })),
       // 코스 마스터 — 편성 드롭다운·코스 카드(기사·용량)용
       routeMaster: routeMaster.map((r) => ({
         id: r.id,

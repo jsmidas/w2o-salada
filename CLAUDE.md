@@ -343,3 +343,14 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 - `_legacy/index.html` → `apps/web/app/(marketing)/page.tsx`
 - `_legacy/css/style.css` → Tailwind 디자인 토큰
 - `_legacy/js/main.js`, `_legacy/js/animations.js` → React 컴포넌트 + Framer Motion
+
+---
+
+## ⚠️ DB 안전 규칙 (2026-09-27 운영 DB 초기화 사고 이후)
+
+- 로컬 `.env` 3개(루트·apps/web·packages/db)는 **모두 운영 Supabase DB**를 가리킨다. 개발용 DB가 따로 없다.
+- **절대 실행 금지**: `prisma migrate dev`, `prisma migrate reset`, `prisma db push --force-reset`, 그리고 `--shadow-database-url`에 운영 URL을 넣는 모든 명령. Prisma는 shadow DB로 지정된 DB를 **먼저 비운다**.
+- 스키마 변경 절차: `npm run db:diff -w @repo/db`(읽기 전용)로 SQL 확인 → `packages/db/prisma/migrations/<timestamp>_<name>/migration.sql` 작성 → 사용자 확인 → `npm run db:deploy -w @repo/db`.
+- 마이그레이션 이력은 `20260927000000_baseline` 하나로 시작한다(이전 4개는 `migrations_archive/`).
+- 백업: GitHub Actions `DB backup`이 매일 03:00 KST pg_dump + JSON을 아티팩트(90일)로 남긴다. 수동은 `npm run db:backup -w @repo/db`. Supabase Free 플랜에는 백업이 없으므로 Pro 전환 전까지 이것이 유일한 백업이다.
+- DB에 쓰는 명령을 돌리기 전에 그 명령이 대상 DB를 비우거나 덮어쓰는지 문서로 먼저 확인한다.

@@ -7,10 +7,17 @@
   "scripts": {
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:status": "prisma migrate status",
+    "db:diff": "prisma migrate diff --from-schema-datasource ./prisma/schema.prisma --to-schema-datamodel ./prisma/schema.prisma --script",
+    "db:deploy": "prisma migrate deploy",
+    "db:backup": "tsx ../../tools/backup_db.ts",
+    "db:recover:20260927": "tsx ../../tools/recover_20260927.ts"
   },
+  "//": [
+    "db:push / db:migrate(migrate dev) 는 2026-09-27 운영 DB 초기화 사고 이후 제거했다.",
+    "스키마 변경은 db:diff 로 SQL을 확인 → migrations/ 에 파일 추가 → db:deploy. shadow DB 가 필요한 명령은 이 프로젝트에서 쓰지 않는다."
+  ],
   "dependencies": {
     "@prisma/client": "^6.9.0",
     "bcryptjs": "^3.0.3"

@@ -1,0 +1,61 @@
+# 운영 DB 일일 백업 — Supabase Free 플랜에는 백업이 없어 저장소 쪽에서 직접 받아둔다.
+#
+# 준비: GitHub 저장소 Settings → Secrets and variables → Actions → New repository secret
+#   이름 DIRECT_URL, 값은 packages/db/.env 의 DIRECT_URL (세션 모드 5432 포트 주소)
+#
+# 산출물: pg_dump 커스텀 포맷(.dump) + 테이블별 JSON. Actions 아티팩트로 90일 보관.
+# 수동 실행: Actions 탭 → "DB backup" → Run workflow
+# 복원(pg_dump 파일): pg_restore --clean --if-exists --no-owner -d "$DIRECT_URL" w2o-YYYYMMDD.dump
+name: DB backup
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 매일 03:00 KST (UTC 18:00)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 17 client (서버 버전과 맞춘다)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: pg_dump
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          test -n "$DIRECT_URL" || { echo "DIRECT_URL secret 이 비어 있습니다"; exit 1; }
+          mkdir -p backup
+          STAMP=$(TZ=Asia/Seoul date +%Y%m%d-%H%M)
+          pg_dump "$DIRECT_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --file "backup/w2o-$STAMP.dump"
+          pg_dump "$DIRECT_URL" --schema=public --schema-only --no-owner --no-privileges > "backup/w2o-$STAMP.schema.sql"
+          ls -la backup
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: JSON dump (pg_restore 없이도 읽을 수 있는 사본)
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          npm ci --ignore-scripts
+          npx prisma generate --schema packages/db/prisma/schema.prisma
+          cd packages/db && npx tsx ../../tools/backup_db.ts ../../backup/json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup
+          retention-days: 90
+          if-no-files-found: error

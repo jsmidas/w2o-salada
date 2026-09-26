@@ -5,6 +5,60 @@
 
 ---
 
+## 📅 2026-09-27 (일) 운영 DB 초기화 사고 → 복구 체계
+
+### ⚠️ 무슨 일이 있었나
+
+- 01:19~01:24(PC 시각) 마이그레이션 SQL을 만들려고 `prisma migrate diff --from-migrations … --shadow-database-url <운영 DIRECT_URL>`을 실행. Prisma는 shadow DB로 받은 DB를 **먼저 완전히 비운다**. 운영 DB가 4월 초기 마이그레이션 상태(11개 테이블, 0행)로 리셋됐다.
+- Supabase **Free 플랜이라 백업 없음**. Vercel 실서비스가 같은 DB를 써서 사이트가 빈 상태가 됐다. 실주문은 없었음(사용자 확인).
+- 원인: 마이그레이션 이력(init + RLS 3개)이 db push로 운영된 실제 DB와 어긋나 있었고, 이를 shadow DB로 맞추려다 발생.
+
+### 💾 건진 것 (Vercel 홈페이지 ISR 캐시)
+
+`packages/db/prisma/recovery-20260927/salvaged_home.json`
+- 상품 22종 — 이름·설명·정가·구독가·태그·이미지 URL·**원래 ID**
+- 카테고리 5개(샐러드·간편식·오니기리·반찬·국·주스·음료), 원래 ID
+- 배송 캘린더 9/1~10/30 배송일 20일 + 메뉴 배정 69건(9/29부터)
+
+**잃은 것**: 회원 전부(관리자 포함), 주문 56·구독 43(테스트), 문의·리뷰·알림 이력, 관리자 설정(회사정보·FAQ 3건), 구독 설정, 사이드바, 권한, 상품 상세페이지 본문. 상품 이미지 파일은 Supabase Storage에 그대로 있다.
+
+### 🔧 복구 실행 (사용자가 직접 — 자동모드가 운영 DB 쓰기를 막는다)
+
+```bash
+cd packages/db
+npx tsx ../../tools/recover_20260927.ts           # ① 스키마 보정 ② RLS ③ 데이터 복원 ④ baseline
+```
+- 멱등이라 다시 실행해도 안전. 미리 보려면 `DRY_RUN=1 npx tsx ../../tools/recover_20260927.ts`
+- 관리자 계정 `admin@w2osalada.co.kr`이 **임시 비밀번호**와 함께 출력된다 → 로그인 후 즉시 변경
+- 비회원 주문용 `guest` 유저도 재생성된다 (없으면 단건 주문이 FK 오류)
+
+### ✍️ 복구 후 관리자에서 재입력할 것
+
+1. `/admin/settings` — 회사명·대표자·사업자번호·이메일, 알림톡 설정, FAQ 3건, 문의 알림 번호
+2. `/admin/subscribe-settings` — 수량/가격/배송 조건
+3. `/admin/pages` — 상품 상세페이지 (이미지는 Storage `images` 버킷에서 다시 선택)
+4. `/admin/sidebar`, `/admin/permissions`
+5. 상품 `singlePrice`(단건가) — 캐시에 없어 비어 있음. 단건가 정책이 있었다면 `/admin/pricing`에서 재설정
+6. 배송 캘린더 9/1~9/24는 배정 없이 배송일만 복원됨(과거라 무관)
+
+### 🛡️ 재발 방지 (이번 커밋에 포함)
+
+- `packages/db/package.json`에서 `db:push`·`db:migrate` 제거. `db:diff`(읽기 전용)·`db:deploy`·`db:backup`·`db:status` 추가
+- 마이그레이션 이력을 `20260927000000_baseline` 하나로 재정렬 (구 4개는 `migrations_archive/`)
+- **GitHub Actions `DB backup`** — 매일 03:00 KST pg_dump(커스텀 포맷)+JSON을 아티팩트 90일 보관.
+  → **저장소 Settings → Secrets → Actions에 `DIRECT_URL` 등록 필요** (packages/db/.env 값). 등록 후 Actions 탭에서 Run workflow로 첫 백업 확인
+- 로컬 수동 백업 `npm run db:backup -w @repo/db` → `backups/` (gitignore)
+- CLAUDE.md에 "DB 안전 규칙" 추가. 스키마 변경은 diff 확인 → migrations 파일 → deploy 순서로만
+- 권장: Supabase **Pro($25/월)** 전환 시 일일 백업 7일 + PITR 애드온 가능. 오픈 전 전환 권장
+
+### 📌 미착수 (사고 전 하려던 일)
+
+- 배송 코스 1단계 스키마 초안은 `git stash`(`delivery-area phase1 schema draft`)에 있음. 복구 확인 후 `git stash pop` → `db:diff`로 SQL 확인 → 마이그레이션 파일로 적용
+- 카카오 로컬 API가 앱 `w2o`에서 **"카카오맵" 서비스 비활성** 상태(`disabled OPEN_MAP_AND_LOCAL service`). Kakao Developers → 앱 → 제품 설정 → 카카오맵 → 활성화 필요. 좌표 수집(반경 판정)의 전제 조건
+- 이후 우선순위는 9/26 섹션의 "다음 할 일" 그대로
+
+---
+
 ## 📅 2026-09-26 (토) 오픈 준비 작업
 
 ### ✅ 완료

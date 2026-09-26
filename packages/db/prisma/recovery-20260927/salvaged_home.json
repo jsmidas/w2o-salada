@@ -1,0 +1,818 @@
+{
+ "products": [
+  {
+   "id": "cmnh30f1i000puw4ct1qiffs0",
+   "name": "파스타 샐러드",
+   "description": "쫄깃한 파스타와 신선한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777783273062-1s7rxh.jpg",
+   "tags": "NEW",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30f38000ruw4c2902vqf4",
+   "name": "데리야끼 불고기 샐러드",
+   "description": "달콤짭짤한 데리야끼 불고기와 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777721014904-wveypb.jpg",
+   "tags": "NEW",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnu3mru10008uw2065szcann",
+   "name": "소불고기 덮밥",
+   "description": "양념이 배인 소불고기와 부드러운 밥",
+   "originalPrice": 8500,
+   "singlePrice": null,
+   "price": 6700,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777654237715-y7r0dn.JPG",
+   "tags": "NEW",
+   "category": {
+    "id": "cmngs4s960002uwjgg14itjzz",
+    "name": "간편식",
+    "slug": "simple"
+   }
+  },
+  {
+   "id": "cmnu3ms37000euw20fwdr06o7",
+   "name": "집반찬 plus 3찬+국 (준비중)",
+   "description": "매일 바뀌는 오늘의 반찬 3종 구성",
+   "originalPrice": 14000,
+   "singlePrice": null,
+   "price": 11000,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnu3mqsz0003uw204zcih2lm",
+    "name": "반찬·국",
+    "slug": "banchan"
+   }
+  },
+  {
+   "id": "cmnu3msom000suw20aqkiqv1d",
+   "name": "착즙 당근주스",
+   "description": "100% 착즙 당근주스 300ml",
+   "originalPrice": 4500,
+   "singlePrice": null,
+   "price": 3500,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/products/1780024788281-57wusu.JPG",
+   "tags": null,
+   "category": {
+    "id": "cmnu3mqxn0006uw20m0ajzh4a",
+    "name": "주스·음료",
+    "slug": "drink"
+   }
+  },
+  {
+   "id": "cmnu3ms05000cuw204uafeo2m",
+   "name": "명란 크림 파스타",
+   "description": "부드러운 명란 크림 소스의 파스타",
+   "originalPrice": 9000,
+   "singlePrice": null,
+   "price": 7100,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmngs4s960002uwjgg14itjzz",
+    "name": "간편식",
+    "slug": "simple"
+   }
+  },
+  {
+   "id": "cmnu4v8540006uwg01fjr537x",
+   "name": "집반찬 basic 3찬+국",
+   "description": "매일 바뀌는 오늘의 반찬 3종 A구성",
+   "originalPrice": 14000,
+   "singlePrice": null,
+   "price": 11000,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1776581575042-uudopt.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnu3mqsz0003uw204zcih2lm",
+    "name": "반찬·국",
+    "slug": "banchan"
+   }
+  },
+  {
+   "id": "cmnu3msro000uuw206f8z9pos",
+   "name": "콜드브루 아메리카노",
+   "description": "깔끔한 콜드브루 300ml",
+   "originalPrice": 4500,
+   "singlePrice": null,
+   "price": 3500,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnu3mqxn0006uw20m0ajzh4a",
+    "name": "주스·음료",
+    "slug": "drink"
+   }
+  },
+  {
+   "id": "cmnh30ek00005uw4cz72famld",
+   "name": "꽃맛살 샐러드",
+   "description": "신선한 꽃맛살과 다양한 채소의 조화",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 7000,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777638386640-x20cnd.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30elq0007uw4cv7x802st",
+   "name": "메밀면 샐러드",
+   "description": "쫄깃한 메밀면과 신선한 채소의 만남",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777633150210-sujm0b.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30enj0009uw4ct9kganzj",
+   "name": "새우 샐러드",
+   "description": "탱글탱글한 새우와 상큼한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777637196992-uy74x2.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30ep9000buw4cy03l5wfb",
+   "name": "고구마 샐러드",
+   "description": "달콤한 고구마와 건강한 채소의 조합",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777783315072-0ukiym.jpg",
+   "tags": "BEST",
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnu3mrx4000auw20kvtwke6c",
+   "name": "치킨 스테이크 도시락",
+   "description": "바삭한 치킨 스테이크 원플레이트",
+   "originalPrice": 8500,
+   "singlePrice": null,
+   "price": 6700,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmngs4s960002uwjgg14itjzz",
+    "name": "간편식",
+    "slug": "simple"
+   }
+  },
+  {
+   "id": "cmnh30ew5000juw4cb29g7wb0",
+   "name": "리코타치즈 샐러드",
+   "description": "부드러운 리코타치즈와 신선한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777712101672-o4ysj9.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30exw000luw4ceye2kunx",
+   "name": "단호박 샐러드",
+   "description": "달콤한 단호박과 영양 가득한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777783348115-6hjwq7.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30eqw000duw4ciuqgj9ar",
+   "name": "치킨텐더 샐러드",
+   "description": "바삭한 치킨텐더와 풍성한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777634608749-uziay2.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnh30esm000fuw4cdoi6etnw",
+   "name": "참깨 두부 샐러드",
+   "description": "고소한 참깨 두부와 신선한 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777721085008-06wzsp.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnu3ms69000guw20txqbevr7",
+   "name": "소고기 무국",
+   "description": "깊은 국물의 소고기 무국 1인분",
+   "originalPrice": 5900,
+   "singlePrice": null,
+   "price": 4500,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnu3mqsz0003uw204zcih2lm",
+    "name": "반찬·국",
+    "slug": "banchan"
+   }
+  },
+  {
+   "id": "cmnh30eub000huw4crq5ayyah",
+   "name": "훈제오리 샐러드",
+   "description": "풍미 가득한 훈제오리와 채소",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777786509407-7il2n8.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnu4v88e0008uwg0zcz95900",
+   "name": "집반찬 B세트 (볶음·무침·구이)",
+   "description": "매일 바뀌는 오늘의 반찬 3종 B구성",
+   "originalPrice": 13500,
+   "singlePrice": null,
+   "price": 10500,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnu3mqsz0003uw204zcih2lm",
+    "name": "반찬·국",
+    "slug": "banchan"
+   }
+  },
+  {
+   "id": "cmnh30ezt000nuw4c49inasmm",
+   "name": "베이컨버섯 샐러드",
+   "description": "짭짤한 베이컨과 향긋한 버섯의 조화",
+   "originalPrice": 7500,
+   "singlePrice": null,
+   "price": 5900,
+   "kcal": null,
+   "imageUrl": "https://ejwballsqwganddzdosa.supabase.co/storage/v1/object/public/images/pages/1777786809988-dwg8e0.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnfvbpml0001uw8gdt3mlxnt",
+    "name": "샐러드",
+    "slug": "salad"
+   }
+  },
+  {
+   "id": "cmnu3ms9a000iuw20yqc4k0r8",
+   "name": "된장찌개",
+   "description": "구수한 된장과 두부의 1인 찌개",
+   "originalPrice": 5900,
+   "singlePrice": null,
+   "price": 4500,
+   "kcal": null,
+   "imageUrl": "/products/placeholder.jpg",
+   "tags": null,
+   "category": {
+    "id": "cmnu3mqsz0003uw204zcih2lm",
+    "name": "반찬·국",
+    "slug": "banchan"
+   }
+  }
+ ],
+ "categories": [
+  {
+   "id": "cmnfvbpml0001uw8gdt3mlxnt",
+   "name": "샐러드",
+   "slug": "salad",
+   "icon": "eco",
+   "color": "#1D9E75",
+   "sortOrder": 1,
+   "isActive": true,
+   "isOption": false
+  },
+  {
+   "id": "cmngs4s960002uwjgg14itjzz",
+   "name": "간편식",
+   "slug": "simple",
+   "icon": "lunch_dining",
+   "color": "#EF9F27",
+   "sortOrder": 2,
+   "isActive": true,
+   "isOption": false
+  },
+  {
+   "id": "cmnu3mqsz0003uw204zcih2lm",
+   "name": "반찬·국",
+   "slug": "banchan",
+   "icon": "soup_kitchen",
+   "color": "#B85C38",
+   "sortOrder": 4,
+   "isActive": true,
+   "isOption": false
+  },
+  {
+   "id": "cmnu3mqxn0006uw20m0ajzh4a",
+   "name": "주스·음료",
+   "slug": "drink",
+   "icon": "local_drink",
+   "color": "#3498DB",
+   "sortOrder": 5,
+   "isActive": true,
+   "isOption": true
+  },
+  {
+   "id": "cmui0xc0v0000uw805ilr1wuu",
+   "name": "오니기리",
+   "slug": "onigiri",
+   "sortOrder": 3,
+   "icon": "bento",
+   "color": "#7C5CBF",
+   "isActive": true,
+   "isOption": false
+  }
+ ],
+ "calendar": [
+  {
+   "date": "2026-09-01T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-03T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-08T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-10T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-15T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-17T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-22T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-24T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": []
+  },
+  {
+   "date": "2026-09-29T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30f1i000puw4ct1qiffs0",
+     "name": "파스타 샐러드"
+    },
+    {
+     "productId": "cmnh30f38000ruw4c2902vqf4",
+     "name": "데리야끼 불고기 샐러드"
+    },
+    {
+     "productId": "cmnu3mru10008uw2065szcann",
+     "name": "소불고기 덮밥"
+    },
+    {
+     "productId": "cmnu3ms37000euw20fwdr06o7",
+     "name": "집반찬 plus 3찬+국 (준비중)"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-01T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30f1i000puw4ct1qiffs0",
+     "name": "파스타 샐러드"
+    },
+    {
+     "productId": "cmnh30f38000ruw4c2902vqf4",
+     "name": "데리야끼 불고기 샐러드"
+    },
+    {
+     "productId": "cmnu3ms05000cuw204uafeo2m",
+     "name": "명란 크림 파스타"
+    },
+    {
+     "productId": "cmnu4v8540006uwg01fjr537x",
+     "name": "집반찬 basic 3찬+국"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-06T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30ek00005uw4cz72famld",
+     "name": "꽃맛살 샐러드"
+    },
+    {
+     "productId": "cmnh30elq0007uw4cv7x802st",
+     "name": "메밀면 샐러드"
+    },
+    {
+     "productId": "cmnu3mru10008uw2065szcann",
+     "name": "소불고기 덮밥"
+    },
+    {
+     "productId": "cmnu3ms37000euw20fwdr06o7",
+     "name": "집반찬 plus 3찬+국 (준비중)"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-08T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30enj0009uw4ct9kganzj",
+     "name": "새우 샐러드"
+    },
+    {
+     "productId": "cmnh30ep9000buw4cy03l5wfb",
+     "name": "고구마 샐러드"
+    },
+    {
+     "productId": "cmnu3mrx4000auw20kvtwke6c",
+     "name": "치킨 스테이크 도시락"
+    },
+    {
+     "productId": "cmnu4v8540006uwg01fjr537x",
+     "name": "집반찬 basic 3찬+국"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-12T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30ew5000juw4cb29g7wb0",
+     "name": "리코타치즈 샐러드"
+    },
+    {
+     "productId": "cmnh30exw000luw4ceye2kunx",
+     "name": "단호박 샐러드"
+    },
+    {
+     "productId": "cmnu3mru10008uw2065szcann",
+     "name": "소불고기 덮밥"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-13T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30eqw000duw4ciuqgj9ar",
+     "name": "치킨텐더 샐러드"
+    },
+    {
+     "productId": "cmnh30esm000fuw4cdoi6etnw",
+     "name": "참깨 두부 샐러드"
+    },
+    {
+     "productId": "cmnu3ms05000cuw204uafeo2m",
+     "name": "명란 크림 파스타"
+    },
+    {
+     "productId": "cmnu3ms69000guw20txqbevr7",
+     "name": "소고기 무국"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-15T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30eub000huw4crq5ayyah",
+     "name": "훈제오리 샐러드"
+    },
+    {
+     "productId": "cmnh30ew5000juw4cb29g7wb0",
+     "name": "리코타치즈 샐러드"
+    },
+    {
+     "productId": "cmnu3mru10008uw2065szcann",
+     "name": "소불고기 덮밥"
+    },
+    {
+     "productId": "cmnu4v88e0008uwg0zcz95900",
+     "name": "집반찬 B세트 (볶음·무침·구이)"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-20T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30exw000luw4ceye2kunx",
+     "name": "단호박 샐러드"
+    },
+    {
+     "productId": "cmnh30ezt000nuw4c49inasmm",
+     "name": "베이컨버섯 샐러드"
+    },
+    {
+     "productId": "cmnu3mrx4000auw20kvtwke6c",
+     "name": "치킨 스테이크 도시락"
+    },
+    {
+     "productId": "cmnu3ms69000guw20txqbevr7",
+     "name": "소고기 무국"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-22T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30exw000luw4ceye2kunx",
+     "name": "단호박 샐러드"
+    },
+    {
+     "productId": "cmnh30ezt000nuw4c49inasmm",
+     "name": "베이컨버섯 샐러드"
+    },
+    {
+     "productId": "cmnu3mrx4000auw20kvtwke6c",
+     "name": "치킨 스테이크 도시락"
+    },
+    {
+     "productId": "cmnu3ms69000guw20txqbevr7",
+     "name": "소고기 무국"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-27T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30f1i000puw4ct1qiffs0",
+     "name": "파스타 샐러드"
+    },
+    {
+     "productId": "cmnh30f38000ruw4c2902vqf4",
+     "name": "데리야끼 불고기 샐러드"
+    },
+    {
+     "productId": "cmnu3ms05000cuw204uafeo2m",
+     "name": "명란 크림 파스타"
+    },
+    {
+     "productId": "cmnu3ms9a000iuw20yqc4k0r8",
+     "name": "된장찌개"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-29T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30ek00005uw4cz72famld",
+     "name": "꽃맛살 샐러드"
+    },
+    {
+     "productId": "cmnh30elq0007uw4cv7x802st",
+     "name": "메밀면 샐러드"
+    },
+    {
+     "productId": "cmnu3ms05000cuw204uafeo2m",
+     "name": "명란 크림 파스타"
+    },
+    {
+     "productId": "cmnu4v8540006uwg01fjr537x",
+     "name": "집반찬 basic 3찬+국"
+    },
+    {
+     "productId": "cmnu3ms69000guw20txqbevr7",
+     "name": "소고기 무국"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    }
+   ]
+  },
+  {
+   "date": "2026-10-30T00:00:00.000Z",
+   "isActive": true,
+   "memo": null,
+   "menuAssignments": [
+    {
+     "productId": "cmnh30f38000ruw4c2902vqf4",
+     "name": "데리야끼 불고기 샐러드"
+    },
+    {
+     "productId": "cmnh30f1i000puw4ct1qiffs0",
+     "name": "파스타 샐러드"
+    },
+    {
+     "productId": "cmnu3mrx4000auw20kvtwke6c",
+     "name": "치킨 스테이크 도시락"
+    },
+    {
+     "productId": "cmnu3ms69000guw20txqbevr7",
+     "name": "소고기 무국"
+    },
+    {
+     "productId": "cmnu3msom000suw20aqkiqv1d",
+     "name": "착즙 당근주스"
+    },
+    {
+     "productId": "cmnu3msro000uuw206f8z9pos",
+     "name": "콜드브루 아메리카노"
+    }
+   ]
+  }
+ ]
+}

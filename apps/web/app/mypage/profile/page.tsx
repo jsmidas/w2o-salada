@@ -27,6 +27,7 @@ export default function ProfilePage() {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -209,23 +210,38 @@ export default function ProfilePage() {
             {/* 비밀번호 변경 */}
             {!isSocial && (
               <section className="bg-white/5 rounded-xl p-5 border border-white/10">
-                <h2 className="text-white font-bold mb-4">비밀번호 변경</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-bold">비밀번호 변경</h2>
+                  {/* 입력한 값을 확인할 수 있게 보기/숨기기 토글 — 임시 비밀번호처럼 긴 값을 옮겨 적을 때 필요 */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {showPw ? "visibility_off" : "visibility"}
+                    </span>
+                    {showPw ? "숨기기" : "비밀번호 보기"}
+                  </button>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">현재 비밀번호</label>
                     <input
-                      type="password"
+                      type={showPw ? "text" : "password"}
                       value={currentPw}
                       onChange={(e) => setCurrentPw(e.target.value)}
+                      autoComplete="current-password"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green"
                     />
                   </div>
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">새 비밀번호</label>
                     <input
-                      type="password"
+                      type={showPw ? "text" : "password"}
                       value={newPw}
                       onChange={(e) => setNewPw(e.target.value)}
+                      autoComplete="new-password"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green"
                       placeholder="6자 이상"
                     />
@@ -233,11 +249,15 @@ export default function ProfilePage() {
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">새 비밀번호 확인</label>
                     <input
-                      type="password"
+                      type={showPw ? "text" : "password"}
                       value={newPw2}
                       onChange={(e) => setNewPw2(e.target.value)}
+                      autoComplete="new-password"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green"
                     />
+                    {newPw2 && newPw !== newPw2 && (
+                      <p className="text-xs text-red-400 mt-1">새 비밀번호가 서로 다릅니다.</p>
+                    )}
                   </div>
                 </div>
                 <button

@@ -124,7 +124,8 @@ assume("dlvMax", "코스당 최대 집수", 200, "집",
 section("④ 고정비 가정 (월)")
 assume("rent", "주방 임대·관리비", 2500000, "원", "공유주방~소형 센터 초기 기준")
 assume("labor", "인건비", 12000000, "원", "조리·포장·CS 4~5명 초기 소규모")
-assume("car", "차량·냉장설비", 1500000, "원", "리스·유지·냉장 인프라")
+assume("car", "냉장설비", 500000, "원",
+       "냉장고·쇼케이스 유지·전기. 배송 차량은 용차(변동비)라 고정비에 넣지 않는다")
 assume("mkt", "마케팅비", 3000000, "원", "신규 유입 광고 (초기 공격 시 ↑)")
 assume("etc", "기타 운영비", 1000000, "원", "SW·결제·보험·잡비")
 
@@ -216,7 +217,7 @@ cm_month = pline("월 공헌이익", f"={cm_unit}*{morders}", WON, bold=True, fi
 psection("고정비 (월)")
 f_rent = pline("주방 임대·관리비", f"={ref['rent']}")
 f_labor = pline("인건비", f"={ref['labor']}")
-f_car = pline("차량·냉장설비", f"={ref['car']}")
+f_car = pline("냉장설비", f"={ref['car']}", note="배송 차량은 용차라 위 배송 섹션의 변동비로 잡힌다")
 f_mkt = pline("마케팅비", f"={ref['mkt']}")
 f_etc = pline("기타 운영비", f"={ref['etc']}")
 f_sum = pline("월 고정비 합계", f"={f_rent}+{f_labor}+{f_car}+{f_mkt}+{f_etc}",
@@ -361,7 +362,148 @@ B.cell(row=r + 1, column=2,
              "보장액은 협의에 따라 바뀔 수 있으므로 위 표에서 금액별 영향을 먼저 확인하세요.").font = note_font
 B.merge_cells(start_row=r + 1, start_column=2, end_row=r + 1, end_column=10)
 
-# 시트 순서: 가정값 → 손익 → 손익분기
+# =========================================================
+# 4) 시나리오 시트 (고정비 규모별 비교)
+# =========================================================
+# BEP는 고정비가 지배한다. 오픈 초기에 어느 규모로 시작할지가
+# "몇 집을 모아야 흑자인가"를 결정하므로, 규모별로 나란히 비교한다.
+S = wb.create_sheet("시나리오")
+S.sheet_view.showGridLines = False
+S.column_dimensions["A"].width = 3
+S.column_dimensions["B"].width = 26
+for col in "CDE":
+    S.column_dimensions[col].width = 17
+S.column_dimensions["F"].width = 42
+
+S["B1"] = "고정비 시나리오 비교 — 어느 규모로 시작할 것인가"
+S.merge_cells("B1:F1")
+S["B1"].font = title_font
+S["B1"].fill = title_fill
+S["B1"].alignment = Alignment(horizontal="center", vertical="center")
+S.row_dimensions[1].height = 28
+
+S["B2"] = ("노란 셀을 바꾸면 BEP가 자동 재계산됩니다 · "
+           "배송 차량은 용차(변동비)라 고정비에 넣지 않습니다")
+S.merge_cells("B2:F2")
+S["B2"].font = note_font
+
+sc_names = ["A. 안정기", "B. 축소 운영", "C. 최소 시작"]
+sr = 4
+hc = S.cell(row=sr, column=2, value="고정비 항목 (월)")
+hc.font = Font(name="맑은 고딕", size=10, bold=True, color="FFFFFF")
+hc.fill = PatternFill("solid", fgColor="1D9E75")
+hc.border = box
+for i, n in enumerate(sc_names):
+    c = S.cell(row=sr, column=3 + i, value=n)
+    c.font = Font(name="맑은 고딕", size=10, bold=True, color="FFFFFF")
+    c.fill = PatternFill("solid", fgColor="1D9E75")
+    c.alignment = Alignment(horizontal="center")
+    c.border = box
+sr += 1
+
+sc_items = [
+    ("주방 임대·관리비", 2500000, 1000000, 0, "모회사 주방 공유 시 0 또는 분담"),
+    ("인건비", 12000000, 6000000, 4000000, "C는 겸업·파트타임 기준"),
+    ("냉장설비", 500000, 300000, 0, "배송 차량은 용차라 제외"),
+    ("마케팅비", 3000000, 1500000, 1000000, "초기엔 단지 단위 영업이 더 싸다"),
+    ("기타 운영비", 1000000, 700000, 500000, "SW·결제·보험·잡비"),
+]
+first_item = sr
+for label, a, b, c_, note in sc_items:
+    S.cell(row=sr, column=2, value=label).font = label_font
+    for i, v in enumerate([a, b, c_]):
+        vc = S.cell(row=sr, column=3 + i, value=v)
+        vc.font = input_font
+        vc.fill = input_fill
+        vc.number_format = WON
+        vc.border = box
+        vc.alignment = Alignment(horizontal="right")
+    S.cell(row=sr, column=6, value=note).font = note_font
+    sr += 1
+last_item = sr - 1
+
+# 배송비를 뺀 건당 공헌이익 — BEP 계산의 기준
+cm_ex = f"({cm_unit}+{v_ship})"
+
+def srow(label, fml_by_col, fmt=WON, bold=True, note=""):
+    global sr
+    S.cell(row=sr, column=2, value=label).font = result_font if bold else label_font
+    S.cell(row=sr, column=2).fill = result_fill
+    for i in range(3):
+        col = get_column_letter(3 + i)
+        vc = S.cell(row=sr, column=3 + i, value=fml_by_col(col))
+        vc.font = result_font if bold else calc_font
+        vc.number_format = fmt
+        vc.border = box
+        vc.fill = result_fill
+        vc.alignment = Alignment(horizontal="right")
+    if note:
+        S.cell(row=sr, column=6, value=note).font = note_font
+    cur = sr
+    sr += 1
+    return cur
+
+total_row = srow("월 고정비 합계",
+                 lambda col: f"=SUM({col}{first_item}:{col}{last_item})",
+                 note="항목 합계")
+
+# BEP는 물량이 코스 분기점을 넘느냐에 따라 식이 달라진다.
+#  - 분기점 이상: 건당 배송비가 집당 단가로 고정 → 단순 나눗셈
+#  - 분기점 미만: 보장액이 그대로 나가므로 고정비에 더해서 계산
+def bep_formula(col):
+    fixed = f"{col}{total_row}"
+    high = f"({fixed}/(({cm_ex}-{ref['dlvPer']})*{mdays}))"
+    low = f"(({fixed}/{mdays}+{ref['dlvGuar']})/{cm_ex})"
+    return f"=ROUNDUP(IF({high}>={d_bep},{high},{low}),0)"
+
+bep_row = srow("손익분기 배송일당 집수", bep_formula, WON_PLAIN,
+               note="이 집수를 넘으면 흑자. 분기점 미만 구간은 보장액을 반영해 계산")
+srow("손익분기 월 주문 건수", lambda col: f"={col}{bep_row}*{mdays}", WON_PLAIN)
+srow("현재 가정 물량의 월 영업이익",
+     lambda col: f"={cm_unit}*{morders}-{col}{total_row}", WON,
+     note="가정값 시트의 '배송일당 주문 수' 기준")
+
+sr += 1
+S.cell(row=sr, column=2, value="물량별 월 영업이익 비교")
+S.merge_cells(start_row=sr, start_column=2, end_row=sr, end_column=6)
+style_block(S, f"B{sr}:F{sr}", font=sec_font, fill=sec_fill)
+sr += 1
+
+c = S.cell(row=sr, column=2, value="배송일당 집수")
+c.font = Font(name="맑은 고딕", size=9, bold=True, color="FFFFFF")
+c.fill = PatternFill("solid", fgColor="EF9F27")
+c.alignment = Alignment(horizontal="center")
+c.border = box
+for i, n in enumerate(sc_names):
+    c = S.cell(row=sr, column=3 + i, value=n)
+    c.font = Font(name="맑은 고딕", size=9, bold=True, color="FFFFFF")
+    c.fill = PatternFill("solid", fgColor="EF9F27")
+    c.alignment = Alignment(horizontal="center")
+    c.border = box
+sr += 1
+
+for d in [50, 80, 100, 150, 200, 300, 400]:
+    dcell = f"$B${sr}"
+    S.cell(row=sr, column=2, value=d).number_format = WON_PLAIN
+    routes = f"MAX(1,CEILING({dcell}/{ref['dlvMax']},1))"
+    ship = f"(MAX({routes}*{ref['dlvGuar']},{dcell}*{ref['dlvPer']})/{dcell})"
+    for i in range(3):
+        col = get_column_letter(3 + i)
+        S.cell(row=sr, column=3 + i,
+               value=f"=({cm_ex}-{ship})*{dcell}*{mdays}-{col}{total_row}").number_format = WON
+    for col_i in range(2, 6):
+        cell = S.cell(row=sr, column=col_i)
+        cell.border = box
+        cell.alignment = Alignment(horizontal="right")
+        cell.font = calc_font
+    sr += 1
+
+S.cell(row=sr + 1, column=2,
+       value="※ 고정비를 100만 원 줄이면 BEP가 약 14~15집 내려갑니다. "
+             "수요가 불확실한 초기에는 고정비를 변동비로 바꾸는 편이 안전합니다.").font = note_font
+S.merge_cells(start_row=sr + 1, start_column=2, end_row=sr + 1, end_column=6)
+
+# 시트 순서: 가정값 → 손익 → 손익분기 → 시나리오
 wb.move_sheet("손익분기", offset=0)
 wb.active = 0
 

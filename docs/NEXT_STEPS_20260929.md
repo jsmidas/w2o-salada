@@ -21,18 +21,20 @@
 
 ## C. 남은 코드 작업 (우선순위 순)
 
+> **2026-09-29 진행분** — C-2·C-7·C-10 완료 (커밋 `fa9377e` 이후). 나머지는 아래 표 그대로.
+
 | 우선 | 항목 | 예상 | 메모 |
 |---|---|---|---|
 | 1 | 백업 복원 리허설 + 이미지 버킷 백업 | 1~2h | 월 1회 수동 워크플로로 빈 Postgres 에 `pg_restore` 후 `prisma migrate status`; `images` 버킷은 rclone/supabase CLI |
-| 2 | 생산 집계 vs 배송 리포트 수량 기준 통일 | 1h | 둘 다 `ensureSubscriptionDeliveries` 결과(주문)를 단일 소스로, 보류 건은 별도 행 |
+| ~~2~~ | ~~생산 집계 vs 배송 리포트 수량 기준 통일~~ | — | **완료** — 생산 집계도 `ensureSubscriptionDeliveries` + `DELIVERABLE_ORDER_TYPES` 기준. 보류 건은 상품 행 배지 + 하단 별도 표 |
 | 3 | 주소 일괄 보정·아파트 지오코딩 배치화 | 1h | `take: 25` + cursor, 설정 화면이 반복 호출 (서버리스 타임아웃 방지) |
 | 4 | 첫 주기 창 클라이언트/서버 불일치 | 30m | 클라이언트가 `windowStart` 전송, 서버가 그 창으로 `cycleWindow` |
 | 5 | `/api/subscribe` 입력 검증 | 30m | 날짜가 활성 배송일·마감 전인지, `slots` sanitize |
 | 6 | 로그인·인증코드 rate limit | 1h | Upstash Ratelimit (Redis 필요) 또는 DB 카운터 |
-| 7 | `middleware.ts` → `proxy.ts` (Next 16 규약) | 15m | 빌드 경고만, 동작엔 지장 없음 |
+| ~~7~~ | ~~`middleware.ts` → `proxy.ts`~~ | — | **완료** — 파일명·export 함수명 모두 `proxy`. 빌드 경고 해소 |
 | 8 | ESLint 경고 68건 정리 (`<img>` → `next/image` 29건 포함) | 2h | `remotePatterns` 에 `*.supabase.co` |
 | 9 | 미사용 의존성·데드 코드 | 1h | `recharts`, `date-fns`, `@auth/prisma-adapter`, `packages/shared`, `StatsSection`, `MenuSection`, `signup-preview` |
-| 10 | 관리자 설정의 토스 키 입력란 제거 | 15m | 서버가 쓰지 않는 죽은 필드 (DB 에 저장된 값은 없음) |
+| ~~10~~ | ~~관리자 설정의 토스 키 입력란 제거~~ | — | **완료** — 결제 설정 섹션과 기본값 제거 |
 
 ## D. 오늘 바뀐 규칙 (팀 공유용 한 줄씩)
 

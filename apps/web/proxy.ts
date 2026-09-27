@@ -7,7 +7,7 @@ const SECURE_COOKIE = "__Secure-authjs.session-token";
 const PLAIN_COOKIE = "authjs.session-token";
 const SECRET = process.env.NEXTAUTH_SECRET ?? "w2o-salada-dev-secret-key-2026";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const secure = request.cookies.has(SECURE_COOKIE);
   const cookieName = secure ? SECURE_COOKIE : PLAIN_COOKIE;

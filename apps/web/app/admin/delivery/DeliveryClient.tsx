@@ -168,9 +168,12 @@ export default function DeliveryClient({
 
   const apiUrl = `/api/admin/delivery/report?date=${date}`;
   const isInitial = date === initialDate;
+  // 배송 당일(한국 날짜)에는 1분마다 다시 불러와 기사 앱의 완료·못함 처리가 지도 현황판에 따라오게 한다
+  const todayKst = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
   const { data, isLoading, mutate } = useSWR<Report>(apiUrl, fetcher, {
     fallbackData: isInitial && initialReport ? initialReport : undefined,
     revalidateOnFocus: false,
+    refreshInterval: date === todayKst && showMap ? 60_000 : 0,
   });
 
   // 편집 중 draft 병합
@@ -528,7 +531,7 @@ export default function DeliveryClient({
             </div>
             {showMap && (
               <div className="mb-4">
-                <DeliveryMap orders={mergedOrders} routeMaster={routeMaster} center={data?.center} onAssign={assignToRoute} />
+                <DeliveryMap orders={mergedOrders} routeMaster={routeMaster} center={data?.center} date={date} onAssign={assignToRoute} onRefresh={() => mutate()} />
               </div>
             )}
             <div className="bg-white rounded-xl border overflow-hidden">

@@ -60,7 +60,7 @@ function parseList(v: string | undefined, fallback: string[]): string[] {
 }
 
 const DEFAULT_CENTER: DeliveryCenter = {
-  name: "1센터 (성서)",
+  name: "본사",
   address: "대구 달서구 성서공단로 332-10",
   lat: null,
   lng: null,

@@ -18,7 +18,7 @@ const defaultSettings = {
   deliveryFee: "0",
   deliveryAreas: "대구 전역",
   // 배송 권역 (시/도 전역 → 허용 동 → 센터 반경 순 판정)
-  deliveryCenterName: "1센터 (성서)",
+  deliveryCenterName: "본사",
   deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
   deliveryCenterLat: "",
   deliveryCenterLng: "",

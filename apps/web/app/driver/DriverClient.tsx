@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { signOut } from "next-auth/react";
 import { fetcher } from "../lib/fetcher";
@@ -47,6 +47,7 @@ type Today = { date: string; driverName: string; isAdmin: boolean; routes: Route
 type Filter = "all" | "remaining" | "done";
 
 const DROP_LABEL: Record<string, string> = { DOOR: "문 앞", SECURITY_OFFICE: "경비실", PARCEL_BOX: "택배함", OTHER: "기타" };
+const KST = "Asia/Seoul";
 
 function todayKst() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -59,9 +60,17 @@ function shiftDate(date: string, days: number) {
 function dateLabel(date: string) {
   return new Date(date + "T00:00:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
 }
-function timeLabel(iso: string | null) {
+/** 처리 시각 — 기사 폰 설정과 무관하게 항상 한국시간 */
+function kstTime(iso: string | null) {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("ko-KR", { timeZone: KST, hour: "2-digit", minute: "2-digit" });
+}
+function kstDateTime(iso: string | null) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("ko-KR", { timeZone: KST, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function nowKstLabel() {
+  return new Date().toLocaleString("ko-KR", { timeZone: KST, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 function accessLine(s: Stop) {
   const parts: string[] = [];
@@ -306,50 +315,81 @@ const STATUS_BADGE: Record<Stop["status"], { label: string; cls: string }> = {
   FAILED: { label: "배송 못함", cls: "bg-red-50 text-red-700" },
 };
 
+type SheetMode = "complete" | "fail";
+
 function StopCard({ stop, onChanged }: { stop: Stop; onChanged: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<"photo" | "fail" | null>(null);
+  const [sheet, setSheet] = useState<SheetMode | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [memo, setMemo] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const done = stop.status === "DELIVERED";
   const access = accessLine(stop);
   const badge = STATUS_BADGE[stop.status];
 
-  const onPhoto = async (file: File | undefined) => {
+  // 미리보기 URL 정리
+  useEffect(() => {
+    if (!photo) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const closeSheet = () => {
+    setSheet(null);
+    setPhoto(null);
+    setMemo("");
+    setMsg(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // 카메라에서 사진을 고르면: 완료 시트가 없으면 완료 시트를 연다 (배송 못함 시트가 열려 있으면 그 시트에 첨부)
+  const onPickPhoto = (file: File | undefined) => {
     if (!file) return;
-    setBusy("photo");
+    setPhoto(file);
+    if (!sheet) {
+      setMemo(stop.memo ?? "");
+      setSheet("complete");
+    }
+  };
+
+  const openFail = () => {
+    setMemo(stop.memo ?? "");
+    setPhoto(null);
+    setSheet("fail");
+  };
+
+  const submit = async () => {
+    if (!sheet) return;
+    if (sheet === "complete" && !photo) {
+      setMsg("배송 완료에는 사진이 꼭 필요합니다.");
+      return;
+    }
+    if (sheet === "fail" && !memo.trim()) {
+      setMsg("배송 못한 이유를 적어 주세요.");
+      return;
+    }
+    setBusy(true);
     setMsg(null);
     try {
-      const prepared = await prepareUpload(file);
       const fd = new FormData();
-      fd.append("file", prepared);
-      const res = await fetch("/api/driver/deliveries/" + stop.deliveryId + "/complete", { method: "POST", body: fd });
+      if (photo) fd.append("file", await prepareUpload(photo));
+      fd.append("memo", memo.trim());
+      const url = "/api/driver/deliveries/" + stop.deliveryId + (sheet === "complete" ? "/complete" : "/fail");
+      const res = await fetch(url, { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "업로드에 실패했습니다.");
+      if (!res.ok) throw new Error(json.error ?? "처리에 실패했습니다.");
+      closeSheet();
       onChanged();
     } catch (e) {
       setMsg(e instanceof FileTooLargeError ? "사진 용량이 너무 큽니다. 다시 찍어 주세요." : (e as Error).message);
     } finally {
-      setBusy(null);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  const onFail = async () => {
-    const memo = prompt("배송하지 못한 이유를 적어 주세요.\n(예: 공동현관 출입 불가, 주소 불명, 고객 요청)", stop.memo ?? "");
-    if (memo === null) return;
-    if (!memo.trim()) {
-      alert("사유를 입력해야 합니다.");
-      return;
-    }
-    setBusy("fail");
-    setMsg(null);
-    try {
-      await postJson("/api/driver/deliveries/" + stop.deliveryId + "/fail", { memo });
-      onChanged();
-    } catch (e) {
-      setMsg((e as Error).message);
-    } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -370,7 +410,9 @@ function StopCard({ stop, onChanged }: { stop: Stop; onChanged: () => void }) {
             <span className="text-base font-bold">{stop.receiver}</span>
             {stop.isSubscription && <span className="rounded bg-[#1D9E75]/10 px-1.5 text-[10px] font-semibold text-[#1D9E75]">구독</span>}
             <span className={"rounded px-1.5 py-0.5 text-[11px] font-semibold " + badge.cls}>{badge.label}</span>
-            {done && stop.completedAt && <span className="text-[11px] text-gray-400">{timeLabel(stop.completedAt)}</span>}
+            {(done || stop.status === "FAILED") && stop.completedAt && (
+              <span className="text-[11px] text-gray-400">{kstTime(stop.completedAt)} 처리</span>
+            )}
           </div>
           <div className="mt-1 text-sm leading-snug text-gray-800">
             {stop.address1}
@@ -379,7 +421,6 @@ function StopCard({ stop, onChanged }: { stop: Stop; onChanged: () => void }) {
           </div>
           {access && <div className="mt-1 text-sm font-semibold text-blue-700">🔑 {access}</div>}
           {stop.deliveryMemo && <div className="mt-1 text-sm text-amber-700">* {stop.deliveryMemo}</div>}
-          {stop.status === "FAILED" && stop.memo && <div className="mt-1 text-sm text-red-700">사유: {stop.memo}</div>}
         </div>
       </div>
 
@@ -404,33 +445,122 @@ function StopCard({ stop, onChanged }: { stop: Stop; onChanged: () => void }) {
         </a>
       </div>
 
-      {/* 완료 사진 */}
-      {done && stop.photoUrl && (
-        <a href={stop.photoUrl} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-xl border">
+      {/* 기사 메모 (특이사항·배송 못함 사유) — 처리 시각(한국시간)과 함께 */}
+      {stop.memo && (
+        <div className={"mt-3 rounded-xl px-3 py-2 text-sm " + (stop.status === "FAILED" ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900")}>
+          <div className="text-[11px] opacity-70">📝 {stop.status === "FAILED" ? "배송 못한 사유" : "특이사항 메모"} · {kstDateTime(stop.completedAt)}</div>
+          <div className="mt-0.5 whitespace-pre-wrap">{stop.memo}</div>
+        </div>
+      )}
+
+      {/* 현장 사진 */}
+      {stop.photoUrl && (
+        <a href={stop.photoUrl} target="_blank" rel="noreferrer" className="relative mt-3 block overflow-hidden rounded-xl border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={stop.photoUrl} alt="배송 완료 사진" className="h-40 w-full object-cover" />
+          <img src={stop.photoUrl} alt="현장 사진" className="h-40 w-full object-cover" />
+          <span className="absolute bottom-1.5 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">📷 {kstDateTime(stop.completedAt)}</span>
         </a>
       )}
 
       {/* 액션 */}
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPhoto(e.target.files?.[0])} />
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPickPhoto(e.target.files?.[0])} />
       <div className="mt-3 flex gap-2">
-        <button type="button" disabled={busy !== null} onClick={() => fileRef.current?.click()} className={photoBtnCls}>
-          {busy === "photo" ? "올리는 중…" : done ? "📷 사진 다시 찍기" : "📷 사진 찍고 완료"}
+        <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className={photoBtnCls}>
+          {done ? "📷 사진 다시 찍기" : "📷 사진 찍고 완료"}
         </button>
         {!done && (
           <button
             type="button"
-            disabled={busy !== null}
-            onClick={onFail}
+            disabled={busy}
+            onClick={openFail}
             className="flex-1 rounded-xl border border-red-200 py-3.5 text-sm font-semibold text-red-700 active:bg-red-50 disabled:opacity-60"
           >
-            {busy === "fail" ? "…" : "배송 못함"}
+            배송 못함
           </button>
         )}
       </div>
       {!done && <div className="mt-2 text-center text-[11px] text-gray-400">문 앞에 둔 상태를 사진으로 남겨야 완료됩니다</div>}
-      {msg && <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{msg}</div>}
+
+      {/* 처리 시트 — 사진 미리보기 + 메모 */}
+      {sheet && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50" onClick={busy ? undefined : closeSheet}>
+          <div className="w-full rounded-t-3xl bg-white p-5 pb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
+            <div className="flex items-baseline justify-between">
+              <div className="text-lg font-bold">{sheet === "complete" ? "배송 완료 처리" : "배송 못함 처리"}</div>
+              <div className="text-xs text-gray-400">{nowKstLabel()} (한국시간)</div>
+            </div>
+            <div className="mt-0.5 text-sm text-gray-500">
+              #{stop.sortOrder} {stop.receiver} · {stop.address1} {stop.address2}
+            </div>
+
+            {preview ? (
+              <div className="relative mt-3 overflow-hidden rounded-xl border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={preview} alt="찍은 사진" className="h-44 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="absolute bottom-2 right-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-semibold text-white"
+                >
+                  다시 찍기
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className={
+                  "mt-3 w-full rounded-xl border-2 border-dashed py-6 text-sm font-semibold " +
+                  (sheet === "complete" ? "border-[#EF9F27] text-[#D48A1E]" : "border-gray-300 text-gray-500")
+                }
+              >
+                📷 {sheet === "complete" ? "사진 찍기 (필수)" : "현장 사진 첨부 (선택)"}
+              </button>
+            )}
+
+            <label className="mt-3 block">
+              <span className="text-sm font-semibold">
+                {sheet === "complete" ? "특이사항 메모" : "배송 못한 이유"}
+                <span className={"ml-1 text-xs font-normal " + (sheet === "fail" ? "text-red-600" : "text-gray-400")}>
+                  {sheet === "fail" ? "(필수)" : "(선택)"}
+                </span>
+              </span>
+              <textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder={
+                  sheet === "complete"
+                    ? "예: 경비실에 맡김, 문 앞 택배함 2번, 고객 요청으로 뒷문에 둠"
+                    : "예: 공동현관 출입 불가, 주소 불명, 고객 부재 후 연락 안 됨"
+                }
+                className="mt-1 w-full rounded-xl border px-3 py-2.5 text-base focus:border-[#1D9E75] focus:outline-none"
+              />
+            </label>
+
+            {msg && <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{msg}</div>}
+
+            <div className="mt-4 flex gap-2">
+              <button type="button" disabled={busy} onClick={closeSheet} className="flex-1 rounded-xl border py-3.5 font-semibold text-gray-600">
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={submit}
+                className={
+                  "flex-[2] rounded-xl py-3.5 text-base font-bold text-white shadow-md disabled:opacity-60 " +
+                  (sheet === "complete" ? "bg-[#1D9E75] active:bg-[#167A5B]" : "bg-red-600 active:bg-red-700")
+                }
+              >
+                {busy ? "처리 중…" : sheet === "complete" ? "✓ 배송 완료" : "배송 못함으로 저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }

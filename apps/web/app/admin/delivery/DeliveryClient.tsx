@@ -86,8 +86,9 @@ type ReportOrder = {
     autoFilled?: boolean; // 지난번 코스로 자동 채워짐
     sortOrder: number;
     status: string;
-    photoUrl?: string | null; // 기사 앱 배송 완료 사진
-    memo?: string | null;     // 배송 못함 사유
+    photoUrl?: string | null;    // 기사 앱 배송 완료 사진
+    memo?: string | null;        // 기사 메모 (특이사항·배송 못함 사유)
+    completedAt?: string | null; // 처리 시각 (완료·못함)
   } | null;
 };
 
@@ -137,6 +138,12 @@ const statusLabels: Record<string, string> = {
 
 function fmt(n: number) {
   return n.toLocaleString();
+}
+
+/** 기사 처리 시각 — 서버·브라우저 어디서든 한국시간으로 */
+function kstTime(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" });
 }
 
 // YYYY-MM-DD 문자열을 days만큼 이동 (UTC 기준으로 계산해 타임존 영향 없음)
@@ -547,16 +554,24 @@ export default function DeliveryClient({
                           <td className="px-3 py-2 text-xs text-gray-500">
                             {o.orderNo.slice(-8)}
                             {d.status === "DELIVERED" && d.photoUrl && (
-                              <a href={d.photoUrl} target="_blank" rel="noreferrer" className="ml-1 text-[#1D9E75]" title="배송 완료 사진 보기">
-                                📷
+                              <a href={d.photoUrl} target="_blank" rel="noreferrer" className="ml-1 text-[#1D9E75]" title={"배송 완료 사진 보기 " + kstTime(d.completedAt)}>
+                                📷 {kstTime(d.completedAt)}
                               </a>
                             )}
                             {d.status === "DELIVERED" && !d.photoUrl && (
-                              <span className="ml-1 text-[#1D9E75]" title="배송 완료 (사진 없음)">완료</span>
+                              <span className="ml-1 text-[#1D9E75]" title="배송 완료 (사진 없음)">완료 {kstTime(d.completedAt)}</span>
                             )}
                             {d.status === "IN_TRANSIT" && <span className="ml-1 text-blue-600">배송중</span>}
                             {d.status === "FAILED" && (
-                              <span className="ml-1 text-red-600" title={d.memo ?? ""}>못함</span>
+                              <span className="ml-1 text-red-600">못함 {kstTime(d.completedAt)}</span>
+                            )}
+                            {d.status === "FAILED" && d.photoUrl && (
+                              <a href={d.photoUrl} target="_blank" rel="noreferrer" className="ml-1 text-red-600" title="현장 사진 보기">📷</a>
+                            )}
+                            {d.memo && (
+                              <div className="mt-0.5 max-w-[160px] whitespace-pre-wrap text-[11px] text-amber-700" title={d.memo}>
+                                📝 {d.memo}
+                              </div>
                             )}
                           </td>
                           <td className="px-3 py-2">

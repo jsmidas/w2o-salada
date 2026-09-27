@@ -7,7 +7,7 @@ import { sendAlimtalkSafe, TEMPLATE } from "./notification";
  *
  *  IN_TRANSIT (출발)  → Order.SHIPPING  + '배송 출발' 알림톡
  *  DELIVERED  (완료)  → Order.DELIVERED + deliveredAt + '배송 완료' 알림톡
- *  FAILED / PENDING   → 주문 상태는 건드리지 않는다 (관리자가 판단)
+ *  FAILED / PENDING   → 주문 상태는 건드리지 않는다 (관리자가 판단). FAILED 도 completedAt(처리 시각)을 남긴다
  */
 export type DeliveryTransition = "PENDING" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
@@ -64,7 +64,8 @@ export async function transitionDelivery(
   if (extra.photoUrl !== undefined) data.photoUrl = extra.photoUrl;
   if (extra.memo !== undefined) data.memo = extra.memo;
   if (to === "IN_TRANSIT" && !before.startedAt) data.startedAt = new Date();
-  if (to === "DELIVERED") data.completedAt = new Date();
+  // completedAt = 처리 시각 (완료·배송 못함 모두). 기사 화면·관리자 목록에 KST 로 표시한다
+  if (to === "DELIVERED" || to === "FAILED") data.completedAt = new Date();
   if (to === "PENDING") { data.startedAt = null; data.completedAt = null; }
 
   const updated = await prisma.delivery.update({ where: { id: deliveryId }, data });

@@ -227,6 +227,7 @@ export async function GET(request: NextRequest) {
             status: o.delivery.status,
             photoUrl: o.delivery.photoUrl,
             memo: o.delivery.memo,
+            completedAt: o.delivery.completedAt,
           }
         : null,
     }));

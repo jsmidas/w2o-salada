@@ -5,6 +5,7 @@ const items = [
   { icon: "dark_mode", text: "새벽 6시 전 도착", accent: false },
   { icon: "savings", text: "정가 대비 상시 할인", accent: true },
   { icon: "eco", text: "100% 신선 재료", accent: false },
+  { icon: "local_shipping", text: "배송비, 가입비 없는 실속 소비 시작", accent: true },
 ];
 
 function MarqueeTrack({ reverse = false }: { reverse?: boolean }) {

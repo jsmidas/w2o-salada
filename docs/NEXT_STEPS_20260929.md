@@ -1,0 +1,50 @@
+# 다음 할 일 — 2026-09-29 (회사에서 마무리)
+
+2026-09-28 작업 결과: 배송 권역 대구 전역, 전체 코드 점검 후 치명 7건·높음 전부·중간 대부분 수정, 배송일 통합 결제, 정산·환불 체계, 취소 수수료 30% 설정. 마지막 커밋 `039ed05`. 운영 DB 마이그레이션 5건 모두 적용됨.
+
+## A. 사람이 직접 해야 하는 설정 (코드 아님)
+
+| # | 할 일 | 어디서 | 확인 방법 |
+|---|---|---|---|
+| 1 | 솔라피 갱신 알림톡 템플릿 4종 승인 후 ID 등록 | Vercel → Environment Variables: `SOLAPI_TEMPLATE_SUB_RENEWAL_NOTICE`, `SOLAPI_TEMPLATE_SUB_RENEWED`, `SOLAPI_TEMPLATE_SUB_RENEWAL_FAILED`, `SOLAPI_TEMPLATE_SUB_SELECT_MENU` → Redeploy | 등록 전까지는 알림톡 대신 SMS/LMS 로 나감 |
+| 2 | 약관 수수료 30% 법률 검토 | 구독 약관 제6조 (`/terms/subscription`) | 방문판매법 계속거래 위약금 관행(10% 안팎)과 비교. 바꾸면 관리자 → 설정 → "환불 취소 수수료율"만 수정 |
+| 3 | 관리자 임시 비밀번호 변경 (9/27 복구 때 만든 계정) | 관리자 → 관리자 권한 | — |
+| 4 | Supabase Pro 전환 검토 (Free 는 자체 백업 없음) | Supabase 대시보드 | 현재는 GitHub Actions 일일 pg_dump 가 유일한 백업 |
+
+## B. 운영에서 직접 돌려볼 것 (테스트)
+
+1. **소액 테스트 결제**: 장바구니에 화요일·목요일 상품을 각각 담아 한 번에 결제 → 관리자 주문 관리에 주문 2건(같은 결제 묶음) → 한 건만 "취소" → 토스에서 그 금액만 부분 취소되는지
+2. **관리자 화면 권한**: 주문 권한만 있는 계정으로 `/admin/members` 직접 진입 → 주문 관리로 튕기는지
+3. **구독 일시정지·해지 흐름**: 마이페이지 → 구독 상세 → 일시정지(크레딧/주기 연장 선택 모달) → 재개 → 해지(사유 선택) → 관리자 → 구독 → 환불 신청에 접수되는지 → 승인(수수료 30% 기본) → 토스 부분 취소
+4. **크론 시각**: 내일 아침 Vercel → Settings → Cron Jobs 에서 `renewal-notify`·`menu-select-notify` 가 09:00 KST, `renewal-charge` 가 06:00 KST 에 200 으로 돌았는지 (어젯밤 UTC 보정)
+5. **소셜 로그인**: 카카오 로그인 후 마이페이지 주문내역이 보이는지 (세션 id → DB id 매핑 수정)
+
+## C. 남은 코드 작업 (우선순위 순)
+
+| 우선 | 항목 | 예상 | 메모 |
+|---|---|---|---|
+| 1 | 백업 복원 리허설 + 이미지 버킷 백업 | 1~2h | 월 1회 수동 워크플로로 빈 Postgres 에 `pg_restore` 후 `prisma migrate status`; `images` 버킷은 rclone/supabase CLI |
+| 2 | 생산 집계 vs 배송 리포트 수량 기준 통일 | 1h | 둘 다 `ensureSubscriptionDeliveries` 결과(주문)를 단일 소스로, 보류 건은 별도 행 |
+| 3 | 주소 일괄 보정·아파트 지오코딩 배치화 | 1h | `take: 25` + cursor, 설정 화면이 반복 호출 (서버리스 타임아웃 방지) |
+| 4 | 첫 주기 창 클라이언트/서버 불일치 | 30m | 클라이언트가 `windowStart` 전송, 서버가 그 창으로 `cycleWindow` |
+| 5 | `/api/subscribe` 입력 검증 | 30m | 날짜가 활성 배송일·마감 전인지, `slots` sanitize |
+| 6 | 로그인·인증코드 rate limit | 1h | Upstash Ratelimit (Redis 필요) 또는 DB 카운터 |
+| 7 | `middleware.ts` → `proxy.ts` (Next 16 규약) | 15m | 빌드 경고만, 동작엔 지장 없음 |
+| 8 | ESLint 경고 68건 정리 (`<img>` → `next/image` 29건 포함) | 2h | `remotePatterns` 에 `*.supabase.co` |
+| 9 | 미사용 의존성·데드 코드 | 1h | `recharts`, `date-fns`, `@auth/prisma-adapter`, `packages/shared`, `StatsSection`, `MenuSection`, `signup-preview` |
+| 10 | 관리자 설정의 토스 키 입력란 제거 | 15m | 서버가 쓰지 않는 죽은 필드 (DB 에 저장된 값은 없음) |
+
+## D. 오늘 바뀐 규칙 (팀 공유용 한 줄씩)
+
+- 배송 권역: **대구 전역** (설정 "전역 배송하는 시/도"), 그 밖은 센터 반경 10km
+- 주문 1건 = 배송일 1개. 배송일이 다르면 주문이 나뉘고 결제는 한 번(결제 묶음 번호)
+- 환불·취소는 토스 취소가 먼저, 성공해야 DB 상태가 바뀜. 묶음 결제는 해당 주문 몫만 부분 취소
+- 구독 일시정지: 크레딧 적립 / 주기 연장 중 고객 선택. 해지: 남은 배송분+크레딧 → 환불 신청 → 담당자 검토(수수료 30%) → 토스 부분 취소
+- 해지 사유는 관리자 → 구독 → 환불 신청 상단 분포로 봄 (이탈 원인)
+- 크론: 결제 06:00 KST, 고지·메뉴 알림 09:00 KST, 시크릿 없으면 401
+- 관리자 페이지는 API 와 같은 권한 기준. 클라이언트 컴포넌트는 `lib/permissions.ts` 만 import (`auth-guard` 금지)
+
+## 참고 문서
+
+- 점검 결과와 수정 이력: 커밋 로그 `dd1b7ab`~`039ed05`, CLAUDE.md "구독 정산·환불 규칙"
+- 인수인계: `docs/HANDOFF.md`

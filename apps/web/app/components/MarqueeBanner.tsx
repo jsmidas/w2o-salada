@@ -1,6 +1,6 @@
 const items = [
   { icon: "calendar_month", text: "매주 2회 배송", accent: true },
-  { icon: "lunch_dining", text: "2개 이상 구성", accent: false },
+  { icon: "restaurant", text: "샐러드·간편식·반찬", accent: false },
   { icon: "autorenew", text: "정기구독", accent: true },
   { icon: "dark_mode", text: "새벽 6시 전 도착", accent: false },
   { icon: "savings", text: "구독 시 21% 할인", accent: true },

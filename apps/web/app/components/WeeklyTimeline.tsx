@@ -12,7 +12,7 @@ const days = [
   { label: "일", short: "SUN", delivery: false },
 ];
 
-function SaladIcon({ delay }: { delay: number }) {
+function MenuIcons({ delay }: { delay: number }) {
   return (
     <div
       className="flex flex-col items-center gap-0.5 md:gap-1 animate-bounce-in"
@@ -20,12 +20,12 @@ function SaladIcon({ delay }: { delay: number }) {
     >
       <div className="w-7 h-7 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-[#1D9E75] to-[#5DCAA5] flex items-center justify-center shadow-lg shadow-[#1D9E75]/30">
         <span className="material-symbols-outlined text-white text-sm md:text-xl">
-          lunch_dining
+          rice_bowl
         </span>
       </div>
       <div className="w-7 h-7 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-[#1D9E75] to-[#5DCAA5] flex items-center justify-center shadow-lg shadow-[#1D9E75]/30">
         <span className="material-symbols-outlined text-white text-sm md:text-xl">
-          lunch_dining
+          eco
         </span>
       </div>
     </div>
@@ -65,8 +65,8 @@ export default function WeeklyTimeline() {
           </h2>
           <p className="text-[#4a7a5e] mt-3 text-sm md:text-base">
             매주 <strong className="text-[#1D9E75]">화요일</strong>과{" "}
-            <strong className="text-[#1D9E75]">목요일</strong>, 새벽에 신선한 샐러드{" "}
-            <strong className="text-[#EF9F27]">2개</strong>가 문 앞에 도착합니다
+            <strong className="text-[#1D9E75]">목요일</strong>, 새벽 6시 전{" "}
+            <strong className="text-[#EF9F27]">오늘의 아침 식사</strong>가 문 앞에 도착합니다
           </p>
         </div>
 
@@ -92,10 +92,10 @@ export default function WeeklyTimeline() {
                     transition: `all 0.5s ease-out ${stagger}ms`,
                   }}
                 >
-                  {/* 배송일 샐러드 아이콘 or 빈 공간 */}
+                  {/* 배송일 메뉴 아이콘 or 빈 공간 */}
                   <div className="h-16 md:h-28 flex items-end justify-center">
                     {day.delivery && visible && (
-                      <SaladIcon delay={stagger + 400} />
+                      <MenuIcons delay={stagger + 400} />
                     )}
                   </div>
 
@@ -162,9 +162,9 @@ export default function WeeklyTimeline() {
               color: "green" as const,
             },
             {
-              icon: "takeout_dining",
-              title: "2개 이상",
-              desc: "매 배송마다 셰프 엄선\n샐러드 2개 이상 구성",
+              icon: "restaurant",
+              title: "골라 담는 아침",
+              desc: "샐러드·간편식·반찬·오니기리\n그날의 메뉴를 자유롭게 조합",
               color: "amber" as const,
             },
             {

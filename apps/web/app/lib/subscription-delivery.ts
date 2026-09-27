@@ -12,7 +12,7 @@
  */
 import { prisma } from "@repo/db";
 import { isOrderable } from "./cutoff";
-import { holdFromStatus, DEFAULT_RADIUS_KM } from "./geo";
+import { holdFromStatus } from "./geo";
 import { pickAddressForUser } from "./address-resolve";
 
 export const DELIVERY_ORDER_TYPE = "SUBSCRIPTION_DELIVERY" as const;
@@ -73,7 +73,7 @@ export async function ensureSubscriptionDeliveries(date: Date): Promise<{ create
 
     if (!cur) {
       const addr = await pickAddressForUser(entry.userId, entry.addressId);
-      const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm, DEFAULT_RADIUS_KM) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+      const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
       await prisma.order.create({
         data: {
           orderNo: `W2O-${ymd(start).replace(/-/g, "")}-S${subId.slice(-4).toUpperCase()}`,

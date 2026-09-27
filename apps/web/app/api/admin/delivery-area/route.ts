@@ -7,7 +7,7 @@ import { enrichLocation, geocodeAddress, geocoderStatus, getDeliveryCenter, judg
  * POST /api/admin/delivery-area
  *   { action: "geocodeCenter", address }  → 센터 주소의 좌표
  *   { action: "backfill" }                → 저장된 배송지 전부 좌표 보정 + 현재 반경으로 재판정
- *   { action: "rejudge" }                 → 좌표는 그대로 두고 반경·허용 동만 다시 적용 (지오코딩 없음)
+ *   { action: "rejudge" }                 → 좌표는 그대로 두고 전역 시/도·허용 동·반경만 다시 적용 (지오코딩 없음)
  */
 export async function POST(request: Request) {
   const { error } = await requireAdmin("system");
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           if (!loc.geocodedAt) geocodeFailed++;
           data = locationToAddressData(loc);
         } else {
-          const j = judgeArea(a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null, a.bname, center);
+          const j = judgeArea(a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null, a.bname, center, a.sido);
           data = { areaStatus: j.status, distanceKm: j.distanceKm };
         }
         const status = data.areaStatus as string;

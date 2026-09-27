@@ -5,7 +5,7 @@ import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { pushDuePrices } from "../../../lib/effective-price";
 import { decryptBillingKey } from "../../../lib/billing-crypto";
 import { pickAddressForUser } from "../../../lib/address-resolve";
-import { DEFAULT_RADIUS_KM, holdFromStatus } from "../../../lib/geo";
+import { holdFromStatus } from "../../../lib/geo";
 import { billingDateFor, nextCycleWindow, previewCycle } from "../../../lib/subscription-cycle";
 import type { SlotMap, WeekdaySlotMap } from "../../../lib/auto-assign";
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
         // 배송지: 구독 고정 배송지 → 기본 배송지
         const addr = await pickAddressForUser(sub.userId, sub.addressId);
-        const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm, DEFAULT_RADIUS_KM) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+        const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
         const firstDate = preview.items[0]!.deliveryDate;
 
         const order = await prisma.order.create({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
-import { DEFAULT_RADIUS_KM, holdFromStatus } from "../../../lib/geo";
+import { holdFromStatus } from "../../../lib/geo";
 
 const ADDRESS_SELECT = {
   id: true, label: true, name: true, phone: true, zipCode: true, address1: true, address2: true,
@@ -73,7 +73,7 @@ export async function PATCH(
       }
       data.addressId = addr.id;
 
-      const hold = holdFromStatus(addr.areaStatus, addr.distanceKm, DEFAULT_RADIUS_KM);
+      const hold = holdFromStatus(addr.areaStatus, addr.distanceKm);
       const todayKst = new Date(Date.now() + 9 * 3600 * 1000);
       todayKst.setUTCHours(0, 0, 0, 0);
       const res = await prisma.order.updateMany({

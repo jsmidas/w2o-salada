@@ -9,7 +9,7 @@
  */
 import { prisma } from "@repo/db";
 import type { DropLocation } from "@prisma/client";
-import { DEFAULT_RADIUS_KM, enrichLocation, holdFromStatus, locationToAddressData, type DaumFields } from "./geo";
+import { areaLabel, enrichLocation, getDeliveryCenter, holdFromStatus, judgeArea, locationToAddressData, type DaumFields } from "./geo";
 
 export type AddressInput = DaumFields & {
   name: string;
@@ -86,21 +86,33 @@ export async function resolveAddress(params: {
     const saved = await prisma.address.findUnique({ where: { id: addressId } });
     if (!saved || saved.userId !== userId) return { error: "배송지를 찾을 수 없습니다." };
 
-    // 좌표가 아직 없으면 이번 기회에 채운다 (과거 저장분 소급)
+    // 저장된 판정은 그때의 권역 규칙 기준이다. 전역 시/도·반경 설정이 바뀌어도 과거 배송지가
+    // 따라오도록 주문 시점에 현재 규칙으로 다시 검산한다 (좌표가 있으면 지오코딩 없이 계산만).
+    const center = await getDeliveryCenter();
     let { areaStatus, distanceKm } = saved;
     if (!saved.geocodedAt) {
       const loc = await enrichLocation(saved.address1, {
         sido: saved.sido, sigungu: saved.sigungu, bname: saved.bname, buildingName: saved.buildingName,
         isApartment: saved.isApartment, roadAddress: saved.roadAddress, jibunAddress: saved.jibunAddress,
       });
-      if (loc.geocodedAt) {
-        await prisma.address.update({ where: { id: saved.id }, data: locationToAddressData(loc) });
+      if (loc.geocodedAt || loc.areaStatus !== saved.areaStatus) {
+        await prisma.address.update({
+          where: { id: saved.id },
+          data: loc.geocodedAt ? locationToAddressData(loc) : { areaStatus: loc.areaStatus, distanceKm: loc.distanceKm },
+        });
         areaStatus = loc.areaStatus;
         distanceKm = loc.distanceKm;
       }
+    } else {
+      const point = saved.lat !== null && saved.lng !== null ? { lat: saved.lat, lng: saved.lng } : null;
+      const j = judgeArea(point, saved.bname, center, saved.sido);
+      if (j.status !== saved.areaStatus || j.distanceKm !== saved.distanceKm) {
+        await prisma.address.update({ where: { id: saved.id }, data: { areaStatus: j.status, distanceKm: j.distanceKm } });
+        areaStatus = j.status;
+        distanceKm = j.distanceKm;
+      }
     }
-    const radius = await radiusKm();
-    return { addressId: saved.id, areaStatus, distanceKm, ...holdFromStatus(areaStatus, distanceKm, radius) };
+    return { addressId: saved.id, areaStatus, distanceKm, ...holdFromStatus(areaStatus, distanceKm, areaLabel(center)) };
   }
 
   // 2) 폼 입력
@@ -118,10 +130,18 @@ export async function resolveAddress(params: {
 
   let saved;
   if (existing) {
-    // 같은 주소 재사용 — 출입 정보·메모·수령인은 최신 입력으로 갱신
+    // 같은 주소 재사용 — 출입 정보·메모·수령인은 최신 입력으로 갱신.
+    // 이번 지오코딩이 실패했는데 기존 좌표가 있으면 좌표는 지키고 판정만 현재 규칙으로 다시 한다.
+    let locPatch: Record<string, unknown> = locData;
+    if (!loc.geocodedAt && existing.geocodedAt) {
+      const center = await getDeliveryCenter();
+      const point = existing.lat !== null && existing.lng !== null ? { lat: existing.lat, lng: existing.lng } : null;
+      const j = judgeArea(point, loc.bname ?? existing.bname, center, loc.sido ?? existing.sido);
+      locPatch = { areaStatus: j.status, distanceKm: j.distanceKm };
+    }
     saved = await prisma.address.update({
       where: { id: existing.id },
-      data: { ...base, ...(loc.geocodedAt || !existing.geocodedAt ? locData : {}) },
+      data: { ...base, ...locPatch },
     });
   } else {
     const count = await prisma.address.count({ where: { userId } });
@@ -138,14 +158,8 @@ export async function resolveAddress(params: {
     addressId: saved.id,
     areaStatus: saved.areaStatus,
     distanceKm: saved.distanceKm,
-    ...holdFromStatus(saved.areaStatus, saved.distanceKm, loc.judgement.radiusKm),
+    ...holdFromStatus(saved.areaStatus, saved.distanceKm, loc.judgement.areaLabel),
   };
-}
-
-async function radiusKm(): Promise<number> {
-  const s = await prisma.setting.findUnique({ where: { key: "deliveryRadiusKm" } });
-  const n = Number(s?.value);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_RADIUS_KM;
 }
 
 /** 구독 갱신 주문 등 — 구독 배송지 없으면 사용자의 기본 배송지 */

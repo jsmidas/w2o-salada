@@ -52,7 +52,7 @@ export default function AboutServicePage() {
               <strong>배송 완료:</strong> AM 6:00 문 앞 도착
             </li>
             <li>
-              <strong>서비스 지역:</strong> 대구/경북 지역 새벽배송
+              <strong>서비스 지역:</strong> 대구 전역 새벽배송 (순차 확대 예정)
             </li>
             <li>
               <strong>서비스 URL:</strong>{" "}

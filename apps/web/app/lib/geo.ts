@@ -1,10 +1,12 @@
 /**
- * 배송 권역 판정 — 물류센터 반경 기준 (배송 코스 1단계)
+ * 배송 권역 판정 — 시/도 전역 허용 → 허용 동 → 물류센터 반경 순 (배송 코스 1단계)
  *
+ * - 2026-09-27: "우선 대구 전역" — Setting deliveryAllowedSido(기본 "대구")에 적힌 시/도는
+ *   좌표와 무관하게 배송 가능. 비우면 반경 판정만 남는다.
  * - 좌표: 카카오 로컬 API (주소 검색 → 실패 시 키워드 검색). 키는 KAKAO_REST_API_KEY,
  *   없으면 카카오 로그인용 KAKAO_CLIENT_ID(같은 REST API 키)를 쓴다.
  *   ※ Kakao Developers 앱에서 "카카오맵" 서비스가 켜져 있어야 한다.
- * - 센터·반경·허용 동은 Setting 에 두어 관리자가 조정한다.
+ * - 센터·반경·허용 시/도·허용 동은 Setting 에 두어 관리자가 조정한다.
  * - 좌표를 못 얻으면 UNKNOWN 으로 두고 사람이 확인한다 (주문은 막지 않는다).
  */
 import { prisma } from "@repo/db";
@@ -27,6 +29,7 @@ export type DeliveryCenter = {
   lat: number | null;
   lng: number | null;
   radiusKm: number;
+  allowedSido: string[]; // 전역 배송하는 시/도 (예: "대구") — 좌표 없이도 배송 가능 판정
   allowedDongs: string[]; // 반경 밖이라도 열어둔 법정동 (보조 화이트리스트)
 };
 
@@ -36,11 +39,25 @@ export const CENTER_SETTING_KEYS = [
   "deliveryCenterLat",
   "deliveryCenterLng",
   "deliveryRadiusKm",
+  "deliveryAllowedSido",
   "deliveryAllowedDongs",
 ] as const;
 
 /** 기본 배송 반경 — 현장 판단 "10km 안이면 어디든" (2026-09-27). Setting deliveryRadiusKm 로 조정 */
 export const DEFAULT_RADIUS_KM = 10;
+
+/** 기본 전역 배송 시/도 — "우선 대구 전역" (2026-09-27). Setting deliveryAllowedSido 로 조정, 비우면 반경 판정만 */
+export const DEFAULT_ALLOWED_SIDO = ["대구"];
+
+/** 시/도 이름 정규화 — "대구광역시"·"대구" 를 같은 것으로 본다 */
+export function normalizeSido(s: string | null | undefined): string {
+  return (s ?? "").replace(/\s+/g, "").replace(/(특별자치시|특별자치도|특별시|광역시|자치시|자치도|도|시)$/, "");
+}
+
+function parseList(v: string | undefined, fallback: string[]): string[] {
+  if (v === undefined) return fallback;
+  return v.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+}
 
 const DEFAULT_CENTER: DeliveryCenter = {
   name: "1센터 (성서)",
@@ -48,6 +65,7 @@ const DEFAULT_CENTER: DeliveryCenter = {
   lat: null,
   lng: null,
   radiusKm: DEFAULT_RADIUS_KM,
+  allowedSido: DEFAULT_ALLOWED_SIDO,
   allowedDongs: [],
 };
 
@@ -242,10 +260,9 @@ export async function getDeliveryCenter(): Promise<DeliveryCenter> {
     lat: num("deliveryCenterLat"),
     lng: num("deliveryCenterLng"),
     radiusKm: num("deliveryRadiusKm") ?? DEFAULT_CENTER.radiusKm,
-    allowedDongs: (map.get("deliveryAllowedDongs") ?? "")
-      .split(/[,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean),
+    // 키가 아예 없으면 기본(대구), 관리자가 빈 값으로 저장하면 "전역 없음"(반경만)
+    allowedSido: parseList(map.get("deliveryAllowedSido"), DEFAULT_CENTER.allowedSido),
+    allowedDongs: parseList(map.get("deliveryAllowedDongs"), []),
   };
 
   if (center.lat === null || center.lng === null) {
@@ -267,29 +284,46 @@ export type AreaJudgement = {
   distanceKm: number | null;
   radiusKm: number;
   reason: string; // 사람이 읽는 판정 근거
-  byWhitelist: boolean;
+  byWhitelist: boolean; // 시/도 전역 또는 허용 동으로 통과 (반경과 무관)
+  areaLabel: string; // 고객 안내용 권역 이름 — "대구 전역" 또는 "센터 반경 10km"
 };
 
-/** 좌표(없을 수 있음)와 법정동으로 배송 가능 여부 판정 */
+/** 고객·관리자 안내에 쓰는 권역 이름 */
+export function areaLabel(center: Pick<DeliveryCenter, "allowedSido" | "radiusKm">): string {
+  return center.allowedSido.length > 0 ? `${center.allowedSido.join("·")} 전역` : `센터 반경 ${center.radiusKm}km`;
+}
+
+/**
+ * 배송 가능 여부 판정. 우선순위: 시/도 전역 > 허용 동 > 센터 반경.
+ * 시/도는 다음 우편번호 API가 항상 주므로 좌표를 못 얻어도 전역 시/도면 IN_RANGE 다.
+ * 거리는 코스 배정용으로 좌표가 있으면 항상 계산해 둔다.
+ */
 export function judgeArea(
   point: LatLng | null,
   bname: string | null | undefined,
   center: DeliveryCenter,
+  sido?: string | null,
 ): AreaJudgement {
-  const byWhitelist = !!bname && center.allowedDongs.includes(bname);
-  if (byWhitelist) {
-    const d = point && center.lat !== null && center.lng !== null ? haversineKm(point, { lat: center.lat, lng: center.lng }) : null;
-    return { status: "IN_RANGE", distanceKm: d, radiusKm: center.radiusKm, reason: `허용 동(${bname})`, byWhitelist: true };
+  const label = areaLabel(center);
+  const hasCenter = center.lat !== null && center.lng !== null;
+  const distance = point && hasCenter ? Math.round(haversineKm(point, { lat: center.lat!, lng: center.lng! }) * 10) / 10 : null;
+
+  const sidoKey = normalizeSido(sido);
+  const bySido = !!sidoKey && center.allowedSido.some((s) => normalizeSido(s) === sidoKey);
+  if (bySido) {
+    return { status: "IN_RANGE", distanceKm: distance, radiusKm: center.radiusKm, reason: `${sido} 전역 배송`, byWhitelist: true, areaLabel: label };
   }
-  if (!point || center.lat === null || center.lng === null) {
-    return { status: "UNKNOWN", distanceKm: null, radiusKm: center.radiusKm, reason: point ? "센터 좌표 없음" : "주소 좌표 확인 불가", byWhitelist: false };
+  const byDong = !!bname && center.allowedDongs.includes(bname);
+  if (byDong) {
+    return { status: "IN_RANGE", distanceKm: distance, radiusKm: center.radiusKm, reason: `허용 동(${bname})`, byWhitelist: true, areaLabel: label };
   }
-  const d = haversineKm(point, { lat: center.lat, lng: center.lng });
-  const rounded = Math.round(d * 10) / 10;
-  if (d <= center.radiusKm) {
-    return { status: "IN_RANGE", distanceKm: rounded, radiusKm: center.radiusKm, reason: `센터에서 ${rounded}km`, byWhitelist: false };
+  if (distance === null) {
+    return { status: "UNKNOWN", distanceKm: null, radiusKm: center.radiusKm, reason: point ? "센터 좌표 없음" : "주소 좌표 확인 불가", byWhitelist: false, areaLabel: label };
   }
-  return { status: "OUT_OF_RANGE", distanceKm: rounded, radiusKm: center.radiusKm, reason: `반경 ${center.radiusKm}km 초과 (${rounded}km)`, byWhitelist: false };
+  if (distance <= center.radiusKm) {
+    return { status: "IN_RANGE", distanceKm: distance, radiusKm: center.radiusKm, reason: `센터에서 ${distance}km`, byWhitelist: false, areaLabel: label };
+  }
+  return { status: "OUT_OF_RANGE", distanceKm: distance, radiusKm: center.radiusKm, reason: `${label} 밖 (센터에서 ${distance}km)`, byWhitelist: false, areaLabel: label };
 }
 
 /** 다음 우편번호 API가 주는 값 (클라이언트에서 그대로 넘긴다) */
@@ -351,7 +385,7 @@ export async function enrichLocation(address1: string, daum: DaumFields = {}): P
     jibunAddress: daum.jibunAddress ?? geo?.jibunAddress ?? null,
   };
   const point = geo ? { lat: geo.lat, lng: geo.lng } : null;
-  const judgement = judgeArea(point, merged.bname, center);
+  const judgement = judgeArea(point, merged.bname, center, merged.sido);
   const apartmentId = await matchApartment(merged.buildingName, merged.sigungu).catch(() => null);
 
   return {
@@ -385,10 +419,14 @@ export function locationToAddressData(loc: EnrichedLocation) {
   };
 }
 
-/** 주소의 areaStatus 로 주문 보류 여부·사유 결정 */
-export function holdFromStatus(status: AreaStatus, distanceKm: number | null, radiusKm: number): { deliveryHold: boolean; deliveryHoldReason: string | null } {
+/**
+ * 주소의 areaStatus 로 주문 보류 여부·사유 결정. label 은 areaLabel() 결과.
+ * label 없이 부르는 곳(구독 갱신 등)은 저장된 areaStatus 만 믿으므로 권역 이름을 단정하지 않는다.
+ */
+export function holdFromStatus(status: AreaStatus, distanceKm: number | null, label?: string): { deliveryHold: boolean; deliveryHoldReason: string | null } {
   if (status === "OUT_OF_RANGE") {
-    return { deliveryHold: true, deliveryHoldReason: `배송 반경 ${radiusKm}km 초과${distanceKm !== null ? ` (${distanceKm}km)` : ""}` };
+    const area = label ? `(${label}) ` : " ";
+    return { deliveryHold: true, deliveryHoldReason: `배송 권역${area}밖${distanceKm !== null ? ` (센터에서 ${distanceKm}km)` : ""}` };
   }
   if (status === "UNKNOWN") {
     return { deliveryHold: true, deliveryHoldReason: "주소 좌표 확인 불가 — 배송 가능 여부 확인 필요" };
@@ -400,9 +438,9 @@ export function holdFromStatus(status: AreaStatus, distanceKm: number | null, ra
 export function areaMessage(j: AreaJudgement): string {
   switch (j.status) {
     case "IN_RANGE":
-      return j.byWhitelist ? "배송 가능 지역입니다." : `배송 가능 지역입니다. (센터에서 ${j.distanceKm}km)`;
+      return j.byWhitelist ? `배송 가능 지역입니다. (${j.reason})` : `배송 가능 지역입니다. (센터에서 ${j.distanceKm}km)`;
     case "OUT_OF_RANGE":
-      return `배송 권역(센터 반경 ${j.radiusKm}km) 밖입니다. 주문은 접수되며, 담당자가 주간에 전화로 배송 가능 여부를 안내드립니다.`;
+      return `배송 권역(${j.areaLabel}) 밖입니다. 주문은 접수되며, 담당자가 주간에 전화로 배송 가능 여부를 안내드립니다.`;
     default:
       return "주소 위치를 자동으로 확인하지 못했습니다. 주문은 접수되며, 담당자가 확인 후 연락드립니다.";
   }

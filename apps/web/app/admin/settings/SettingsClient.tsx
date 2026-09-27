@@ -16,13 +16,14 @@ const defaultSettings = {
   deliveryEnd: "06:00",
   freeShippingMin: "11000",
   deliveryFee: "0",
-  deliveryAreas: "대구 달서구, 달성군 일부",
-  // 배송 권역 (센터 반경 판정)
+  deliveryAreas: "대구 전역",
+  // 배송 권역 (시/도 전역 → 허용 동 → 센터 반경 순 판정)
   deliveryCenterName: "1센터 (성서)",
   deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
   deliveryCenterLat: "",
   deliveryCenterLng: "",
   deliveryRadiusKm: "10",
+  deliveryAllowedSido: "대구",
   deliveryAllowedDongs: "",
   orderConfirm: "true",
   deliveryStart_noti: "true",
@@ -207,10 +208,15 @@ export default function SettingsClient({
         <div className="bg-white rounded-xl p-6 shadow-sm border">
           <h3 className="font-bold text-gray-700 mb-1">배송 권역</h3>
           <p className="text-xs text-gray-400 mb-4">
-            주소를 받을 때 센터 좌표와의 거리를 재서 반경 안이면 자동 수용, 밖이면 접수 후 &quot;배송지 확인&quot; 큐로 보냅니다.
-            행정구역과 무관하게 반경 하나로 판정하고, 예외로 열어둘 동은 아래에 적습니다.
+            판정 순서: <b>전역 배송 시/도</b> → 허용 동 → 센터 반경. 전역 시/도 안이면 좌표와 무관하게 자동 수용하고,
+            그 밖은 센터 거리로 판정해 반경 밖이면 접수 후 &quot;배송지 확인&quot; 큐로 보냅니다.
           </p>
           <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">전역 배송하는 시/도 (쉼표 구분)</label>
+              <input type="text" value={settings.deliveryAllowedSido} onChange={(e) => update("deliveryAllowedSido", e.target.value)} placeholder="예: 대구" className={inputClass} />
+              <p className="text-xs text-gray-400 mt-1">&quot;대구&quot;·&quot;대구광역시&quot; 모두 인식합니다. 비우면 반경 판정만 남습니다. 저장 후 &quot;재판정&quot;을 눌러 기존 배송지에 반영하세요.</p>
+            </div>
             <div className="flex gap-4 max-w-md">
               <div className="flex-1">
                 <label className="text-sm font-medium text-gray-600 block mb-1">센터 이름</label>
@@ -246,7 +252,7 @@ export default function SettingsClient({
           </div>
           <div className="mt-5 flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => handleSave("area", ["deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedDongs"])}
+              onClick={() => handleSave("area", ["deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedSido", "deliveryAllowedDongs"])}
               className="px-5 py-2 bg-[#1D9E75] text-white text-sm font-medium rounded-lg hover:bg-[#178a64] transition"
             >
               저장

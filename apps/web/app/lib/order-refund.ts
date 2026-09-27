@@ -72,9 +72,11 @@ export async function refundOrder(params: {
   let tossRaw: string | null = null;
   let tossCalled = false;
   if (refundable) {
+    // 배송일이 다른 주문을 묶어 한 번에 결제했으면 이 주문 몫만 부분 취소한다 (다른 배송일 주문은 살아 있다)
     const r = await cancelTossPayment({
       paymentKey: paymentKey!,
       cancelReason: reason,
+      ...(order.paymentGroupNo ? { cancelAmount: done.amount } : {}),
       idempotencyKey: `cancel-${order.id}-${done.id}`,
     });
     tossRaw = JSON.stringify(r.data);

@@ -120,13 +120,12 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // 주문 1건 = 배송일 1개. 장바구니에 배송일이 다른 상품이 섞여 있으면 배송일별로 나눠 결제한다.
-  // 키 "" = 배송일 미지정 라인(상품 상세에서 담음) → 서버가 가장 빠른 배송일로 정한다
+  // 장바구니 전체를 한 번에 결제한다. 서버는 배송일마다 주문을 나눠 만들고(배송 리포트·생산 집계용)
+  // 결제 묶음 번호 하나로 토스에 합계를 청구한다. 키 "" = 배송일 미지정 라인 → 서버가 가장 빠른 배송일로 정한다
   const dateKeys = Array.from(new Set(items.map((i) => i.deliveryDate ?? ""))).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
-  const [payKey, setPayKey] = useState<string | null>(null);
-  const activeKey = payKey !== null && dateKeys.includes(payKey) ? payKey : (dateKeys[0] ?? "");
-  const payItems = items.filter((i) => (i.deliveryDate ?? "") === activeKey);
+  const payItems = items;
   const payItemsTotal = payItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const subtotalOf = (key: string) => items.filter((i) => (i.deliveryDate ?? "") === key).reduce((sum, i) => sum + i.price * i.quantity, 0);
   const [address, setAddress] = useState<CheckoutAddress>(emptyAddress);
   const [memoOpen, setMemoOpen] = useState(false);
   const [customMemo, setCustomMemo] = useState(false);
@@ -158,7 +157,8 @@ export default function CheckoutPage() {
   );
   const baseDeliveryFee = feeSettings ? Number(feeSettings.deliveryFee) : 0;
   const freeShippingMin = feeSettings ? Number(feeSettings.freeShippingMin) : 11000;
-  const deliveryFee = payItemsTotal >= freeShippingMin ? 0 : baseDeliveryFee;
+  // 배송비는 배송 1회마다 — 배송일별 소계로 판정해 합산
+  const deliveryFee = dateKeys.reduce((sum, k) => sum + (subtotalOf(k) >= freeShippingMin ? 0 : baseDeliveryFee), 0);
   const finalTotal = payItemsTotal + deliveryFee;
   const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-brand-green text-sm transition";
 
@@ -345,7 +345,6 @@ export default function CheckoutPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        deliveryDate: activeKey || null,
         items: payItems.map((i) => ({ productId: i.productId, quantity: i.quantity, deliveryDate: i.deliveryDate ?? null })),
         ...addressPayload,
       }),
@@ -396,7 +395,8 @@ export default function CheckoutPage() {
       await payment.requestPayment({
         method: "CARD",
         amount: { value: payAmount, currency: "KRW" },
-        orderId: order.orderNo,
+        // 배송일이 여러 개면 결제 묶음 번호, 하나면 주문번호 — 서버 응답값을 그대로 쓴다
+        orderId: order.paymentOrderId ?? order.orderNo,
         orderName,
         customerName: address.name || session?.user?.name || "고객",
         successUrl: `${window.location.origin}/checkout/success?orderId=${order.id}`,
@@ -569,49 +569,40 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* 주문 상품 — 배송일이 여러 개면 이번에 결제할 배송일을 고른다 */}
+        {/* 주문 상품 — 배송일별로 묶어 보여주고 결제는 한 번에 */}
         <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
           <h3 className="text-white font-bold mb-4">주문 상품</h3>
           {dateKeys.length > 1 && (
-            <div className="mb-4">
-              <p className="text-xs text-gray-400 mb-2">배송일이 다른 상품은 배송일별로 결제합니다. 이번에 결제할 배송일을 고르세요.</p>
-              <div className="flex flex-wrap gap-2">
-                {dateKeys.map((k) => {
-                  const count = items.filter((i) => (i.deliveryDate ?? "") === k).reduce((n, i) => n + i.quantity, 0);
-                  const on = k === activeKey;
-                  return (
-                    <button
-                      key={k || "__none"}
-                      type="button"
-                      onClick={() => setPayKey(k)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${on ? "bg-brand-green text-white border-brand-green" : "bg-white/5 text-gray-300 border-white/10 hover:border-white/30"}`}
-                    >
-                      {dateLabelOf(k || null)} · {count}개
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-gray-500 mt-2">나머지 배송일 상품은 결제 후에도 장바구니에 남습니다.</p>
-            </div>
+            <p className="text-xs text-gray-400 mb-4">배송일이 {dateKeys.length}개입니다. 한 번에 결제되며 배송일마다 따로 도착합니다.</p>
           )}
-          <div className="space-y-3">
-            {payItems.map((item) => {
-              const dateLabel = item.deliveryDate
-                ? new Date(item.deliveryDate).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" })
-                : null;
-              return (
-                <div key={`${item.productId}::${item.deliveryDate ?? ""}`} className="flex justify-between items-center">
-                  <div>
-                    <p className="text-white text-sm">
-                      {item.name}
-                      {dateLabel && <span className="ml-2 text-[10px] text-[#5DCAA5] font-bold">({dateLabel} 배송)</span>}
-                    </p>
-                    <p className="text-gray-500 text-xs">수량: {item.quantity}</p>
+          <div className="space-y-5">
+            {dateKeys.map((k) => (
+              <div key={k || "__none"}>
+                {dateKeys.length > 1 && (
+                  <div className="flex justify-between items-center mb-2 pb-1 border-b border-white/10">
+                    <span className="text-[11px] font-bold text-[#5DCAA5]">{dateLabelOf(k || null)} 배송</span>
+                    <span className="text-[11px] text-gray-400">{subtotalOf(k).toLocaleString()}원</span>
                   </div>
-                  <p className="text-white text-sm font-medium">{(item.price * item.quantity).toLocaleString()}원</p>
+                )}
+                <div className="space-y-3">
+                  {items.filter((i) => (i.deliveryDate ?? "") === k).map((item) => {
+                    const dateLabel = dateKeys.length === 1 && item.deliveryDate ? dateLabelOf(item.deliveryDate) : null;
+                    return (
+                      <div key={`${item.productId}::${item.deliveryDate ?? ""}`} className="flex justify-between items-center">
+                        <div>
+                          <p className="text-white text-sm">
+                            {item.name}
+                            {dateLabel && <span className="ml-2 text-[10px] text-[#5DCAA5] font-bold">({dateLabel} 배송)</span>}
+                          </p>
+                          <p className="text-gray-500 text-xs">수량: {item.quantity}</p>
+                        </div>
+                        <p className="text-white text-sm font-medium">{(item.price * item.quantity).toLocaleString()}원</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 

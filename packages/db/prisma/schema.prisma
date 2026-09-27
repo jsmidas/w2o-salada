@@ -199,6 +199,7 @@ model Order {
   deliveryFee     Int         @default(0)
   discountAmount  Int         @default(0)
   paymentKey      String?     // 토스 paymentKey
+  paymentGroupNo  String?     // 결제 묶음 — 배송일이 다른 주문 N건을 한 번에 결제할 때 공유하는 토스 orderId (단건 결제면 null, orderNo 사용)
   paidAt          DateTime?
   deliveryDate    DateTime?   // 배송 예정일
   deliveredAt     DateTime?
@@ -215,6 +216,7 @@ model Order {
   delivery  Delivery?
 
   @@index([deliveryHold])
+  @@index([paymentGroupNo])
   @@unique([subscriptionId, deliveryDate, type]) // 구독 배송 건은 배송일당 1건 (멱등 생성)
   @@map("orders")
 }

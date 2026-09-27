@@ -33,11 +33,13 @@ export async function completeOrderPayment(params: CompletePaymentParams) {
   const { orderNo, amount, toss, billingKey, card } = params;
   const now = new Date();
 
-  const order = await prisma.order.update({
-    where: { orderNo },
+  // PENDING → PAID 전환은 조건부로. 두 탭에서 동시에 승인되거나 재시도가 겹쳐도 결제 기록·알림이 한 번만 남는다
+  const flipped = await prisma.order.updateMany({
+    where: { orderNo, status: "PENDING" },
     data: { status: "PAID", paymentKey: toss.paymentKey ?? null, paidAt: now },
-    include: { user: true },
   });
+  const order = await prisma.order.findUniqueOrThrow({ where: { orderNo }, include: { user: true } });
+  if (flipped.count === 0) return order;
 
   if (order.subscriptionId) {
     const sub = await prisma.subscription.findUnique({

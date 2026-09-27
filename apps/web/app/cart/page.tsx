@@ -32,13 +32,25 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = totalPrice() >= freeShippingMin ? 0 : baseDeliveryFee;
+  // 최소 주문액은 "1회 배송" 기준 — 배송일마다 본품 합계를 따로 본다. 결제는 한 번에.
+  // 키 "" = 배송일 미지정(상품 상세에서 담음) → 가장 빠른 배송일로 간다
+  const dateKeys = Array.from(new Set(items.map((i) => i.deliveryDate ?? ""))).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+  const perDate = dateKeys.map((k) => {
+    const lines = items.filter((i) => (i.deliveryDate ?? "") === k);
+    const total = lines.reduce((s, i) => s + i.price * i.quantity, 0);
+    const base = lines.filter((i) => !i.isOption).reduce((s, i) => s + i.price * i.quantity, 0);
+    return { key: k, total, base, shortfall: Math.max(0, minOrderAmount - base), fee: total >= freeShippingMin ? 0 : baseDeliveryFee };
+  });
+  const deliveryFee = perDate.reduce((s, d) => s + d.fee, 0);
   const finalTotal = totalPrice() + deliveryFee;
+  const dateLabelOf = (iso: string) =>
+    iso ? new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" }) : "가장 빠른 배송일";
 
-  // 본품 합계 기반 최소 주문액 검증
+  // 본품 합계 기반 최소 주문액 검증 (배송일별)
   const baseTotal = baseTotalPrice();
-  const shortfall = Math.max(0, minOrderAmount - baseTotal);
-  const canOrder = shortfall === 0;
+  const shortDates = perDate.filter((d) => d.shortfall > 0);
+  const shortfall = shortDates.reduce((s, d) => s + d.shortfall, 0);
+  const canOrder = shortDates.length === 0;
 
   return (
     <div className="min-h-screen bg-brand-dark">
@@ -152,7 +164,7 @@ export default function CartPage() {
             </div>
             {deliveryFee > 0 && (
               <p className="text-xs text-gray-500">
-                {(freeShippingMin - totalPrice()).toLocaleString()}원 더 담으면 무료배송!
+                배송일별 상품 금액이 {freeShippingMin.toLocaleString()}원 이상이면 그 배송은 무료배송!
               </p>
             )}
             <div className="pt-3 border-t border-white/10 flex justify-between">
@@ -171,10 +183,13 @@ export default function CartPage() {
                 최소 주문액 미달
               </p>
               <p className="text-red-200/80 text-xs mt-1 leading-relaxed">
-                본품(샐러드·간편식·반찬)이 <b>{minOrderAmount.toLocaleString()}원</b> 이상이어야 주문 가능합니다.
-                <br />
-                <b className="text-red-100">{shortfall.toLocaleString()}원</b> 더 담아주세요.
-                <span className="text-red-300/60"> (음료·유산균 등 옵션 상품은 최소액 계산에서 제외됩니다)</span>
+                배송일마다 본품(샐러드·간편식·반찬)이 <b>{minOrderAmount.toLocaleString()}원</b> 이상이어야 주문 가능합니다.
+                {shortDates.map((d) => (
+                  <span key={d.key || "__none"} className="block">
+                    {dateLabelOf(d.key)} 배송분: <b className="text-red-100">{d.shortfall.toLocaleString()}원</b> 더 담아주세요.
+                  </span>
+                ))}
+                <span className="text-red-300/60">(음료·유산균 등 옵션 상품은 최소액 계산에서 제외됩니다)</span>
               </p>
             </div>
           )}

@@ -4,6 +4,7 @@ import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
 import { chargeSavedCard, findSavedCard, savedCardLabel } from "../../../lib/saved-card";
 import { completeOrderPayment } from "../../../lib/payment-complete";
+import { groupOrderName, groupState, loadPaymentGroup } from "../../../lib/payment-group";
 
 // GET: 내 등록 카드 (없으면 { card: null })
 export async function GET() {
@@ -30,50 +31,53 @@ export async function POST(request: Request) {
   if (!orderId) return NextResponse.json({ error: "orderId 필수" }, { status: 400 });
 
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, orderNo: true, userId: true, status: true, totalAmount: true, paymentKey: true, subscriptionId: true, items: { select: { product: { select: { name: true } } } } },
-    });
-    if (!order || order.userId !== userId) {
+    // 결제 묶음(배송일이 다른 주문 N건) 전체를 한 번에 결제한다
+    const group = await loadPaymentGroup(orderId);
+    if (!group || group.orders.some((o) => o.userId !== userId)) {
       return NextResponse.json({ error: "주문을 찾을 수 없습니다." }, { status: 404 });
     }
-    if (order.status === "PAID") {
-      return NextResponse.json({ success: true, alreadyPaid: true, orderNo: order.orderNo });
+    const first = group.orders[0]!;
+    const state = groupState(group.orders);
+    if (state === "PAID") {
+      return NextResponse.json({ success: true, alreadyPaid: true, orderNo: first.orderNo });
     }
-    if (order.status !== "PENDING") {
+    if (state !== "PENDING") {
       return NextResponse.json({ error: "이미 처리된 주문입니다." }, { status: 400 });
     }
-    if (order.totalAmount <= 0) {
+    if (group.totalAmount <= 0) {
       return NextResponse.json({ error: "결제 금액이 없습니다." }, { status: 400 });
     }
 
     const card = await findSavedCard(userId);
     if (!card) return NextResponse.json({ error: "등록된 카드가 없습니다." }, { status: 404 });
 
-    const names = order.items.map((i) => i.product.name);
-    const orderName = order.subscriptionId
-      ? "W2O 구독"
-      : names.length > 1 ? `${names[0]} 외 ${names.length - 1}건` : (names[0] ?? "W2O 주문");
+    const items = await prisma.orderItem.findMany({
+      where: { orderId: { in: group.orders.map((o) => o.id) } },
+      select: { product: { select: { name: true } } },
+    });
+    const orderName = first.subscriptionId ? "W2O 구독" : groupOrderName(items.map((i) => i.product.name));
 
-    const charged = await chargeSavedCard({ card, userId, orderNo: order.orderNo, amount: order.totalAmount, orderName });
+    const charged = await chargeSavedCard({ card, userId, orderNo: group.paymentOrderId, amount: group.totalAmount, orderName });
     if (!charged.ok) {
       return NextResponse.json({ error: charged.error, code: charged.code }, { status: 402 });
     }
 
-    try {
-      await completeOrderPayment({
-        orderNo: order.orderNo,
-        amount: order.totalAmount,
-        toss: charged.data,
-        billingKey: card.billingKey,
-        card: { cardCompany: card.cardCompany, cardNumber: card.cardNumber },
-      });
-    } catch (dbErr) {
-      console.warn("DB 저장 실패 (등록 카드 결제는 완료됨):", order.orderNo);
-      Sentry.captureException(dbErr, { level: "error", tags: { area: "payment", phase: "saved-card-db" }, extra: { orderNo: order.orderNo, paymentKey: charged.data.paymentKey } });
+    for (const o of group.orders) {
+      try {
+        await completeOrderPayment({
+          orderNo: o.orderNo,
+          amount: o.totalAmount,
+          toss: charged.data,
+          billingKey: card.billingKey,
+          card: { cardCompany: card.cardCompany, cardNumber: card.cardNumber },
+        });
+      } catch (dbErr) {
+        console.warn("DB 저장 실패 (등록 카드 결제는 완료됨):", o.orderNo);
+        Sentry.captureException(dbErr, { level: "error", tags: { area: "payment", phase: "saved-card-db" }, extra: { orderNo: o.orderNo, paymentOrderId: group.paymentOrderId, paymentKey: charged.data.paymentKey } });
+      }
     }
 
-    return NextResponse.json({ success: true, orderNo: order.orderNo, card: savedCardLabel(card) });
+    return NextResponse.json({ success: true, orderNo: first.orderNo, orderNos: group.orders.map((o) => o.orderNo), card: savedCardLabel(card) });
   } catch (err) {
     console.error("POST /api/payments/saved-card error:", err);
     Sentry.captureException(err, { level: "error", tags: { area: "payment", phase: "saved-card" } });

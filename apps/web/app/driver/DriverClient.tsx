@@ -481,10 +481,10 @@ function StopCard({ stop, onChanged }: { stop: Stop; onChanged: () => void }) {
       </div>
       {!done && <div className="mt-2 text-center text-[11px] text-gray-400">문 앞에 둔 상태를 사진으로 남겨야 완료됩니다</div>}
 
-      {/* 처리 시트 — 사진 미리보기 + 메모 */}
+      {/* 처리 시트 — 사진 미리보기 + 메모. z-[100]: 하단 앱 설치 배너(z-50)보다 위에 떠야 버튼이 가려지지 않는다 */}
       {sheet && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/50" onClick={busy ? undefined : closeSheet}>
-          <div className="w-full rounded-t-3xl bg-white p-5 pb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-end bg-black/50" onClick={busy ? undefined : closeSheet}>
+          <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 pb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
             <div className="flex items-baseline justify-between">
               <div className="text-lg font-bold">{sheet === "complete" ? "배송 완료 처리" : "배송 못함 처리"}</div>

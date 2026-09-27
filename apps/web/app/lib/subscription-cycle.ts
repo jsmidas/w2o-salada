@@ -10,6 +10,7 @@
  */
 import { prisma } from "@repo/db";
 import { autoAssignForDelivery, slotsForDate, type SlotMap, type WeekdaySlotMap } from "./auto-assign";
+import { firstOrderableDate } from "./cutoff";
 
 export const CYCLE_WEEK_OPTIONS = [2, 4, 6, 8] as const;
 export const BILLING_LEAD_DAYS = 2;
@@ -77,8 +78,28 @@ export async function nextCycleWindow(subscription: { id: string; cycleWeeks: nu
     orderBy: { endDate: "desc" },
     select: { endDate: true },
   });
-  const start = last?.endDate ?? subscription.nextDeliveryDate ?? new Date();
+  // 일시정지·결제 실패가 길어진 뒤 재개하면 마지막 주기 endDate 가 과거다 — 지나간 날짜를 청구하지 않도록 오늘(주문 가능일)로 끌어올린다
+  const floor = new Date(`${firstOrderableDate()}T00:00:00.000Z`);
+  const base = last?.endDate ?? subscription.nextDeliveryDate ?? new Date();
+  const start = base < floor ? floor : base;
   return cycleWindow(start, subscription.cycleWeeks || 4);
+}
+
+/**
+ * 다음 배송일 전진 — 저장된 nextDeliveryDate 가 지났으면(또는 없으면) 주문 가능한 가장 빠른 활성 배송일로 옮겨 저장한다.
+ * 예전엔 첫 배송이 지나도 그 날짜에 머물러 "마감이 지났다" 로 건너뛰기가 계속 거부됐다.
+ */
+export async function syncNextDeliveryDate(subscription: { id: string; nextDeliveryDate: Date | null }): Promise<Date | null> {
+  const floor = new Date(`${firstOrderableDate()}T00:00:00.000Z`);
+  if (subscription.nextDeliveryDate && subscription.nextDeliveryDate >= floor) return subscription.nextDeliveryDate;
+  const next = await prisma.deliveryCalendar.findFirst({
+    where: { isActive: true, date: { gte: floor } },
+    orderBy: { date: "asc" },
+    select: { date: true },
+  });
+  if (!next) return subscription.nextDeliveryDate;
+  await prisma.subscription.update({ where: { id: subscription.id }, data: { nextDeliveryDate: next.date } });
+  return next.date;
 }
 
 /** 배송일이 속한 주기. 없으면 다음 주기(PENDING)를 만들어 돌려준다 — 다음 배송 미리보기용 */

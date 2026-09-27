@@ -7,7 +7,6 @@ import MobileInstallBanner from "./components/MobileInstallBanner";
 const SITE_URL = "https://www.w2o.co.kr";
 const SITE_NAME = "W2O SALADA";
 const SITE_DESC = "Weekly 2 Order. 매주 두 번, 샐러드·간편식·반찬이 새벽 문 앞으로. 가정의 한 끼를 책임지는 새벽배송 구독 서비스.";
-const OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 export const metadata: Metadata = {
   title: {
@@ -37,13 +36,12 @@ export const metadata: Metadata = {
     description: SITE_DESC,
     url: SITE_URL,
     locale: "ko_KR",
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: "W2O SALADA 가정식 새벽배송" }],
+    // 이미지는 app/opengraph-image.tsx 파일 규약이 자동으로 넣는다
   },
   twitter: {
     card: "summary_large_image",
     title: "W2O SALADA — Weekly 2 Order, 우리 집 새벽 식탁",
     description: SITE_DESC,
-    images: [OG_IMAGE],
   },
   robots: {
     index: true,

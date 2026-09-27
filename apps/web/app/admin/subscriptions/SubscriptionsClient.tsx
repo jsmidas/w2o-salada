@@ -79,17 +79,17 @@ export default function SubscriptionsClient({ initialData }: { initialData: Init
     if (!cancelModal) return;
     setCancelling(true);
     try {
-      await fetch(`/api/subscriptions/${cancelModal.id}/cancel`, {
-        method: "POST",
+      // 고객용 취소 API 는 소유자 검사에 걸려 관리자 세션으로는 항상 404 였다 — 관리자 API 로
+      const res = await fetch(`/api/admin/subscriptions/${cancelModal.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reason: "중도해지",
-          deliveredCount: cancelDelivered,
-          itemsPerDelivery: cancelItemsPerDelivery,
-          regularPrice: REGULAR_PRICE,
-          settlement: cancelSettlement.difference,
-        }),
+        body: JSON.stringify({ action: "cancel" }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert((err as { error?: string }).error ?? "해지 처리에 실패했습니다.");
+        return;
+      }
       setCancelModal(null);
       mutate();
     } catch {
@@ -294,8 +294,8 @@ export default function SubscriptionsClient({ initialData }: { initialData: Init
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-amber-700 text-xs">
-                  위 차액({cancelSettlement.difference.toLocaleString()}원)을 공제한 후 나머지 금액을 환불 처리합니다.
-                  미배송분은 전액 환불됩니다.
+                  위 계산은 참고용입니다. 해지 처리는 구독 상태만 종료하며 자동으로 환불되지 않습니다.
+                  환불이 필요하면 주문 관리에서 해당 결제 주문을 취소(환불)하세요.
                 </p>
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function SubscriptionsClient({ initialData }: { initialData: Init
               </button>
               <button
                 onClick={handleCancelSubmit}
-                disabled={cancelling || cancelDelivered === 0}
+                disabled={cancelling}
                 className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition disabled:opacity-50"
               >
                 {cancelling ? "처리 중..." : "해지 처리"}

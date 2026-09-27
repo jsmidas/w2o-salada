@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../lib/auth-guard";
+import { syncNextDeliveryDate } from "../../lib/subscription-cycle";
 
 // GET: 내 구독 목록
 export async function GET() {
@@ -9,6 +10,13 @@ export async function GET() {
 
   try {
     const userId = (session!.user as { id: string }).id;
+    // 지난 배송일에 머문 구독은 다음 활성 배송일로 전진시켜 두고 조회
+    const stale = await prisma.subscription.findMany({
+      where: { userId, status: { in: ["ACTIVE", "PAUSED"] } },
+      select: { id: true, nextDeliveryDate: true },
+    });
+    await Promise.all(stale.map((s) => syncNextDeliveryDate(s)));
+
     const subscriptions = await prisma.subscription.findMany({
       where: { userId },
       include: {

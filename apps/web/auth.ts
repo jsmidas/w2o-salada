@@ -11,6 +11,40 @@ async function getPrisma() {
   return prisma;
 }
 
+// 세션 서명 키 — 저장소에 적힌 폴백으로 떨어지면 누구나 ADMIN 토큰을 위조할 수 있다. 운영에선 없으면 기동 실패
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
+if (!AUTH_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("NEXTAUTH_SECRET(또는 AUTH_SECRET) 환경변수가 없습니다. 세션 서명 키 없이 운영할 수 없습니다.");
+}
+
+/**
+ * 소셜 로그인 사용자를 DB 에서 찾거나 만들어 (id, role, permissions) 를 돌려준다.
+ * 매칭 순서: provider+providerId → 이메일(기존 계정 연결). 예전엔 세션 id 가 카카오/네이버의 providerAccountId 라
+ * 마이페이지 조회가 비고 주문이 guest 로 저장됐다.
+ */
+async function resolveSocialUser(p: { provider: string; providerAccountId: string; email?: string | null; name?: string | null }) {
+  const prisma = await getPrisma();
+  const byProvider = await prisma.user.findFirst({
+    where: { provider: p.provider, providerId: p.providerAccountId },
+    select: { id: true, role: true, permissions: true, email: true },
+  });
+  if (byProvider) return byProvider;
+
+  if (!p.email) return null;
+  const byEmail = await prisma.user.findUnique({ where: { email: p.email }, select: { id: true, role: true, permissions: true, email: true, provider: true, providerId: true } });
+  if (byEmail) {
+    // 같은 이메일의 기존 계정에 소셜 연결 (아직 연결된 provider 가 없을 때만)
+    if (!byEmail.providerId) {
+      await prisma.user.update({ where: { id: byEmail.id }, data: { provider: p.provider, providerId: p.providerAccountId } });
+    }
+    return byEmail;
+  }
+  return prisma.user.create({
+    data: { email: p.email, name: p.name ?? "사용자", provider: p.provider, providerId: p.providerAccountId, role: "CUSTOMER" },
+    select: { id: true, role: true, permissions: true, email: true },
+  });
+}
+
 const config: NextAuthConfig = {
   providers: [
     // 이메일/비밀번호 로그인
@@ -69,6 +103,7 @@ const config: NextAuthConfig = {
                 { email: usernameStr },
               ],
             },
+            omit: { password: false }, // 전역 omit 해제 — 로그인 검증에만 해시가 필요하다
           });
 
           if (!user || !user.password) return null;
@@ -109,11 +144,24 @@ const config: NextAuthConfig = {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, account, trigger, session }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "CUSTOMER";
         token.id = user.id;
         token.permissions = (user as { permissions?: string | null }).permissions ?? null;
+        // 소셜 로그인: user.id 는 provider 의 계정 id — DB User.id 로 바꿔 넣는다
+        if (account?.provider && account.provider !== "credentials") {
+          try {
+            const db = await resolveSocialUser({ provider: account.provider, providerAccountId: account.providerAccountId, email: user.email, name: user.name });
+            if (db) {
+              token.id = db.id;
+              token.role = db.role;
+              token.permissions = db.permissions ?? null;
+            }
+          } catch (err) {
+            console.error("소셜 로그인 사용자 매핑 실패:", err);
+          }
+        }
       }
       // 프로필에서 update({ name, email }) 호출 시 토큰에 반영 — 재로그인 없이 헤더/세션이 갱신된다
       if (trigger === "update" && session) {
@@ -131,36 +179,15 @@ const config: NextAuthConfig = {
       return session;
     },
     async signIn({ user, account }) {
-      // 소셜 로그인 시 DB에 유저 생성/업데이트
-      if (account?.provider && account.provider !== "credentials") {
-        try {
-          const email = user.email;
-          if (!email) return false;
-
-          const prisma = await getPrisma();
-          const existing = await prisma.user.findUnique({ where: { email } });
-          if (!existing) {
-            await prisma.user.create({
-              data: {
-                email,
-                name: user.name ?? "사용자",
-                provider: account.provider,
-                providerId: account.providerAccountId,
-                role: "CUSTOMER",
-              },
-            });
-          }
-        } catch {
-          console.error("DB 연결 실패 - 소셜 로그인 유저 저장 실패");
-        }
-      }
+      // 소셜 로그인은 이메일이 있어야 계정을 만들 수 있다 (실제 생성·연결은 jwt 콜백의 resolveSocialUser)
+      if (account?.provider && account.provider !== "credentials" && !user.email) return false;
       return true;
     },
   },
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET ?? "w2o-salada-dev-secret-key-2026",
+  secret: AUTH_SECRET ?? "w2o-salada-dev-only-secret", // 개발 환경 전용 폴백 (운영은 위에서 막는다)
 };
 
 const result = NextAuth(config);

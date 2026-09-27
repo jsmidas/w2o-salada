@@ -23,7 +23,7 @@ export default function CartPage() {
         <span className="material-symbols-outlined text-6xl text-white/10 mb-4">shopping_cart</span>
         <p className="text-gray-400 mb-6">장바구니가 비어있습니다.</p>
         <Link
-          href="/#menu"
+          href="/#weekly-menu"
           className="px-6 py-3 bg-brand-green text-white rounded-full font-semibold hover:bg-brand-mint transition"
         >
           메뉴 보러 가기

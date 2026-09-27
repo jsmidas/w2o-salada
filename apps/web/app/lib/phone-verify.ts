@@ -26,7 +26,11 @@ function sha256(value: string): string {
 }
 
 function secret(): string {
-  return process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET ?? "w2o-phone-verify";
+  const s = process.env.PHONE_VERIFY_SECRET ?? process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
+  if (s) return s;
+  // 운영에서 비밀키 없이 인증 코드 해시를 만들면 코드가 추측 가능해진다
+  if (process.env.NODE_ENV === "production") throw new Error("NEXTAUTH_SECRET 미설정 — 휴대폰 인증을 쓸 수 없습니다.");
+  return "w2o-phone-verify-dev-only";
 }
 
 function hashCode(phone: string, code: string): string {

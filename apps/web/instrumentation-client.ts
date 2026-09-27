@@ -16,3 +16,6 @@ Sentry.init({
   // 개인정보 포함 가능성 있는 데이터 자동 필터링
   sendDefaultPii: false,
 });
+
+// App Router 페이지 전환을 트랜잭션으로 기록 (Next 15.3+ 규약)
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

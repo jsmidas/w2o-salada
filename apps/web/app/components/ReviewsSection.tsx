@@ -12,13 +12,6 @@ type Review = {
   createdAt: string;
 };
 
-const FALLBACK_REVIEWS = [
-  { stars: 5, text: "매일 아침 문 앞에 신선한 샐러드가 놓여있다는 게 정말 행복해요. 다이어트도 성공했어요!", name: "김지은", sub: "정기구독 · 3개월째" },
-  { stars: 5, text: "바쁜 아침에 건강한 식사를 챙길 수 있어서 좋아요. 포장도 예쁘고 맛도 최고!", name: "박준혁", sub: "정기구독 · 6개월째" },
-  { stars: 5, text: "친환경 포장이 마음에 들어요. 맛있으면서 환경도 생각하는 브랜드라 응원합니다.", name: "이서연", sub: "정기구독 · 2개월째" },
-  { stars: 5, text: "회사 점심으로 매일 먹고 있어요. 동료들도 하나둘 구독 시작했습니다 ㅎㅎ", name: "최민수", sub: "정기구독 · 4개월째" },
-];
-
 export default function ReviewsSection() {
   const [dbReviews, setDbReviews] = useState<Review[]>([]);
   const [current, setCurrent] = useState(0);
@@ -30,22 +23,34 @@ export default function ReviewsSection() {
       .catch(() => {});
   }, []);
 
-  const hasDb = dbReviews.length > 0;
-  const displayReviews = hasDb
-    ? dbReviews.map((r) => ({
-        stars: r.rating,
-        text: r.content,
-        name: r.user.name,
-        sub: r.product.name,
-      }))
-    : FALLBACK_REVIEWS;
+  // 실제 고객 후기만 보여준다 — 가상의 이름·후기를 실명처럼 내걸면 표시광고법 문제가 된다
+  const displayReviews = dbReviews.map((r) => ({
+    stars: r.rating,
+    text: r.content,
+    name: r.user.name,
+    sub: r.product.name,
+  }));
 
   useEffect(() => {
+    if (displayReviews.length < 2) return;
     const timer = setInterval(() => {
       setCurrent((c) => (c + 1) % displayReviews.length);
     }, 5000);
     return () => clearInterval(timer);
   }, [displayReviews.length]);
+
+  if (displayReviews.length === 0) {
+    return (
+      <section id="reviews" className="py-20 bg-brand-deep">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <span className="text-brand-green text-xs tracking-[0.3em] uppercase font-medium">REVIEWS</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mt-3">고객님의 이야기</h2>
+          <p className="text-gray-400 mt-6">아직 후기가 없습니다. 첫 배송을 받으신 뒤 첫 번째 이야기를 남겨주세요.</p>
+          <Link href="/reviews" className="inline-block mt-6 text-sm text-brand-green hover:underline">후기 남기기 →</Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="reviews" className="py-20 bg-brand-deep">

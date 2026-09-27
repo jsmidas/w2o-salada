@@ -1,17 +1,19 @@
 {
-  "regions": ["icn1"],
+  "regions": [
+    "icn1"
+  ],
   "crons": [
     {
       "path": "/api/cron/renewal-notify",
-      "schedule": "0 9 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/renewal-charge",
-      "schedule": "0 6 * * *"
+      "schedule": "0 21 * * *"
     },
     {
       "path": "/api/cron/menu-select-notify",
-      "schedule": "0 9 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/push-due-prices",

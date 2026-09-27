@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # prisma generate 는 DB 에 접속하지 않지만 스키마의 env() 참조가 있어야 한다
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check (web)
+        run: npm run check-types -w web
+      - name: Lint (web) — 경고는 허용, 오류만 실패
+        run: npx eslint . --max-warnings 1000
+        working-directory: apps/web

@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const subscriptions = await prisma.subscription.findMany({
       where: { status: "ACTIVE", autoRenew: true, billingKey: { not: null }, nextBillingDate: { lte: now } },
       include: { user: true },
+      omit: { billingKey: false }, // 토스 청구에 필요 — 전역 omit 해제
     });
 
     let charged = 0, failed = 0, recovered = 0;
@@ -154,7 +155,7 @@ export async function GET(request: Request) {
 // ───────────────────────────── helpers ─────────────────────────────
 
 type TossPaymentData = { paymentKey?: string; method?: string; receipt?: { url?: string }; status?: string; message?: string; code?: string };
-type SubRow = Prisma.SubscriptionGetPayload<{ include: { user: true } }>;
+type SubRow = Prisma.SubscriptionGetPayload<{ include: { user: true }; omit: { billingKey: false } }>;
 type OrderRow = Prisma.OrderGetPayload<{ select: { id: true; orderNo: true; totalAmount: true; discountAmount: true; deliveryDate: true } }>;
 type PeriodRow = Prisma.SubscriptionPeriodGetPayload<{ select: { id: true; endDate: true } }>;
 

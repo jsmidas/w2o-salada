@@ -14,6 +14,25 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     const { name, slug, sortOrder, icon, color, isActive, isOption } = body;
+
+    if (slug !== undefined) {
+      const current = await prisma.category.findUnique({ where: { id }, select: { slug: true } });
+      if (current && current.slug !== slug) {
+        // slug 는 구독 slots/weekdaySlots JSON 의 키이자 자동 배정의 매칭 키 — 쓰이는 중이면 바꿀 수 없다
+        const [productCount, subRows] = await Promise.all([
+          prisma.product.count({ where: { categoryId: id } }),
+          prisma.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*)::bigint AS n FROM "subscriptions" WHERE status <> 'CANCELLED' AND (COALESCE("slots"::text, '') LIKE ${"%\"" + current.slug + "\"%"} OR COALESCE("weekdaySlots"::text, '') LIKE ${"%\"" + current.slug + "\"%"})`,
+        ]);
+        const subCount = Number(subRows[0]?.n ?? 0);
+        if (productCount > 0 || subCount > 0) {
+          return NextResponse.json(
+            { error: `slug '${current.slug}'는 상품 ${productCount}개·구독 ${subCount}건이 쓰고 있어 바꿀 수 없습니다. 이름(name)만 바꾸거나 새 카테고리를 만드세요.` },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     const category = await prisma.category.update({
       where: { id },
       data: {

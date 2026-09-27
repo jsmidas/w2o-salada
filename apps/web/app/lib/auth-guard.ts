@@ -1,5 +1,6 @@
 import { auth } from "../../auth";
 import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 
 /** 관리자 권한 영역 */
 export type AdminPermission =
@@ -72,6 +73,30 @@ export async function requireAdmin(permission?: AdminPermission) {
   }
 
   return { error: null, session };
+}
+
+/** 권한별 첫 화면 — 거부됐을 때 보낼 곳 */
+const SECTION_HOME: Record<AdminPermission, string> = {
+  dashboard: "/admin/dashboard",
+  orders: "/admin/orders",
+  products: "/admin/products",
+  subscriptions: "/admin/subscriptions",
+  customers: "/admin/members",
+  system: "/admin/settings",
+};
+
+/**
+ * 관리자 페이지(RSC) 권한 가드 — 섹션 layout.tsx 에서 호출한다.
+ * API 는 requireAdmin(permission) 으로 막혀 있었지만 페이지 자체는 role 만 봐서, 주문 권한만 있는 직원이
+ * URL 로 /admin/members 나 /admin/settings 를 열면 데이터가 그대로 렌더링됐다.
+ */
+export async function requirePagePermission(permission: AdminPermission): Promise<void> {
+  const session = await auth();
+  const user = session?.user as { role?: string; permissions?: string | null } | undefined;
+  if (!user || user.role !== "ADMIN") redirect("/login");
+  if (hasPermission(user.permissions, permission)) return;
+  const allowed = ALL_PERMISSIONS.find((p) => hasPermission(user.permissions, p));
+  redirect(allowed ? `${SECTION_HOME[allowed]}?denied=${permission}` : "/login");
 }
 
 /**

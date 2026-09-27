@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../../lib/auth-guard";
+import { syncNextDeliveryDate } from "../../../../lib/subscription-cycle";
 
 // POST: 구독 재개
 export async function POST(
@@ -26,10 +27,17 @@ export async function POST(
       );
     }
 
+    // 정지 중에 지난 결제일은 "지금" 으로 — 다음 크론이 오늘 기준 주기(과거 날짜 제외)로 청구한다
+    const now = new Date();
     const updated = await prisma.subscription.update({
       where: { id },
-      data: { status: "ACTIVE", pausedAt: null },
+      data: {
+        status: "ACTIVE",
+        pausedAt: null,
+        ...(subscription.autoRenew && subscription.nextBillingDate && subscription.nextBillingDate < now ? { nextBillingDate: now } : {}),
+      },
     });
+    await syncNextDeliveryDate(updated);
 
     return NextResponse.json(updated);
   } catch (err) {

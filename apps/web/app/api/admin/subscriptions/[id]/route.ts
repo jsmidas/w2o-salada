@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
+import { syncNextDeliveryDate } from "../../../../lib/subscription-cycle";
 
 export async function GET(
   _request: NextRequest,
@@ -78,6 +79,9 @@ export async function PATCH(
           );
         }
         data.status = "ACTIVE";
+        data.pausedAt = null;
+        // 정지 중에 지난 결제일은 "지금" 으로 — 다음 크론이 오늘 기준 주기로 청구한다
+        if (subscription.autoRenew && subscription.nextBillingDate && subscription.nextBillingDate < new Date()) data.nextBillingDate = new Date();
         break;
 
       case "cancel":
@@ -112,10 +116,11 @@ export async function PATCH(
       where: { id },
       data,
       include: {
-        user: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
         items: { include: { product: true } },
       },
     });
+    if (action === "resume") await syncNextDeliveryDate(updated);
 
     return NextResponse.json(updated);
   } catch (err) {

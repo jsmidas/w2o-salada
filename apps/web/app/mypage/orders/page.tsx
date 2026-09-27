@@ -97,7 +97,7 @@ export default function OrdersPage() {
             </span>
             <p className="text-gray-500 mb-4">아직 주문 내역이 없습니다.</p>
             <Link
-              href="/#menu"
+              href="/#weekly-menu"
               className="inline-block px-6 py-2.5 bg-brand-green text-white rounded-full font-semibold text-sm hover:bg-brand-mint transition"
             >
               메뉴 보러가기

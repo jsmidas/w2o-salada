@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { autoAssignForDelivery, findNextDeliveryDate, slotsForDate, type SlotMap, type WeekdaySlotMap } from "../../../lib/auto-assign";
+import { autoAssignForDelivery, slotsForDate, type SlotMap, type WeekdaySlotMap } from "../../../lib/auto-assign";
+import { isOrderable } from "../../../lib/cutoff";
+import { PAID_PERIOD_STATUSES, syncNextDeliveryDate } from "../../../lib/subscription-cycle";
 import { checkOwnership, requireSubscriptionOwner, sessionUser } from "../../../lib/subscription-guard";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
@@ -18,8 +20,8 @@ export async function GET(request: Request) {
 
     const baseSlots = (subscription.slots as unknown as SlotMap) ?? {};
 
-    // 다음 배송일: 구독에 저장된 값 또는 조회
-    let nextDate = subscription.nextDeliveryDate ?? (await findNextDeliveryDate());
+    // 다음 배송일: 지났으면 다음 활성 배송일로 전진해 저장
+    let nextDate = await syncNextDeliveryDate(subscription);
     if (!nextDate) {
       return NextResponse.json({ error: "활성화된 배송일이 없습니다." }, { status: 400 });
     }
@@ -175,7 +177,7 @@ export async function PATCH(request: Request) {
         where: { id: selectionId },
         include: {
           product: { include: { category: true } },
-          subscriptionPeriod: { select: { subscription: { select: { userId: true, billingKey: true, status: true } } } },
+          subscriptionPeriod: { select: { status: true, subscription: { select: { userId: true, billingKey: true, status: true } } } },
         },
       }),
       prisma.product.findUnique({
@@ -192,10 +194,31 @@ export async function PATCH(request: Request) {
     if (current.product.category?.slug !== newProduct.category?.slug) {
       return NextResponse.json({ error: "같은 카테고리 내에서만 교체할 수 있습니다." }, { status: 400 });
     }
+    // 마감(전날 14:00) 뒤엔 이미 조리 수량이 확정됐다
+    if (!isOrderable(current.deliveryDate.toISOString().slice(0, 10))) {
+      return NextResponse.json({ error: "주문 마감이 지나 이번 배송 메뉴는 바꿀 수 없습니다." }, { status: 400 });
+    }
+    // 그 배송일 풀에 있는 상품만 (재고 포함)
+    const inPool = await prisma.menuAssignment.findFirst({
+      where: { productId: newProductId, deliveryCalendar: { date: current.deliveryDate, isActive: true } },
+      select: { id: true },
+    });
+    if (!inPool || !newProduct.isActive || newProduct.stock <= 0) {
+      return NextResponse.json({ error: "이 배송일에는 고를 수 없는 상품입니다." }, { status: 400 });
+    }
+    // 계약가: 결제된 주기는 잠긴 단가를 넘는 상품으로 바꿀 수 없다 (추가 결제 경로가 없다). 미결제 주기는 새 상품가로
+    const locked = current.unitPrice ?? current.product.price;
+    const paidPeriod = (PAID_PERIOD_STATUSES as readonly string[]).includes(current.subscriptionPeriod.status);
+    if (paidPeriod && newProduct.price > locked) {
+      return NextResponse.json(
+        { error: `결제된 배송분은 ${locked.toLocaleString()}원 이하 상품으로만 바꿀 수 있습니다. (선택 상품 ${newProduct.price.toLocaleString()}원)` },
+        { status: 400 },
+      );
+    }
 
     await prisma.subscriptionSelection.update({
       where: { id: selectionId },
-      data: { productId: newProductId },
+      data: { productId: newProductId, unitPrice: paidPeriod ? locked : newProduct.price },
     });
 
     return NextResponse.json({ ok: true });

@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
 
     // 비밀번호 변경
     if (newPassword) {
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await prisma.user.findUnique({ where: { id: userId }, omit: { password: false } });
       if (!user) {
         return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
       }

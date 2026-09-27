@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findNextDeliveryDate } from "../../../../lib/auto-assign";
 import { requireSubscriptionOwner } from "../../../../lib/subscription-guard";
+import { syncNextDeliveryDate } from "../../../../lib/subscription-cycle";
 
 /**
  * POST: 이번 배송 1회 건너뛰기
@@ -15,13 +16,13 @@ export async function POST(request: Request) {
     const guard = await requireSubscriptionOwner(subscriptionId);
     if (guard.error) return guard.error;
     const subscription = guard.subscription;
-    if (!subscription.nextDeliveryDate) {
+    const currentDate = await syncNextDeliveryDate(subscription);
+    if (!currentDate) {
       return NextResponse.json({ error: "배송일 정보 없음" }, { status: 404 });
     }
 
     const { prisma } = await import("@repo/db");
 
-    const currentDate = subscription.nextDeliveryDate;
 
     // 마감 지난 배송은 건너뛸 수 없다 (이미 조리·포장 중)
     const { isOrderable } = await import("../../../../lib/cutoff");

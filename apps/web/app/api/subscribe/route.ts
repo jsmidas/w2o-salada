@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     ]);
 
     const userId = userExists ? sessionUserId! : "guest";
-    const productMap = new Map(products.map((p: { id: string }) => [p.id, p]));
+    const productMap = new Map(products.map((p) => [p.id, p]));
     const validProductIds = allProductIds.filter((pid) => productMap.has(pid));
 
     if (validProductIds.length === 0) {
@@ -111,7 +111,6 @@ export async function POST(request: Request) {
     const orderNo = `W2O-${today}-${rand}`;
 
     // 모든 쓰기 작업을 $transaction으로 묶어 1회 라운드트립
-    // @ts-expect-error prisma interactive transaction
     const result = await prisma.$transaction(async (tx) => {
       // 주문 생성
       const order = await tx.order.create({

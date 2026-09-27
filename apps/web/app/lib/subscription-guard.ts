@@ -13,6 +13,8 @@ import type { Subscription } from "@prisma/client";
 import { auth } from "../../auth";
 
 export type SessionUser = { id: string; role?: string } | null;
+/** 가드가 돌려주는 구독 행 — 소유권 판정에 billingKey 유무가 필요해 전역 omit 을 해제한 형태 */
+export type OwnedSubscription = Subscription;
 
 export async function sessionUser(): Promise<SessionUser> {
   try {
@@ -30,13 +32,13 @@ const needLogin = () => NextResponse.json({ error: "로그인이 필요합니다
 /** 세션 사용자가 이 구독을 다룰 수 있는지. 통과하면 구독 행과 사용자를 돌려준다 */
 export async function requireSubscriptionOwner(
   subscriptionId: string | null | undefined,
-): Promise<{ error: NextResponse; subscription: null; user: SessionUser } | { error: null; subscription: Subscription; user: SessionUser }> {
+): Promise<{ error: NextResponse; subscription: null; user: SessionUser } | { error: null; subscription: OwnedSubscription; user: SessionUser }> {
   if (!subscriptionId) {
     return { error: NextResponse.json({ error: "subscriptionId 필요" }, { status: 400 }), subscription: null, user: null };
   }
   const [user, subscription] = await Promise.all([
     sessionUser(),
-    prisma.subscription.findUnique({ where: { id: subscriptionId } }),
+    prisma.subscription.findUnique({ where: { id: subscriptionId }, omit: { billingKey: false } }),
   ]);
   if (!subscription) return { error: notFound(), subscription: null, user };
 

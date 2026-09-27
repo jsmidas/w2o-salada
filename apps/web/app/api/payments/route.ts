@@ -19,6 +19,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { paymentKey, orderId, amount } = await request.json();
+    const { lookupDonePayment } = await import("../../lib/toss-lookup");
 
     if (!paymentKey || !orderId || !amount) {
       return NextResponse.json({ error: "필수 파라미터가 누락되었습니다." }, { status: 400 });
@@ -71,13 +72,18 @@ export async function POST(request: Request) {
       body: JSON.stringify({ paymentKey, orderId: group.paymentOrderId, amount }),
     });
 
-    const tossData = await tossResponse.json();
+    let tossData = await tossResponse.json();
 
     if (!tossResponse.ok) {
-      return NextResponse.json(
-        { error: tossData.message ?? "결제 승인에 실패했습니다.", code: tossData.code },
-        { status: 400 }
-      );
+      // 이미 승인된 결제(두 탭·재시도) — 토스에서 조회해 우리 주문과 맞으면 그 결과로 마무리한다. 예전엔 여기서 영원히 "승인 실패" 였다
+      const recovered = tossData.code === "ALREADY_PROCESSED_PAYMENT" ? await lookupDonePayment(paymentKey, group.paymentOrderId, Number(amount)) : null;
+      if (!recovered) {
+        return NextResponse.json(
+          { error: tossData.message ?? "결제 승인에 실패했습니다.", code: tossData.code },
+          { status: 400 }
+        );
+      }
+      tossData = recovered;
     }
 
     // 결제 승인 성공 — 묶음의 주문마다 PAID 처리 (실패해도 결제는 완료)

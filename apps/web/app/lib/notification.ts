@@ -57,6 +57,11 @@ const TEMPLATE_ID_MAP: Record<TemplateCode, string | undefined> = {
   DELIVERY_DONE: process.env.SOLAPI_TEMPLATE_DELIVERY_DONE,
   SUB_PAID: process.env.SOLAPI_TEMPLATE_SUB_PAID,
   PAYMENT_FAIL: process.env.SOLAPI_TEMPLATE_PAYMENT_FAIL,
+  // 갱신 관련 4종 — 빠져 있어서 알림톡 대신 SMS/LMS 로 나가고 있었다 (솔라피 템플릿 승인 후 env 에 ID 등록)
+  SUB_RENEWAL_NOTICE: process.env.SOLAPI_TEMPLATE_SUB_RENEWAL_NOTICE,
+  SUB_RENEWED: process.env.SOLAPI_TEMPLATE_SUB_RENEWED,
+  SUB_RENEWAL_FAILED: process.env.SOLAPI_TEMPLATE_SUB_RENEWAL_FAILED,
+  SUB_SELECT_MENU: process.env.SOLAPI_TEMPLATE_SUB_SELECT_MENU,
 };
 
 // ── 변수 치환 ─────────────────────────────────────────────

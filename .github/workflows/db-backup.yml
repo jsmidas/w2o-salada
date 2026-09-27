@@ -33,11 +33,14 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
           test -n "$DIRECT_URL" || { echo "DIRECT_URL secret 이 비어 있습니다"; exit 1; }
+          # 러너에 기본 설치된 PG16 의 pg_dump 가 PATH 를 가로채므로 17 바이너리를 직접 지정한다
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          "$PG_DUMP" --version
           mkdir -p backup
           STAMP=$(TZ=Asia/Seoul date +%Y%m%d-%H%M)
-          pg_dump "$DIRECT_URL" --format=custom --no-owner --no-privileges \
+          "$PG_DUMP" "$DIRECT_URL" --format=custom --no-owner --no-privileges \
             --schema=public --file "backup/w2o-$STAMP.dump"
-          pg_dump "$DIRECT_URL" --schema=public --schema-only --no-owner --no-privileges > "backup/w2o-$STAMP.schema.sql"
+          "$PG_DUMP" "$DIRECT_URL" --schema=public --schema-only --no-owner --no-privileges > "backup/w2o-$STAMP.schema.sql"
           ls -la backup
 
       - uses: actions/setup-node@v4

@@ -26,7 +26,22 @@ type Subscription = {
   createdAt: string;
   items: SubItem[];
   address: SubAddress | null;
+  creditBalance: number;
+  pauseMode: "CREDIT" | "EXTEND" | null;
+  settlement?: { remainingCount: number; remainingAmount: number; creditBalance: number };
+  refundRequests?: { id: string; kind: string; status: string; requestedAmount: number; feeAmount: number; refundAmount: number | null; createdAt: string; processedAt: string | null; adminNote: string | null }[];
 };
+
+const REFUND_REASONS: [string, string][] = [
+  ["TASTE", "맛·품질이 기대와 달라요"],
+  ["DELIVERY", "배송 시간·상태가 불편해요"],
+  ["PRICE", "가격이 부담돼요"],
+  ["PERSONAL", "이사·여행 등 개인 사정"],
+  ["HEALTH", "건강·식단이 바뀌었어요"],
+  ["COMPETITOR", "다른 서비스를 이용하려고요"],
+  ["OTHER", "기타"],
+];
+const REFUND_STATUS: Record<string, string> = { PENDING: "검토 중", APPROVED: "승인", REJECTED: "거절", COMPLETED: "환불 완료" };
 
 type SubAddress = {
   id: string;
@@ -156,6 +171,51 @@ export default function SubscriptionDetailPage() {
         alert(err.error ?? "처리에 실패했습니다.");
         return;
       }
+      loadSubscription();
+    } finally {
+      setActing(false);
+    }
+  };
+
+  // 일시정지 방식 선택 · 해지 사유 입력
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelDetail, setCancelDetail] = useState("");
+  const settlement = sub?.settlement;
+
+  const submitPause = async (mode: "CREDIT" | "EXTEND") => {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/subscriptions/${subId}/pause`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.error ?? "처리에 실패했습니다."); return; }
+      setPauseOpen(false);
+      if (data.message) alert(data.message);
+      loadSubscription();
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const submitCancel = async () => {
+    if (!cancelReason) { alert("해지 사유를 선택해주세요."); return; }
+    if (!confirm("정말 구독을 해지하시겠습니까?\n해지 후에는 복구할 수 없습니다.")) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/subscriptions/${subId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason, reasonDetail: cancelDetail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.error ?? "처리에 실패했습니다."); return; }
+      setCancelOpen(false);
+      if (data.message) alert(data.message);
       loadSubscription();
     } finally {
       setActing(false);
@@ -368,20 +428,50 @@ export default function SubscriptionDetailPage() {
               </div>
             )}
 
+            {sub.refundRequests && sub.refundRequests.length > 0 && (
+              <div className="bg-white/5 rounded-xl p-5 border border-white/10">
+                <h2 className="text-white font-bold mb-3">환불 신청 현황</h2>
+                <div className="space-y-2">
+                  {sub.refundRequests.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="text-gray-300">{new Date(r.createdAt).toLocaleDateString("ko-KR")} · 신청 {r.requestedAmount.toLocaleString()}원</p>
+                        {r.status === "COMPLETED" && r.refundAmount !== null && (
+                          <p className="text-xs text-gray-500">수수료 {r.feeAmount.toLocaleString()}원 차감 → {r.refundAmount.toLocaleString()}원 환불</p>
+                        )}
+                        {r.status === "REJECTED" && r.adminNote && <p className="text-xs text-gray-500">{r.adminNote}</p>}
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded ${r.status === "COMPLETED" ? "text-brand-green bg-brand-green/10" : r.status === "REJECTED" ? "text-gray-400 bg-gray-500/10" : "text-amber-400 bg-amber-500/10"}`}>
+                        {REFUND_STATUS[r.status] ?? r.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 액션 버튼 */}
             {sub.status !== "CANCELLED" && (
               <div className="bg-white/5 rounded-xl p-5 border border-white/10">
                 <h2 className="text-white font-bold mb-4">구독 관리</h2>
+                {(sub.creditBalance > 0 || (settlement && settlement.remainingCount > 0)) && (
+                  <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 space-y-1">
+                    {settlement && settlement.remainingCount > 0 && (
+                      <p>결제된 남은 배송 <b className="text-white">{settlement.remainingCount}회</b> · {settlement.remainingAmount.toLocaleString()}원</p>
+                    )}
+                    {sub.creditBalance > 0 && (
+                      <p>보유 크레딧 <b className="text-[#5DCAA5]">{sub.creditBalance.toLocaleString()}원</b> — 다음 결제에서 자동 차감됩니다</p>
+                    )}
+                    {sub.status === "PAUSED" && sub.pauseMode === "EXTEND" && (
+                      <p className="text-amber-300">주기 연장으로 정지 중 — 재개하면 놓친 배송을 이어서 받습니다</p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2">
                   {sub.status === "ACTIVE" && (
                     <button
                       type="button"
-                      onClick={() =>
-                        handleAction(
-                          "pause",
-                          "구독을 일시정지하시겠습니까?\n다음 결제일과 배송이 멈춥니다.",
-                        )
-                      }
+                      onClick={() => setPauseOpen(true)}
                       disabled={acting}
                       className="w-full py-3 border border-white/10 text-white rounded-lg hover:border-amber-500/50 hover:bg-amber-500/10 transition text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                     >
@@ -402,12 +492,7 @@ export default function SubscriptionDetailPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() =>
-                      handleAction(
-                        "cancel",
-                        "정말 구독을 해지하시겠습니까?\n해지 후에는 복구할 수 없습니다.",
-                      )
-                    }
+                    onClick={() => { setCancelReason(""); setCancelDetail(""); setCancelOpen(true); }}
                     disabled={acting}
                     className="w-full py-3 border border-white/10 text-gray-400 rounded-lg hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10 transition text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                   >
@@ -416,14 +501,71 @@ export default function SubscriptionDetailPage() {
                   </button>
                 </div>
                 <p className="text-gray-600 text-xs mt-4 leading-relaxed">
-                  · 일시정지 중에는 결제와 배송이 이루어지지 않습니다.
-                  <br />· 재개 시 다음 결제일부터 정상 이용 가능합니다.
+                  · 일시정지 중에는 결제와 배송이 이루어지지 않습니다. 결제된 남은 배송분은 크레딧 적립 또는 주기 연장 중 고를 수 있습니다.
+                  <br />· 해지 시 남은 배송분과 크레딧은 환불 신청으로 접수되며, 담당자 검토 후 약관에 따른 수수료를 뺀 금액이 환불됩니다.
                   <br />· 카드 변경은 준비 중입니다.
                 </p>
               </div>
             )}
           </div>
         )}
+
+      {/* 일시정지 — 정산 방식 선택 */}
+      {pauseOpen && sub && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-brand-deep border border-white/10 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-white font-bold text-lg mb-1">구독 일시정지</h3>
+            <p className="text-gray-400 text-sm mb-4">정지 중에는 결제와 배송이 멈춥니다. 결제된 남은 배송분을 어떻게 할지 골라주세요.</p>
+            {settlement && settlement.remainingCount > 0 ? (
+              <p className="text-sm text-gray-300 mb-4">결제된 남은 배송 <b className="text-white">{settlement.remainingCount}회</b> · {settlement.remainingAmount.toLocaleString()}원</p>
+            ) : (
+              <p className="text-sm text-gray-500 mb-4">결제된 남은 배송분이 없어 정산 없이 정지됩니다.</p>
+            )}
+            <div className="space-y-2">
+              <button type="button" disabled={acting} onClick={() => submitPause("CREDIT")} className="w-full text-left p-4 rounded-xl border border-white/10 hover:border-brand-green/60 hover:bg-brand-green/10 transition disabled:opacity-50">
+                <p className="text-white font-semibold text-sm">크레딧으로 적립</p>
+                <p className="text-gray-400 text-xs mt-1">남은 배송분 금액을 크레딧으로 두고, 재개 후 다음 결제에서 그만큼 뺍니다.</p>
+              </button>
+              <button type="button" disabled={acting} onClick={() => submitPause("EXTEND")} className="w-full text-left p-4 rounded-xl border border-white/10 hover:border-amber-400/60 hover:bg-amber-500/10 transition disabled:opacity-50">
+                <p className="text-white font-semibold text-sm">주기 연장</p>
+                <p className="text-gray-400 text-xs mt-1">남은 배송을 그대로 두고, 재개하면 놓친 횟수만큼 배송일을 뒤로 이어 붙입니다. 다음 결제일도 그만큼 미뤄집니다.</p>
+              </button>
+            </div>
+            <button type="button" onClick={() => setPauseOpen(false)} className="w-full mt-4 py-2.5 text-gray-400 text-sm hover:text-white transition">취소</button>
+          </div>
+        </div>
+      )}
+
+      {/* 해지 — 사유 입력 + 환불 신청 안내 */}
+      {cancelOpen && sub && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-brand-deep border border-white/10 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-white font-bold text-lg mb-1">구독 해지</h3>
+            <p className="text-gray-400 text-sm mb-4">더 나은 서비스를 위해 해지 사유를 알려주세요.</p>
+            <div className="space-y-1.5 mb-4">
+              {REFUND_REASONS.map(([v, l]) => (
+                <label key={v} className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition text-sm ${cancelReason === v ? "border-brand-green bg-brand-green/10 text-white" : "border-white/10 text-gray-300 hover:border-white/30"}`}>
+                  <input type="radio" name="cancel-reason" value={v} checked={cancelReason === v} onChange={() => setCancelReason(v)} className="accent-[#1D9E75]" />
+                  {l}
+                </label>
+              ))}
+            </div>
+            <textarea value={cancelDetail} onChange={(e) => setCancelDetail(e.target.value)} rows={3} maxLength={500} placeholder="자세한 내용을 적어주시면 큰 도움이 됩니다 (선택)" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-green mb-4" />
+            {settlement && (settlement.remainingAmount + sub.creditBalance) > 0 ? (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 mb-4 leading-relaxed">
+                결제된 남은 배송 {settlement.remainingCount}회분 {settlement.remainingAmount.toLocaleString()}원{sub.creditBalance > 0 ? ` + 크레딧 ${sub.creditBalance.toLocaleString()}원` : ""} = <b>{(settlement.remainingAmount + sub.creditBalance).toLocaleString()}원</b>이 환불 신청으로 접수됩니다.
+                담당자 검토 후 이용약관에 따른 취소 수수료를 뺀 금액이 결제 수단으로 환불됩니다.
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mb-4">환불 대상 금액은 없습니다.</p>
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setCancelOpen(false)} className="flex-1 py-2.5 border border-white/10 text-gray-300 rounded-lg text-sm hover:bg-white/5 transition">돌아가기</button>
+              <button type="button" disabled={acting || !cancelReason} onClick={submitCancel} className="flex-1 py-2.5 bg-red-500/80 text-white rounded-lg text-sm font-semibold hover:bg-red-500 transition disabled:opacity-50">해지하기</button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

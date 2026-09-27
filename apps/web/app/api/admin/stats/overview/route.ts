@@ -7,8 +7,8 @@ export async function GET() {
   if (error) return error;
 
   try {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const { kstDayStart } = await import("../../../../lib/cutoff");
+    const todayStart = kstDayStart(); // KST 자정 (서버는 UTC)
 
     const [
       todayOrders,

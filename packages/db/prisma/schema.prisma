@@ -31,6 +31,8 @@ model User {
   inquiries     Inquiry[]
   driverRoutes  DeliveryRoute[] @relation("RouteDriver") // 기사 계정(DRIVER)이 맡은 코스
 
+  refundRequests RefundRequest[]
+
   @@map("users")
 }
 
@@ -214,6 +216,7 @@ model Order {
   items     OrderItem[]
   payments  Payment[]
   delivery  Delivery?
+  refundRequests RefundRequest[]
 
   @@index([deliveryHold])
   @@index([paymentGroupNo])
@@ -296,6 +299,7 @@ model Subscription {
   slots             Json?              // 카테고리별 슬롯 { "salad": 2, "simple": 1, ... } — key=Category.slug
   weekdaySlots      Json?              // 요일별 슬롯 { "2": { "salad": 2 }, "4": { "salad": 1, "onigiri": 1 } } — key=요일(0=일~6=토). 없는 요일은 slots 사용
   status            SubscriptionStatus @default(PENDING)
+  pauseMode         PauseMode?         // 일시정지 정산 방식 — CREDIT(남은 배송분 크레딧 적립) / EXTEND(재개 시 주기 연장). 재개하면 null
   billingKey        String?            // 토스 빌링키 (암호화)
   cardCompany       String?            // 등록 카드 표시용 (예: 현대) — 빌링키 발급 응답에서 저장
   cardNumber        String?            // 등록 카드 마스킹 번호 (예: 433012******1234)
@@ -312,6 +316,7 @@ model Subscription {
   items   SubscriptionItem[]
   periods SubscriptionPeriod[]
   orders  Order[]
+  refundRequests RefundRequest[]
 
   @@map("subscriptions")
 }
@@ -338,6 +343,65 @@ enum SubscriptionStatus {
   ACTIVE
   PAUSED
   CANCELLED
+}
+
+enum PauseMode {
+  CREDIT // 남은 결제 배송분을 크레딧으로 적립 → 다음 결제에서 차감
+  EXTEND // 재개 시 놓친 배송을 주기 뒤로 이어 붙임 (주기 연장)
+}
+
+// ── 환불 신청 ──
+// 해지·크레딧 환불은 자동으로 돈을 돌려주지 않는다. 신청을 남기고 담당자가 사유를 보고 수수료를 정한 뒤 처리한다.
+// 사유(reason)는 고객 이탈 원인 통계에 쓴다.
+enum RefundKind {
+  SUBSCRIPTION_CANCEL // 구독 해지 — 남은 배송분 + 크레딧
+  CREDIT_PAYOUT       // 크레딧을 현금으로 (관리자 또는 고객 요청)
+  ORDER               // 단건 주문 환불 요청
+}
+
+enum RefundReason {
+  TASTE      // 맛·품질
+  DELIVERY   // 배송(시간·상태)
+  PRICE      // 가격
+  PERSONAL   // 개인 사정(이사·여행·일정)
+  HEALTH     // 건강·식단 변화
+  COMPETITOR // 다른 서비스 이용
+  OTHER
+}
+
+enum RefundRequestStatus {
+  PENDING   // 접수, 담당자 검토 대기
+  APPROVED  // 승인 (토스 취소 진행 중/완료 직전)
+  REJECTED  // 거절 (사유 기록)
+  COMPLETED // 환불 완료 (토스 부분 취소 또는 수동 처리)
+}
+
+model RefundRequest {
+  id              String              @id @default(cuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription?       @relation(fields: [subscriptionId], references: [id])
+  orderId         String?             // 돈이 나간 결제 주문 (구독 주기 결제 주문 또는 단건 주문) — 여기서 부분 취소한다
+  order           Order?              @relation(fields: [orderId], references: [id])
+  kind            RefundKind
+  reason          RefundReason?
+  reasonDetail    String?
+  requestedAmount Int                 // 신청 금액 (남은 배송분 + 크레딧)
+  feeAmount       Int                 @default(0) // 담당자가 정한 취소 수수료 (약관 근거)
+  refundAmount    Int?                // 실제 환불액 = requestedAmount − feeAmount
+  status          RefundRequestStatus @default(PENDING)
+  adminNote       String?
+  processedById   String?
+  processedAt     DateTime?
+  paymentKey      String?             // 토스 취소에 쓴 결제 키 (기록)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@index([subscriptionId])
+  @@map("refund_requests")
 }
 
 // ── 구독 메뉴 구성 ──

@@ -294,8 +294,8 @@ export default function SubscriptionsClient({ initialData }: { initialData: Init
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-amber-700 text-xs">
-                  위 계산은 참고용입니다. 해지 처리는 구독 상태만 종료하며 자동으로 환불되지 않습니다.
-                  환불이 필요하면 주문 관리에서 해당 결제 주문을 취소(환불)하세요.
+                  위 계산은 참고용입니다. 해지하면 결제된 남은 배송분과 크레딧이 &quot;환불 신청&quot;으로 접수되고,
+                  실제 환불은 환불 신청 화면에서 수수료를 정한 뒤 승인할 때 이루어집니다.
                 </p>
               </div>
             </div>

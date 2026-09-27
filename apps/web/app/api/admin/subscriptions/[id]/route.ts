@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
 import { syncNextDeliveryDate } from "../../../../lib/subscription-cycle";
+import { extendAfterPause, removeRemainingForCancel } from "../../../../lib/subscription-settle";
 
 export async function GET(
   _request: NextRequest,
@@ -45,7 +46,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { action, plan } = body;
+    const { action, plan } = body as { action?: string; plan?: string; reasonDetail?: string };
 
     const subscription = await prisma.subscription.findUnique({
       where: { id },
@@ -80,20 +81,57 @@ export async function PATCH(
         }
         data.status = "ACTIVE";
         data.pausedAt = null;
+        data.pauseMode = null;
+        if (subscription.pauseMode === "EXTEND") {
+          const ext = await extendAfterPause(subscription);
+          if (ext.newEndDate) break; // extendAfterPause 가 결제일을 새 종료일 기준으로 옮겼다
+        }
         // 정지 중에 지난 결제일은 "지금" 으로 — 다음 크론이 오늘 기준 주기로 청구한다
         if (subscription.autoRenew && subscription.nextBillingDate && subscription.nextBillingDate < new Date()) data.nextBillingDate = new Date();
         break;
 
-      case "cancel":
+      case "cancel": {
         if (subscription.status === "CANCELLED") {
           return NextResponse.json(
             { error: "이미 취소된 구독입니다." },
             { status: 400 }
           );
         }
+        // 남은 결제 배송분 + 크레딧 → 환불 신청 (돈은 환불 신청 화면에서 검토 후)
+        const remaining = await removeRemainingForCancel(id);
+        const requestedAmount = remaining.amount + subscription.creditBalance;
+        let orderId = remaining.orderId;
+        if (!orderId) {
+          const lastPaid = await prisma.subscriptionPeriod.findFirst({
+            where: { subscriptionId: id, status: { in: ["PAID", "DELIVERING", "COMPLETED"] }, orderId: { not: null } },
+            orderBy: { paidAt: "desc" },
+            select: { orderId: true },
+          });
+          orderId = lastPaid?.orderId ?? null;
+        }
+        await prisma.refundRequest.create({
+          data: {
+            userId: subscription.userId,
+            subscriptionId: id,
+            orderId,
+            kind: "SUBSCRIPTION_CANCEL",
+            reason: "OTHER",
+            reasonDetail: typeof body.reasonDetail === "string" && body.reasonDetail.trim() ? body.reasonDetail.trim().slice(0, 500) : "관리자 해지",
+            requestedAmount,
+            status: requestedAmount > 0 ? "PENDING" : "COMPLETED",
+            adminNote: requestedAmount > 0 ? null : "환불 대상 금액 없음 (관리자 해지)",
+            refundAmount: requestedAmount > 0 ? null : 0,
+            processedAt: requestedAmount > 0 ? null : new Date(),
+          },
+        });
         data.status = "CANCELLED";
         data.cancelledAt = new Date();
+        data.nextBillingDate = null;
+        data.nextDeliveryDate = null;
+        data.creditBalance = 0;
+        data.pauseMode = null;
         break;
+      }
 
       case "changePlan":
         if (!plan) {

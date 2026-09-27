@@ -15,7 +15,7 @@ export default function SubscriptionTermsPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">구독 서비스 이용약관</h1>
-        <p className="text-gray-400 text-sm mb-8">최종 수정일: 2026년 4월 7일</p>
+        <p className="text-gray-400 text-sm mb-8">최종 수정일: 2026년 9월 28일</p>
 
         <div className="prose prose-sm prose-gray max-w-none space-y-8">
           <section>
@@ -62,35 +62,47 @@ export default function SubscriptionTermsPage() {
           <section>
             <h2 className="text-lg font-bold text-gray-800 mb-3">제5조 (구독 일시정지 및 재개)</h2>
             <ol className="list-decimal pl-5 space-y-2 text-gray-600">
-              <li>이용자는 마이페이지에서 언제든 구독을 일시정지할 수 있습니다.</li>
-              <li>일시정지 중에는 자동결제가 중단되며, 배송도 중단됩니다.</li>
-              <li>재개 시 다음 결제 주기부터 서비스가 다시 시작됩니다.</li>
+              <li>이용자는 마이페이지에서 언제든 구독을 일시정지할 수 있으며, 일시정지 중에는 자동결제와 배송이 중단됩니다.</li>
+              <li>
+                일시정지 시점에 이미 결제되었으나 아직 주문 마감(배송 전날 오후 2시)이 지나지 않은 배송분(이하 &quot;남은 배송분&quot;)은
+                이용자가 다음 중 하나를 선택합니다.
+                <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                  <li><strong>크레딧 적립:</strong> 남은 배송분 금액을 크레딧으로 적립하고, 재개 후 다음 자동결제 금액에서 차감합니다.</li>
+                  <li><strong>주기 연장:</strong> 남은 배송분을 그대로 두고, 재개 시 정지 기간 동안 받지 못한 횟수만큼 배송일을 구독 주기 뒤로 이어 붙입니다. 이 경우 다음 결제일도 같은 기간만큼 연기됩니다.</li>
+                </ul>
+              </li>
+              <li>주문 마감이 지난 배송분은 이미 조리·포장에 들어간 것으로 정상 배송되며, 정산 대상에 포함되지 않습니다.</li>
+              <li>크레딧은 현금으로 지급되지 않으며 다음 자동결제에서만 차감됩니다. 다만 구독 해지 시에는 제6조에 따라 환불 신청에 포함됩니다.</li>
             </ol>
           </section>
 
           <section>
             <h2 className="text-lg font-bold text-gray-800 mb-3">제6조 (중도해지 및 환불)</h2>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-3">
-              <p className="text-red-700 text-sm font-semibold mb-1">중도해지 시 정가 기준 정산</p>
-              <p className="text-red-600 text-sm">
-                구독 기간 중 해지하는 경우, 이미 배송 완료된 상품은 정가(개당 7,500원) 기준으로 재정산하며,
-                기결제 금액과의 차액을 공제한 후 잔액을 환불합니다.
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3">
+              <p className="text-amber-800 text-sm font-semibold mb-1">환불은 신청 → 담당자 검토 → 처리 순으로 진행됩니다</p>
+              <p className="text-amber-700 text-sm">
+                해지 시 남은 배송분과 크레딧은 자동으로 환불되지 않고 환불 신청으로 접수됩니다. 담당자가 신청 내용을 확인한 뒤
+                아래 수수료를 공제한 금액을 결제 수단으로 환불합니다.
               </p>
             </div>
             <ol className="list-decimal pl-5 space-y-2 text-gray-600">
-              <li>이용자는 언제든 구독을 해지할 수 있습니다.</li>
+              <li>이용자는 언제든 구독을 해지할 수 있으며, 해지 시 해지 사유를 선택합니다. 해지 즉시 남은 배송분의 배송과 자동결제가 중단됩니다.</li>
               <li>
-                중도해지 시, 배송 완료된 상품은 정가(샐러드 기준 개당 7,500원)로 재정산합니다.
-                <br />
-                <span className="text-xs text-gray-500">
-                  예시: 구독 단가 5,900원으로 4회 배송(2개씩) 후 해지 시<br />
-                  → 정가 정산: 8개 × 7,500원 = 60,000원<br />
-                  → 이미 결제: 8개 × 5,900원 = 47,200원<br />
-                  → 차액 12,800원 공제 후 나머지 환불
-                </span>
+                <strong>환불 대상 금액</strong>은 해지 시점의 남은 배송분(주문 마감 전 배송분) 금액과 보유 크레딧의 합계입니다.
+                주문 마감이 지난 배송분은 정상 배송되며 환불 대상이 아닙니다.
               </li>
-              <li>배송 전 상품에 대해서는 전액 환불됩니다.</li>
-              <li>환불은 결제 수단으로 7영업일 이내 처리됩니다.</li>
+              <li>
+                <strong>취소 수수료:</strong> 회사는 환불 대상 금액에서 다음 금액을 공제할 수 있습니다.
+                <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                  <li>결제대행사(PG) 취소 수수료 등 결제 취소에 실제로 드는 비용</li>
+                  <li>구독 조건으로 제공된 혜택(구독 단가 할인, 무료배송 등) 중 이미 배송된 회차에 해당하는 금액</li>
+                  <li>재료 발주가 끝난 배송분(배송 2일 전 이후)의 재료비 실비</li>
+                </ul>
+                수수료 금액과 산정 근거는 환불 처리 시 마이페이지 환불 신청 현황에서 확인할 수 있습니다.
+              </li>
+              <li>회사는 신청일로부터 7영업일 이내에 검토를 마치고, 승인된 금액을 결제 수단으로 환불합니다. 카드사 사정에 따라 실제 입금은 3~5영업일이 더 걸릴 수 있습니다.</li>
+              <li>상품 하자, 배송 누락 등 회사의 책임으로 인한 환불은 수수료 없이 전액 환불하며, 이 경우 고객센터로 접수해 주시기 바랍니다.</li>
+              <li>환불 신청이 거절되는 경우 회사는 그 사유를 마이페이지 환불 신청 현황에 기재합니다.</li>
             </ol>
           </section>
 

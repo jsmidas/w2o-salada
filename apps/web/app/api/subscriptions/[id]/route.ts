@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
 import { holdFromStatus } from "../../../lib/geo";
+import { remainingPaidSelections } from "../../../lib/subscription-settle";
 
 const ADDRESS_SELECT = {
   id: true, label: true, name: true, phone: true, zipCode: true, address1: true, address2: true,
@@ -32,7 +33,22 @@ export async function GET(
       return NextResponse.json({ error: "구독을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    return NextResponse.json(subscription);
+    // 일시정지·해지 화면에서 "남은 배송분이 얼마인지" 보여주기 위한 정산 정보
+    const [remaining, refundRequests] = await Promise.all([
+      subscription.status === "ACTIVE" || subscription.status === "PAUSED" ? remainingPaidSelections(id) : null,
+      prisma.refundRequest.findMany({
+        where: { subscriptionId: id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, kind: true, status: true, requestedAmount: true, feeAmount: true, refundAmount: true, createdAt: true, processedAt: true, adminNote: true },
+      }),
+    ]);
+
+    return NextResponse.json({
+      ...subscription,
+      settlement: { remainingCount: remaining?.count ?? 0, remainingAmount: remaining?.amount ?? 0, creditBalance: subscription.creditBalance },
+      refundRequests,
+    });
   } catch (err) {
     console.error("GET /api/subscriptions/[id] error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

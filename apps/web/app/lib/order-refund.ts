@@ -49,6 +49,47 @@ export async function cancelTossPayment(params: {
 }
 
 /**
+ * 부분 환불 — 주문 상태는 두고 결제의 일부만 토스에서 취소한다 (구독 해지 남은 배송분·크레딧 환불).
+ * 환불 기록은 Payment(REFUNDED, amount=환불액) 행으로 남겨 DONE 행과 합산하면 남은 결제액이 된다.
+ */
+export async function partialRefundOrder(params: {
+  orderId: string;
+  amount: number;
+  reason: string;
+  idempotencyKey: string;
+}): Promise<{ paymentKey: string; refunded: number }> {
+  const { orderId, amount, reason, idempotencyKey } = params;
+  if (!Number.isInteger(amount) || amount <= 0) throw new RefundError("환불 금액이 올바르지 않습니다.", "BAD_AMOUNT", 400);
+
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { payments: { orderBy: { createdAt: "desc" } } } });
+  if (!order) throw new RefundError("주문을 찾을 수 없습니다.", "NOT_FOUND", 404);
+  const done = order.payments.find((p) => p.status === "DONE");
+  const paymentKey = done?.paymentKey ?? order.paymentKey ?? null;
+  if (!done || !paymentKey) throw new RefundError("이 주문에는 취소할 결제 기록이 없습니다.", "NO_PAYMENT", 400);
+
+  const refundedSoFar = order.payments.filter((p) => p.status === "REFUNDED").reduce((s, p) => s + p.amount, 0);
+  const available = done.amount - refundedSoFar;
+  if (amount > available) {
+    throw new RefundError(`환불 가능 금액(${available.toLocaleString()}원)을 넘습니다.`, "OVER_AMOUNT", 400);
+  }
+
+  const r = await cancelTossPayment({ paymentKey, cancelReason: reason, cancelAmount: amount, idempotencyKey });
+  await prisma.payment.create({
+    data: {
+      orderId,
+      paymentKey,
+      method: done.method,
+      amount,
+      status: "REFUNDED",
+      cancelReason: reason,
+      cancelledAt: new Date(),
+      rawResponse: JSON.stringify(r.data),
+    },
+  });
+  return { paymentKey, refunded: amount };
+}
+
+/**
  * 주문의 결제를 취소하고 상태를 finalStatus 로 바꾼다.
  * 토스 호출이 실패하면 RefundError 를 던지고 DB 는 건드리지 않는다.
  */

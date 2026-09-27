@@ -11,9 +11,8 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get("period") ?? "daily";
     const days = parseInt(searchParams.get("days") ?? "30", 10);
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
+    const { kstDayStart } = await import("../../../../lib/cutoff");
+    const startDate = new Date(kstDayStart().getTime() - days * 86400000); // KST 자정 기준 N일 전
 
     const payments = await prisma.payment.findMany({
       where: {
@@ -31,14 +30,15 @@ export async function GET(request: NextRequest) {
     const grouped = new Map<string, number>();
 
     for (const payment of payments) {
-      const date = new Date(payment.createdAt);
+      // KST 벽시계로 옮겨 UTC 게터로 읽는다 — 자정~09시 결제가 전날로 잡히지 않게
+      const date = new Date(payment.createdAt.getTime() + 9 * 60 * 60 * 1000);
       let key: string;
 
       if (period === "monthly") {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
       } else if (period === "weekly") {
         const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
+        weekStart.setUTCDate(date.getUTCDate() - date.getUTCDay());
         key = weekStart.toISOString().split("T")[0] as string;
       } else {
         key = date.toISOString().split("T")[0] as string;

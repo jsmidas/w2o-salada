@@ -1,11 +1,11 @@
 import { prisma } from "@repo/db";
 import DashboardClient from "./DashboardClient";
+import { kstDayStart } from "../../lib/cutoff";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayStart = kstDayStart(); // KST 자정 (서버는 UTC)
 
   const [
     todayOrders,

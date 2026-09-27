@@ -120,10 +120,13 @@ export async function resolveAddress(params: {
   if (invalid || !address) return { error: invalid ?? "배송지가 필요합니다." };
 
   const base = addressInputToData(address);
-  const existing = await prisma.address.findFirst({
-    where: { userId, zipCode: base.zipCode, address1: base.address1, address2: base.address2 },
-    orderBy: { createdAt: "desc" },
-  });
+  // 비회원은 전원이 "guest" 를 공유하므로 같은 주소를 재사용하면 앞사람 주문의 수령인·출입 정보가 뒷사람 값으로 덮인다 → 항상 새 행
+  const existing = userId === "guest"
+    ? null
+    : await prisma.address.findFirst({
+        where: { userId, zipCode: base.zipCode, address1: base.address1, address2: base.address2 },
+        orderBy: { createdAt: "desc" },
+      });
 
   const loc = await enrichLocation(base.address1, address);
   const locData = locationToAddressData(loc);

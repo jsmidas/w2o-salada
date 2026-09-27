@@ -44,6 +44,7 @@ const menuGroups: MenuGroup[] = [
     permission: "subscriptions",
     items: [
       { href: "/admin/subscriptions", icon: "autorenew", label: "구독 관리" },
+      { href: "/admin/refunds", icon: "currency_exchange", label: "환불 신청" },
       { href: "/admin/subscribe-settings", icon: "tune", label: "구독 설정" },
     ],
   },

@@ -36,6 +36,17 @@ export function isOrderable(deliveryDate: string, now: Date = new Date()): boole
   return deliveryDate >= firstOrderableDate(now);
 }
 
+/** KST 기준 "오늘 00:00" 을 UTC Date 로 — 대시보드·통계의 오늘 경계 (서버가 UTC 라 new Date(y,m,d) 는 09시까지 어제였다) */
+export function kstDayStart(now: Date = new Date()): Date {
+  const kst = toKst(now);
+  return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - KST_OFFSET_MS);
+}
+
+/** Date → KST 날짜 키 (YYYY-MM-DD) — 일자별 집계 키 */
+export function kstDateKey(d: Date): string {
+  return toKst(d).toISOString().slice(0, 10);
+}
+
 /** 그 배송일의 마감 시각 (KST). 안내 문구나 남은 시간 계산에 쓴다 */
 export function cutoffAt(deliveryDate: string): Date {
   const [y, m, d] = deliveryDate.split("-").map(Number);

@@ -379,3 +379,11 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 - 배송일에 적용할 슬롯은 항상 `lib/auto-assign.ts`의 `slotsForDate()`로 구한다. 갱신 결제·고지 크론, 다음 배송 미리보기가 모두 이 함수를 거친다
 - 구독 화면의 요일 목록은 배송 캘린더에서 유도하므로 토요일 등 새 배송 요일이 생겨도 코드 수정 없이 요일 행이 추가된다
 - 휴일 대체 배송일: 화·목이 아닌 날을 배송일로 켜면 관리자 캘린더에서 "화요일 대신 / 목요일 대신"을 지정한다(`DeliveryCalendar.substituteWeekday`). 요일별 구성은 실제 요일이 아니라 이 요일로 해석되고, 구독 화면 요일 행도 이 기준으로 모인다. 미지정이면 실제 요일 → 기본 구성
+
+## 구독 정산·환불 규칙 (2026-09-28)
+
+- **남은 배송분** = 결제된 주기의 선택분 중 아직 주문 마감(전날 14:00) 전인 날짜. 마감 지난 배송분은 조리에 들어간 것이라 정산 대상이 아니다 (`lib/subscription-settle.ts`)
+- **일시정지** 는 고객이 방식을 고른다 (`Subscription.pauseMode`): `CREDIT` = 남은 배송분 금액을 `creditBalance` 로 적립해 다음 결제에서 차감 / `EXTEND` = 선택분을 두고, 재개 시 정지 중 놓친 횟수만큼 배송일을 주기 뒤로 옮기고 `SubscriptionPeriod.endDate`·`nextBillingDate` 를 그만큼 민다
+- **해지** 는 자동 환불이 없다. 남은 배송분 + 크레딧을 `RefundRequest`(kind SUBSCRIPTION_CANCEL, 사유 필수) 로 접수하고 담당자가 `/admin/refunds` 에서 수수료(`feeAmount`)를 정해 승인하면 그 주기 결제 주문에 대해 토스 **부분 취소** (`partialRefundOrder`, Payment REFUNDED 행으로 기록). 거절 사유는 고객 화면에 보인다
+- 관리자가 크레딧을 현금으로 돌려줄 때도 `RefundRequest`(CREDIT_PAYOUT) 를 만들어 같은 검토 흐름을 탄다. 거절하면 크레딧 복구
+- 해지 사유(`RefundReason`)는 이탈 원인 통계에 쓴다 — 환불 신청 화면 상단 분포. 약관 5·6조가 이 규칙을 그대로 담고 있으니 규칙을 바꾸면 약관도 같이 바꾼다

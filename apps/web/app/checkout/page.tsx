@@ -16,6 +16,11 @@ import {
 
 const SAVED_ADDRESSES_KEY = "w2o_saved_addresses";
 const DRAFT_KEY = "w2o_checkout_draft";
+// 결제창으로 넘어가기 직전에 "이번에 결제하는 라인"을 적어 두고, 성공 페이지가 그 라인만 장바구니에서 지운다
+export const PAID_LINES_KEY = "w2o_paid_lines";
+
+const dateLabelOf = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" }) : "가장 빠른 배송일";
 const MEMO_PRESETS = [
   "문 앞에 놓아주세요",
   "경비실에 맡겨주세요",
@@ -111,9 +116,17 @@ function savedToAddress(s: SavedAddress, prev: CheckoutAddress): CheckoutAddress
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // 주문 1건 = 배송일 1개. 장바구니에 배송일이 다른 상품이 섞여 있으면 배송일별로 나눠 결제한다.
+  // 키 "" = 배송일 미지정 라인(상품 상세에서 담음) → 서버가 가장 빠른 배송일로 정한다
+  const dateKeys = Array.from(new Set(items.map((i) => i.deliveryDate ?? ""))).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+  const [payKey, setPayKey] = useState<string | null>(null);
+  const activeKey = payKey !== null && dateKeys.includes(payKey) ? payKey : (dateKeys[0] ?? "");
+  const payItems = items.filter((i) => (i.deliveryDate ?? "") === activeKey);
+  const payItemsTotal = payItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const [address, setAddress] = useState<CheckoutAddress>(emptyAddress);
   const [memoOpen, setMemoOpen] = useState(false);
   const [customMemo, setCustomMemo] = useState(false);
@@ -145,8 +158,8 @@ export default function CheckoutPage() {
   );
   const baseDeliveryFee = feeSettings ? Number(feeSettings.deliveryFee) : 0;
   const freeShippingMin = feeSettings ? Number(feeSettings.freeShippingMin) : 11000;
-  const deliveryFee = totalPrice() >= freeShippingMin ? 0 : baseDeliveryFee;
-  const finalTotal = totalPrice() + deliveryFee;
+  const deliveryFee = payItemsTotal >= freeShippingMin ? 0 : baseDeliveryFee;
+  const finalTotal = payItemsTotal + deliveryFee;
   const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-brand-green text-sm transition";
 
   useEffect(() => { setMounted(true); }, []);
@@ -327,12 +340,13 @@ export default function CheckoutPage() {
           },
         };
 
+    if (payItems.length === 0) { setLoading(false); return; }
     const orderRes = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId,
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        deliveryDate: activeKey || null,
+        items: payItems.map((i) => ({ productId: i.productId, quantity: i.quantity, deliveryDate: i.deliveryDate ?? null })),
         ...addressPayload,
       }),
     });
@@ -342,6 +356,10 @@ export default function CheckoutPage() {
       setLoading(false);
       return;
     }
+    // 결제가 끝나면 성공 페이지가 이 라인들만 장바구니에서 지운다
+    try {
+      localStorage.setItem(PAID_LINES_KEY, JSON.stringify(payItems.map((i) => ({ productId: i.productId, deliveryDate: i.deliveryDate ?? null }))));
+    } catch {}
 
     // 서버가 계산한 금액을 사용 (위변조 방지)
     const payAmount: number = order.totalAmount ?? finalTotal;
@@ -373,7 +391,7 @@ export default function CheckoutPage() {
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
       const customerKey = userId !== "guest" ? userId : `GUEST_${Date.now()}`;
       const payment = tossPayments.payment({ customerKey });
-      const orderName = items.length > 1 ? `${items[0]!.name} 외 ${items.length - 1}건` : items[0]!.name;
+      const orderName = payItems.length > 1 ? `${payItems[0]!.name} 외 ${payItems.length - 1}건` : payItems[0]!.name;
 
       await payment.requestPayment({
         method: "CARD",
@@ -551,11 +569,33 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* 주문 상품 */}
+        {/* 주문 상품 — 배송일이 여러 개면 이번에 결제할 배송일을 고른다 */}
         <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
           <h3 className="text-white font-bold mb-4">주문 상품</h3>
+          {dateKeys.length > 1 && (
+            <div className="mb-4">
+              <p className="text-xs text-gray-400 mb-2">배송일이 다른 상품은 배송일별로 결제합니다. 이번에 결제할 배송일을 고르세요.</p>
+              <div className="flex flex-wrap gap-2">
+                {dateKeys.map((k) => {
+                  const count = items.filter((i) => (i.deliveryDate ?? "") === k).reduce((n, i) => n + i.quantity, 0);
+                  const on = k === activeKey;
+                  return (
+                    <button
+                      key={k || "__none"}
+                      type="button"
+                      onClick={() => setPayKey(k)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${on ? "bg-brand-green text-white border-brand-green" : "bg-white/5 text-gray-300 border-white/10 hover:border-white/30"}`}
+                    >
+                      {dateLabelOf(k || null)} · {count}개
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-gray-500 mt-2">나머지 배송일 상품은 결제 후에도 장바구니에 남습니다.</p>
+            </div>
+          )}
           <div className="space-y-3">
-            {items.map((item) => {
+            {payItems.map((item) => {
               const dateLabel = item.deliveryDate
                 ? new Date(item.deliveryDate).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" })
                 : null;
@@ -581,7 +621,7 @@ export default function CheckoutPage() {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">상품 금액</span>
-              <span className="text-white">{totalPrice().toLocaleString()}원</span>
+              <span className="text-white">{payItemsTotal.toLocaleString()}원</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">배송비</span>

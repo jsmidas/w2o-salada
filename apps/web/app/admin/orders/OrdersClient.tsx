@@ -100,12 +100,23 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
   const total = pagination?.total ?? 0;
   const totalPages = pagination?.totalPages ?? 1;
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    await fetch(`/api/admin/orders/${orderId}`, {
+  const handleStatusChange = async (orderId: string, newStatus: string, currentStatus?: string) => {
+    let reason: string | undefined;
+    if (newStatus === "CANCELLED" && currentStatus === "PAID") {
+      const r = prompt("결제된 주문입니다. 취소하면 토스 결제가 즉시 취소(환불)됩니다.\n취소 사유를 입력하세요.", "고객 요청");
+      if (r === null) return;
+      reason = r.trim() || "관리자 취소";
+    }
+    const res = await fetch(`/api/admin/orders/${orderId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, ...(reason ? { reason } : {}) }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert((err as { error?: string }).error ?? "상태 변경에 실패했습니다.");
+      return;
+    }
     mutate();
   };
 
@@ -272,7 +283,7 @@ export default function OrdersClient({ initialData }: { initialData: Payload }) 
                       </button>
                     ) : order.status === "PAID" || order.status === "PENDING" ? (
                       <button
-                        onClick={() => handleStatusChange(order.id, "CANCELLED")}
+                        onClick={() => handleStatusChange(order.id, "CANCELLED", order.status)}
                         className="px-3 py-1 bg-red-50 text-red-500 text-xs rounded-lg hover:bg-red-100 transition"
                       >
                         취소

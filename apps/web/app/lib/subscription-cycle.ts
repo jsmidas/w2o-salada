@@ -67,10 +67,13 @@ export async function previewCycle(params: {
   return { items, amount, deliveryDates: days.map((d) => d.date) };
 }
 
-/** 이 구독의 다음 주기 창 — 마지막 주기의 endDate 부터. 주기 정보가 없는 레거시 구독은 다음 배송일부터 */
+/** 결제가 끝나 배송으로 이어지는 주기 상태 — 배송 건 생성·생산 집계·다음 주기 기준점이 모두 이 집합을 본다 */
+export const PAID_PERIOD_STATUSES = ["PAID", "DELIVERING", "COMPLETED"] as const;
+
+/** 이 구독의 다음 주기 창 — 마지막 *결제된* 주기의 endDate 부터. 주기 정보가 없는 레거시 구독은 다음 배송일부터 */
 export async function nextCycleWindow(subscription: { id: string; cycleWeeks: number; nextDeliveryDate: Date | null }) {
   const last = await prisma.subscriptionPeriod.findFirst({
-    where: { subscriptionId: subscription.id, endDate: { not: null } },
+    where: { subscriptionId: subscription.id, endDate: { not: null }, status: { in: [...PAID_PERIOD_STATUSES] } },
     orderBy: { endDate: "desc" },
     select: { endDate: true },
   });

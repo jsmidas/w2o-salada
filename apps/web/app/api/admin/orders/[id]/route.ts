@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
+import { refundOrder, RefundError } from "../../../../lib/order-refund";
 
 // Valid state transitions
 const STATE_TRANSITIONS: Record<string, string[]> = {
-  PENDING: ["PAID", "FAILED"],
+  PENDING: ["PAID", "FAILED", "CANCELLED"], // 결제 전 취소 — 돈이 오간 게 없어 상태만 바꾼다
   PAID: ["PREPARING", "CANCELLED"],
   PREPARING: ["SHIPPING"],
   SHIPPING: ["DELIVERED"],
@@ -60,6 +61,7 @@ export async function PATCH(
       status?: string;
       resolveHold?: boolean;
       holdNote?: string | null;
+      reason?: string;
     };
 
     // 배송지 확인 처리 — 담당자가 고객과 통화한 결과를 기록하고 큐에서 뺀다 (상태 전환과 별개)
@@ -111,11 +113,25 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.order.update({
+    // 결제된 주문의 취소·환불은 토스 결제 취소가 먼저다. 실패하면 상태를 바꾸지 않는다
+    if ((status === "CANCELLED" && order.status === "PAID") || status === "REFUNDED") {
+      const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim() : "관리자 취소";
+      await refundOrder({ orderId: id, reason, finalStatus: status });
+    } else {
+      // 동시 클릭 대비 — 조회 시점 상태에서만 전환
+      const r = await prisma.order.updateMany({
+        where: { id, status: order.status },
+        data: { status: status as import("@prisma/client").OrderStatus },
+      });
+      if (r.count === 0) {
+        return NextResponse.json({ error: "주문 상태가 방금 바뀌었습니다. 새로고침 후 다시 시도하세요." }, { status: 409 });
+      }
+    }
+
+    const updated = await prisma.order.findUnique({
       where: { id },
-      data: { status: status as import("@prisma/client").OrderStatus },
       include: {
-        user: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
         items: { include: { product: true } },
         payments: true,
         delivery: true,
@@ -124,6 +140,9 @@ export async function PATCH(
 
     return NextResponse.json(updated);
   } catch (err) {
+    if (err instanceof RefundError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("PATCH /api/admin/orders/[id] error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });
   }

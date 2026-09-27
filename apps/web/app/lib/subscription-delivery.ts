@@ -14,6 +14,7 @@ import { prisma } from "@repo/db";
 import { isOrderable } from "./cutoff";
 import { holdFromStatus } from "./geo";
 import { pickAddressForUser } from "./address-resolve";
+import { PAID_PERIOD_STATUSES } from "./subscription-cycle";
 
 export const DELIVERY_ORDER_TYPE = "SUBSCRIPTION_DELIVERY" as const;
 
@@ -38,7 +39,8 @@ export async function ensureSubscriptionDeliveries(date: Date): Promise<{ create
     where: {
       deliveryDate: { gte: start, lt: end },
       subscriptionPeriod: {
-        status: { not: "CANCELLED" },
+        // 결제된 주기만 — 미결제(PENDING) 주기 선택분이 공짜 배송으로 나가던 구멍
+        status: { in: [...PAID_PERIOD_STATUSES] },
         subscription: { status: { notIn: ["CANCELLED", "PAUSED"] } },
       },
     },

@@ -10,7 +10,21 @@ function SuccessContent() {
   const orderId = searchParams.get("orderId");
   const paymentKey = searchParams.get("paymentKey");
   const amount = searchParams.get("amount");
-  const { clearCart } = useCart();
+  const { clearCart, removeLines } = useCart();
+
+  // 배송일별로 나눠 결제한 경우 이번에 결제한 라인만 지운다. 기록이 없으면(구버전 탭 등) 전체 비우기
+  const clearPaidLines = () => {
+    try {
+      const raw = localStorage.getItem("w2o_paid_lines");
+      localStorage.removeItem("w2o_paid_lines");
+      const lines = raw ? (JSON.parse(raw) as { productId: string; deliveryDate?: string | null }[]) : null;
+      if (Array.isArray(lines) && lines.length > 0) {
+        removeLines(lines);
+        return;
+      }
+    } catch {}
+    clearCart();
+  };
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [orderNo, setOrderNo] = useState<string | null>(null);
@@ -63,7 +77,7 @@ function SuccessContent() {
     if (searchParams.get("paid") === "saved") {
       setStatus("success");
       setOrderNo(searchParams.get("orderNo"));
-      clearCart();
+      clearPaidLines();
       try { localStorage.removeItem("w2o_checkout_draft"); } catch {}
       return;
     }
@@ -104,7 +118,7 @@ function SuccessContent() {
           const data = await res.json();
           setStatus("success");
           setOrderNo(data.order?.orderNo ?? null);
-          clearCart();
+          clearPaidLines();
           // 결제 성공했으니 입력 중이던 draft 제거
           try { localStorage.removeItem("w2o_checkout_draft"); } catch {}
           return;

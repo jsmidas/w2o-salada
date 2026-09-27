@@ -14,7 +14,8 @@ const NOTICE_DAYS = 7;
  */
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  // 시크릿이 비어 있으면 열리는 게 아니라 닫힌다 (fail-closed)
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findNextDeliveryDate } from "../../../../lib/auto-assign";
+import { requireSubscriptionOwner } from "../../../../lib/subscription-guard";
 
 /**
  * POST: 이번 배송 1회 건너뛰기
@@ -10,15 +11,15 @@ import { findNextDeliveryDate } from "../../../../lib/auto-assign";
 export async function POST(request: Request) {
   try {
     const { subscriptionId } = await request.json();
-    if (!subscriptionId) {
-      return NextResponse.json({ error: "subscriptionId 필요" }, { status: 400 });
+
+    const guard = await requireSubscriptionOwner(subscriptionId);
+    if (guard.error) return guard.error;
+    const subscription = guard.subscription;
+    if (!subscription.nextDeliveryDate) {
+      return NextResponse.json({ error: "배송일 정보 없음" }, { status: 404 });
     }
 
     const { prisma } = await import("@repo/db");
-    const subscription = await prisma.subscription.findUnique({ where: { id: subscriptionId } });
-    if (!subscription || !subscription.nextDeliveryDate) {
-      return NextResponse.json({ error: "구독 또는 배송일 정보 없음" }, { status: 404 });
-    }
 
     const currentDate = subscription.nextDeliveryDate;
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSubscriptionOwner } from "../../../../lib/subscription-guard";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
 const FREE_SHIPPING_THRESHOLD = 15000;
@@ -15,37 +16,28 @@ function generateOrderNo() {
 // (실제 빌링키 발급/결제는 /api/subscribe/billing 에서 진행)
 export async function POST(request: Request) {
   try {
-    const { subscriptionId, userId: bodyUserId } = await request.json();
-    if (!subscriptionId) {
-      return NextResponse.json({ error: "subscriptionId 필요" }, { status: 400 });
+    const { subscriptionId } = await request.json();
+
+    // 소유권: 본인 구독 또는 아직 주인이 없는 guest 구독만. body 의 userId 는 받지 않는다
+    const guard = await requireSubscriptionOwner(subscriptionId);
+    if (guard.error) return guard.error;
+    const subscription = guard.subscription;
+    if (!subscription.nextDeliveryDate) {
+      return NextResponse.json({ error: "다음 배송일이 없습니다." }, { status: 400 });
+    }
+
+    // 결제는 로그인 사용자만 가능 (customerKey = 세션 사용자 id)
+    const userId = guard.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
 
     const { prisma } = await import("@repo/db");
     const { pushDuePrices } = await import("../../../../lib/effective-price");
     await pushDuePrices();
 
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId },
-    });
-    if (!subscription) {
-      return NextResponse.json({ error: "구독을 찾을 수 없습니다." }, { status: 404 });
-    }
-    if (!subscription.nextDeliveryDate) {
-      return NextResponse.json({ error: "다음 배송일이 없습니다." }, { status: 400 });
-    }
-
-    // 결제는 로그인 사용자만 가능 (customerKey 필요)
-    let userId = bodyUserId ?? subscription.userId;
-    if (!userId || userId === "guest") {
-      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-    }
-    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-    if (!userExists) {
-      return NextResponse.json({ error: "사용자 확인 실패" }, { status: 401 });
-    }
-
-    // guest 로 만들어진 구독이라면 현재 사용자에게 인계
-    if (subscription.userId !== userId) {
+    // guest 로 만들어진 구독이라면 현재 사용자에게 인계 (관리자가 남의 구독을 열어본 경우는 주인을 바꾸지 않는다)
+    if (subscription.userId === "guest") {
       await prisma.subscription.update({
         where: { id: subscriptionId },
         data: { userId },

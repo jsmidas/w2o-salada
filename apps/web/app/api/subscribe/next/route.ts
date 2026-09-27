@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server";
 import { autoAssignForDelivery, findNextDeliveryDate, slotsForDate, type SlotMap, type WeekdaySlotMap } from "../../../lib/auto-assign";
+import { checkOwnership, requireSubscriptionOwner, sessionUser } from "../../../lib/subscription-guard";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
 const RECENT_DAYS = 14;
 
-// GET: 다음 배송 미리보기 (subscriptionId 기준)
+// GET: 다음 배송 미리보기 (subscriptionId 기준) — 본인 구독만
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const subscriptionId = searchParams.get("subscriptionId");
-    if (!subscriptionId) {
-      return NextResponse.json({ error: "subscriptionId 필요" }, { status: 400 });
-    }
+    const guard = await requireSubscriptionOwner(searchParams.get("subscriptionId"));
+    if (guard.error) return guard.error;
+    const subscription = guard.subscription;
+    const subscriptionId = subscription.id;
 
     const { prisma } = await import("@repo/db");
-
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId },
-    });
-    if (!subscription) {
-      return NextResponse.json({ error: "구독을 찾을 수 없습니다." }, { status: 404 });
-    }
 
     const baseSlots = (subscription.slots as unknown as SlotMap) ?? {};
 
@@ -164,7 +158,7 @@ export async function GET(request: Request) {
   }
 }
 
-// PATCH: 슬롯 교체 (selectionId의 productId 변경)
+// PATCH: 슬롯 교체 (selectionId의 productId 변경) — 그 selection 이 속한 구독의 주인만
 export async function PATCH(request: Request) {
   try {
     const { selectionId, newProductId } = await request.json();
@@ -174,11 +168,15 @@ export async function PATCH(request: Request) {
 
     const { prisma } = await import("@repo/db");
 
-    // 기존 selection + 새 상품 조회해서 카테고리 일치 검증
-    const [current, newProduct] = await Promise.all([
+    // 기존 selection(+소유 구독) + 새 상품 조회해서 소유권·카테고리 일치 검증
+    const [user, current, newProduct] = await Promise.all([
+      sessionUser(),
       prisma.subscriptionSelection.findUnique({
         where: { id: selectionId },
-        include: { product: { include: { category: true } } },
+        include: {
+          product: { include: { category: true } },
+          subscriptionPeriod: { select: { subscription: { select: { userId: true, billingKey: true, status: true } } } },
+        },
       }),
       prisma.product.findUnique({
         where: { id: newProductId },
@@ -189,6 +187,8 @@ export async function PATCH(request: Request) {
     if (!current || !newProduct) {
       return NextResponse.json({ error: "대상을 찾을 수 없습니다." }, { status: 404 });
     }
+    const denied = checkOwnership(current.subscriptionPeriod.subscription, user);
+    if (denied) return denied;
     if (current.product.category?.slug !== newProduct.category?.slug) {
       return NextResponse.json({ error: "같은 카테고리 내에서만 교체할 수 있습니다." }, { status: 400 });
     }

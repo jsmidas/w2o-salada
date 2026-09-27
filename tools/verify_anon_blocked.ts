@@ -12,7 +12,7 @@ if (!url || !key) {
   process.exit(1);
 }
 
-const targets = ["users", "payments", "subscriptions", "inquiries", "addresses"];
+const targets = ["users", "payments", "subscriptions", "inquiries", "addresses", "apartments", "phone_verifications", "orders", "delivery_routes"];
 
 async function probeRest(table: string) {
   const r = await fetch(`${url}/rest/v1/${table}?select=*&limit=1`, {

@@ -27,6 +27,8 @@ type CartStore = {
   removeItem: (productId: string, deliveryDate?: string | null) => void;
   updateQuantity: (productId: string, quantity: number, deliveryDate?: string | null) => void;
   clearCart: () => void;
+  // 결제가 끝난 라인만 제거 (배송일별로 나눠 결제할 때 나머지 배송일 상품은 남긴다)
+  removeLines: (lines: { productId: string; deliveryDate?: string | null }[]) => void;
   totalItems: () => number;
   totalPrice: () => number;
   // 본품(isOption=false) 합계 — 최소 주문액 검증에 사용
@@ -68,6 +70,10 @@ export const useCart = create<CartStore>()(
       },
 
       clearCart: () => set({ items: [] }),
+
+      removeLines: (lines) => {
+        set({ items: get().items.filter((i) => !lines.some((l) => sameLine(i, l))) });
+      },
 
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
 

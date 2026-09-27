@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         where: {
           deliveryDate: { gte: start, lt: end },
           subscriptionPeriod: {
-            status: { not: "CANCELLED" },
+            status: { in: ["PAID", "DELIVERING", "COMPLETED"] }, // 결제된 주기만 (배송 건 생성과 같은 기준)
             subscription: { status: { notIn: ["CANCELLED", "PAUSED"] } },
           },
         },

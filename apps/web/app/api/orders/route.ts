@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "../../lib/auth-guard";
+import { auth } from "../../../auth";
 import { pushDuePrices } from "../../lib/effective-price";
+import { CUTOFF_LABEL, firstOrderableDate, isOrderable } from "../../lib/cutoff";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
 // 배송비 정책은 관리자 설정(deliveryFee / freeShippingMin)을 따른다.
@@ -16,7 +18,47 @@ function generateOrderNo() {
   return `W2O-${date}-${rand}`;
 }
 
-type IncomingItem = { productId: string; quantity?: number };
+type IncomingItem = { productId: string; quantity?: number; deliveryDate?: string | null };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 주문 1건 = 배송일 1개. 장바구니 라인의 배송일(YYYY-MM-DD)을 모아 하나로 확정한다.
+ * 날짜가 없는 라인(상품 상세에서 담은 경우)은 지금 주문 가능한 가장 빠른 배송일로 간다.
+ * 배송일이 서로 다른 라인이 섞여 있으면 거부한다 — 체크아웃이 배송일별로 나눠 결제한다.
+ */
+async function resolveDeliveryDate(
+  prisma: typeof import("@repo/db").prisma,
+  bodyDate: unknown,
+  items: IncomingItem[],
+): Promise<{ error: string } | { date: string; at: Date }> {
+  const wanted = new Set<string>();
+  if (typeof bodyDate === "string" && bodyDate) wanted.add(bodyDate);
+  for (const it of items) if (typeof it.deliveryDate === "string" && it.deliveryDate) wanted.add(it.deliveryDate);
+  if (wanted.size > 1) return { error: "배송일이 다른 상품이 섞여 있습니다. 배송일별로 나누어 결제해주세요." };
+
+  let date = [...wanted][0] ?? null;
+  if (date && !DATE_RE.test(date)) return { error: "배송일 형식이 올바르지 않습니다." };
+
+  if (!date) {
+    // 마감 전인 가장 빠른 활성 배송일 (배송일은 UTC 자정으로 저장된다)
+    const first = await prisma.deliveryCalendar.findFirst({
+      where: { isActive: true, date: { gte: new Date(`${firstOrderableDate()}T00:00:00.000Z`) } },
+      orderBy: { date: "asc" },
+      select: { date: true },
+    });
+    if (!first) return { error: "주문 가능한 배송일이 없습니다. 잠시 후 다시 시도해주세요." };
+    date = first.date.toISOString().slice(0, 10);
+  } else {
+    if (!isOrderable(date)) return { error: `${date} 배송은 주문이 마감되었습니다. (마감: ${CUTOFF_LABEL})` };
+    const day = await prisma.deliveryCalendar.findUnique({
+      where: { date: new Date(`${date}T00:00:00.000Z`) },
+      select: { isActive: true },
+    });
+    if (!day?.isActive) return { error: `${date}은(는) 배송일이 아닙니다.` };
+  }
+  return { date, at: new Date(`${date}T00:00:00.000Z`) };
+}
 
 // POST: 주문 생성
 export async function POST(request: Request) {
@@ -30,6 +72,12 @@ export async function POST(request: Request) {
 
     const { prisma } = await import("@repo/db");
 
+    // 배송일 확정 — 없으면 배송 리포트·생산 집계·기사 출력 어디에도 이 주문이 잡히지 않는다
+    const delivery = await resolveDeliveryDate(prisma, body.deliveryDate, items);
+    if ("error" in delivery) {
+      return NextResponse.json({ error: delivery.error }, { status: 400 });
+    }
+
     // 상품 정보 + 카테고리 옵션 여부 로드 (도래한 가격 인상분 먼저 승격)
     await pushDuePrices();
     const productIds = items.map((i) => i.productId).filter(Boolean);
@@ -40,7 +88,8 @@ export async function POST(request: Request) {
         include: { category: { select: { isOption: true } } },
       }),
     ]);
-    const minAmount = setting ? Number(setting.value) : DEFAULT_MIN_ORDER_AMOUNT;
+    // 설정값이 "11,000" 처럼 숫자가 아니면 NaN 비교로 최소액 검사가 통째로 뚫린다 → 기본값
+    const minAmount = setting?.value !== undefined && setting.value !== "" && Number.isFinite(Number(setting.value)) ? Number(setting.value) : DEFAULT_MIN_ORDER_AMOUNT;
     const productMap = new Map(products.map((p) => [p.id, p]));
 
     // 서버 측 금액 계산 (가격 위변조 방지)
@@ -56,7 +105,13 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      const qty = Math.max(1, it.quantity ?? 1);
+      if (!p.isActive) {
+        return NextResponse.json({ error: `판매가 중지된 상품입니다: ${p.name}` }, { status: 400 });
+      }
+      const qty = it.quantity ?? 1;
+      if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+        return NextResponse.json({ error: "수량은 1~99 사이의 정수여야 합니다." }, { status: 400 });
+      }
       // 단건 주문은 singlePrice 우선, 없으면 구독가(price) 사용
       const unitPrice = p.singlePrice ?? p.price;
       const line = unitPrice * qty;
@@ -96,8 +151,9 @@ export async function POST(request: Request) {
     const deliveryFee = itemsTotal >= freeShippingMin ? 0 : baseDeliveryFee;
     const totalAmount = itemsTotal + deliveryFee;
 
-    // userId 확인 (없으면 guest 폴백)
-    let userId = body.userId ?? "guest";
+    // 주문자는 세션에서만 정한다 (body.userId 는 무시 — 남의 계정에 주문·배송지를 만드는 경로였다). 비로그인은 guest
+    const session = await auth().catch(() => null);
+    let userId = (session?.user as { id?: string } | undefined)?.id ?? "guest";
     if (userId !== "guest") {
       const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
       if (!userExists) userId = "guest";
@@ -122,6 +178,7 @@ export async function POST(request: Request) {
         totalAmount,
         deliveryFee,
         discountAmount: 0,
+        deliveryDate: delivery.at,
         deliveryHold: resolved.deliveryHold,
         deliveryHoldReason: resolved.deliveryHoldReason,
         items: { create: orderItemData },
@@ -132,6 +189,7 @@ export async function POST(request: Request) {
       {
         id: order.id,
         orderNo: order.orderNo,
+        deliveryDate: delivery.date,
         itemsTotal,
         deliveryFee,
         totalAmount,

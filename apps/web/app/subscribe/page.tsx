@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -190,8 +190,23 @@ function SubscribeContent() {
       .catch(() => setCalendar([]));
   }, [curYear, curMonth]);
 
-  // 마감 기준: 배송 전날 14:00 — 그 시각을 넘기면 다음날 배송분은 닫힌다
-  const cutoffDate = useMemo(() => firstOrderableDate(), []);
+  // 마감 기준: 배송 전날 14:00 — 그 시각을 넘기면 다음날 배송분은 닫힌다.
+  // 화면을 열어 둔 채 14:00을 넘길 수 있으므로 30초마다 다시 계산해 마감된 날짜가 캘린더에서 빠지게 한다 (서버도 같은 기준으로 최종 검사)
+  const [cutoffDate, setCutoffDate] = useState(() => firstOrderableDate());
+  const [cutoffNotice, setCutoffNotice] = useState<string | null>(null);
+  const cutoffRef = useRef(cutoffDate);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const next = firstOrderableDate();
+      const prev = cutoffRef.current;
+      if (prev === next) return;
+      cutoffRef.current = next;
+      setCutoffDate(next);
+      const range = next > addDays(prev, 1) ? `${fmtMD(prev)}~${fmtMD(addDays(next, -1))}` : fmtMD(prev);
+      setCutoffNotice(`${range} 배송은 주문이 마감되어 캘린더에서 빠졌습니다. 기간은 그만큼 뒤로 이어집니다.`);
+    }, 30_000);
+    return () => clearInterval(t);
+  }, []);
   // 주기 창: 첫 주문 가능일부터 N주
   const windowEnd = useMemo(() => addDays(cutoffDate, cycleWeeks * 7), [cutoffDate, cycleWeeks]);
 
@@ -736,6 +751,9 @@ function SubscribeContent() {
                 </div>
                 );
               })}
+              {cutoffNotice && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 px-3 py-1.5 border-t border-amber-100">⏱ {cutoffNotice}</p>
+              )}
               <p className="text-[11px] text-[#7aaa90] px-3 py-1.5 border-t border-gray-50">
 숫자는 그 날 받을 개수입니다. 날짜를 누르면 그 날만 수량을 바꾸거나 건너뛸 수 있고, 주황색은 {weekdayMode ? "요일 구성" : "기본 구성"}과 다르게 바꾼 날입니다.
               </p>

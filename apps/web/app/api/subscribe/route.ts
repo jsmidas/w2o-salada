@@ -31,6 +31,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "plan, selections 필수" }, { status: 400 });
     }
 
+    // 마감(배송 전날 14:00 KST)이 지난 배송일은 거부 — 화면을 열어 둔 채 마감을 넘기면 캘린더에 남아 있을 수 있다.
+    // 화면도 마감을 지키지만 서버가 최종 판정한다 (단건 주문 API와 같은 기준)
+    const { isOrderable, CUTOFF_LABEL } = await import("../../lib/cutoff");
+    const closedDates = [...new Set(selections.map((s) => s.date))].filter((d) => !isOrderable(d)).sort();
+    if (closedDates.length > 0) {
+      const label = closedDates.map((d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`).join(", ");
+      return NextResponse.json(
+        {
+          error: "주문이 마감된 배송일이 포함되어 있습니다.",
+          message: `${label} 배송은 주문이 마감되었습니다. (마감: ${CUTOFF_LABEL})\n화면을 새로고침하면 마감된 날짜가 빠지고 기간이 이어집니다.`,
+          closedDates,
+        },
+        { status: 400 },
+      );
+    }
+
     const allProductIds = [...new Set(selections.flatMap((s) => s.productIds))];
 
     // 도래한 가격 인상분 먼저 승격

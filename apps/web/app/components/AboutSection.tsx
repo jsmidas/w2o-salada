@@ -6,6 +6,7 @@ const TYPING_TEXTS = [
   "우리 집 식탁을 차립니다.",
   "샐러드·간편식·반찬, 한 번에.",
   "매주 두 번, 새벽에 도착합니다.",
+  "배송비, 가입비 없는 실속 소비 시작.",
 ];
 
 function useTypingEffect(texts: string[], speed = 100, pause = 2000) {

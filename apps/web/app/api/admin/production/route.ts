@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../lib/auth-guard";
+import { DELIVERABLE_ORDER_TYPES, DELIVERY_ORDER_TYPE, ensureSubscriptionDeliveries } from "../../../lib/subscription-delivery";
 
 /**
  * 생산 집계 (주방 작업지시용)
  *
- * 그날 나가야 할 물량은 두 갈래다.
- *  - 구독: SubscriptionSelection (배송일별 고객 선택) — 현재 물량의 대부분
- *  - 단건: Order + OrderItem (deliveryDate 기준)
- * /api/admin/delivery/report 는 Order만 집계해서 구독 물량이 빠지므로,
- * 생산계획은 두 소스를 합산하는 이 엔드포인트를 쓴다.
+ * 배송 리포트(/api/admin/delivery/report)와 **같은 소스**를 본다 —
+ * 그날의 배송 건(Order)이 단일 기준이다.
+ *   - 단건 주문           : type SINGLE
+ *   - 구독 배송일별 배송 건 : type SUBSCRIPTION_DELIVERY (ensureSubscriptionDeliveries가 생성)
+ *   - 구독 월 결제 주문     : type SUBSCRIPTION — 돈의 기록이라 제외
  *
- * 확정/대기 구분
- *  - 확정: 결제가 끝나 반드시 생산해야 하는 수량
- *  - 대기: 아직 결제 전(PENDING) — 참고용. 취소분은 아예 제외한다.
+ * 예전에는 구독 물량을 SubscriptionSelection에서 직접 세어 리포트와 수량이
+ * 어긋날 수 있었다. 마감 전 선택 변경은 ensureSubscriptionDeliveries가
+ * 배송 건에 반영하고, 마감 후에는 배송 건이 확정본이 된다.
+ *
+ * 보류(deliveryHold) 건은 배송지 문제로 나가지 못할 수 있어 **별도로 센다.**
+ * 총 생산 수량에는 포함하되 화면에서 따로 보여준다.
  */
 
-// 생산 대상에서 제외할 상태
-const EXCLUDED_ORDER_STATUS = ["CANCELLED", "REFUNDED", "FAILED"];
-const CONFIRMED_ORDER_STATUS = ["PAID", "PREPARING", "SHIPPING", "DELIVERED"];
-const CONFIRMED_PERIOD_STATUS = ["PAID", "DELIVERING", "COMPLETED"];
+// 배송 대상으로 잡는 주문 상태 (리포트와 동일 기준)
+const DELIVERABLE_STATUS = ["PAID", "PREPARING", "SHIPPING", "DELIVERED"] as const;
 
 type Row = {
   productId: string;
@@ -30,8 +32,7 @@ type Row = {
   isOption: boolean;
   subscriptionQty: number;
   orderQty: number;
-  confirmedQty: number;
-  pendingQty: number;
+  holdQty: number;
   qty: number;
 };
 
@@ -54,34 +55,27 @@ export async function GET(request: NextRequest) {
   end.setUTCDate(end.getUTCDate() + 1);
 
   try {
-    const [selections, orders] = await Promise.all([
-      prisma.subscriptionSelection.findMany({
-        where: {
-          deliveryDate: { gte: start, lt: end },
-          subscriptionPeriod: {
-            status: { in: ["PAID", "DELIVERING", "COMPLETED"] }, // 결제된 주기만 (배송 건 생성과 같은 기준)
-            subscription: { status: { notIn: ["CANCELLED", "PAUSED"] } },
-          },
-        },
-        include: {
-          product: { include: { category: true } },
-          subscriptionPeriod: { select: { status: true, subscription: { select: { userId: true } } } },
-        },
-      }),
-      prisma.order.findMany({
-        where: {
-          deliveryDate: { gte: start, lt: end },
-          status: { notIn: EXCLUDED_ORDER_STATUS as never[] },
-          // 구독 물량은 위의 선택분(SubscriptionSelection)으로 센다.
-          // 월 결제 주문(SUBSCRIPTION)·배송일별 배송 건(SUBSCRIPTION_DELIVERY)까지 더하면 2~3중 계산이 된다
-          type: "SINGLE",
-        },
-        include: { items: { include: { product: { include: { category: true } } } } },
-      }),
-    ]);
+    // 구독 배송 건을 이 날짜 선택분과 맞춘다 (마감 전이면 최신 선택분 반영, 멱등)
+    await ensureSubscriptionDeliveries(start);
+
+    const orders = await prisma.order.findMany({
+      where: {
+        deliveryDate: { gte: start, lt: end },
+        status: { in: [...DELIVERABLE_STATUS] },
+        type: { in: [...DELIVERABLE_ORDER_TYPES] },
+      },
+      include: {
+        user: { select: { id: true, name: true } },
+        items: { include: { product: { include: { category: true } } } },
+      },
+    });
 
     const rows = new Map<string, Row>();
-    const touch = (p: { id: string; name: string; category: { name: string; slug: string; color: string | null; isOption: boolean } }): Row => {
+    const touch = (p: {
+      id: string;
+      name: string;
+      category: { name: string; slug: string; color: string | null; isOption: boolean };
+    }): Row => {
       let r = rows.get(p.id);
       if (!r) {
         r = {
@@ -93,8 +87,7 @@ export async function GET(request: NextRequest) {
           isOption: p.category.isOption,
           subscriptionQty: 0,
           orderQty: 0,
-          confirmedQty: 0,
-          pendingQty: 0,
+          holdQty: 0,
           qty: 0,
         };
         rows.set(p.id, r);
@@ -103,23 +96,28 @@ export async function GET(request: NextRequest) {
     };
 
     const subscribers = new Set<string>();
-    for (const s of selections) {
-      const r = touch(s.product);
-      const confirmed = CONFIRMED_PERIOD_STATUS.includes(s.subscriptionPeriod.status);
-      r.subscriptionQty += s.quantity;
-      if (confirmed) r.confirmedQty += s.quantity;
-      else r.pendingQty += s.quantity;
-      r.qty += s.quantity;
-      subscribers.add(s.subscriptionPeriod.subscription.userId);
-    }
+    const holds: { orderNo: string; customer: string; reason: string; itemCount: number }[] = [];
+    let singleCount = 0;
 
     for (const o of orders) {
-      const confirmed = CONFIRMED_ORDER_STATUS.includes(o.status);
+      const isSubscription = o.type === DELIVERY_ORDER_TYPE;
+      if (isSubscription) subscribers.add(o.userId);
+      else singleCount++;
+
+      if (o.deliveryHold) {
+        holds.push({
+          orderNo: o.orderNo,
+          customer: o.user?.name ?? "-",
+          reason: o.deliveryHoldReason ?? "사유 미기재",
+          itemCount: o.items.reduce((s, it) => s + it.quantity, 0),
+        });
+      }
+
       for (const it of o.items) {
         const r = touch(it.product);
-        r.orderQty += it.quantity;
-        if (confirmed) r.confirmedQty += it.quantity;
-        else r.pendingQty += it.quantity;
+        if (isSubscription) r.subscriptionQty += it.quantity;
+        else r.orderQty += it.quantity;
+        if (o.deliveryHold) r.holdQty += it.quantity;
         r.qty += it.quantity;
       }
     }
@@ -131,16 +129,18 @@ export async function GET(request: NextRequest) {
       return b.qty - a.qty;
     });
 
-    const catMap = new Map<string, { slug: string; name: string; color: string | null; isOption: boolean; qty: number; confirmedQty: number; pendingQty: number; productCount: number }>();
+    const catMap = new Map<
+      string,
+      { slug: string; name: string; color: string | null; isOption: boolean; qty: number; holdQty: number; productCount: number }
+    >();
     for (const p of products) {
       let c = catMap.get(p.categorySlug);
       if (!c) {
-        c = { slug: p.categorySlug, name: p.categoryName, color: p.categoryColor, isOption: p.isOption, qty: 0, confirmedQty: 0, pendingQty: 0, productCount: 0 };
+        c = { slug: p.categorySlug, name: p.categoryName, color: p.categoryColor, isOption: p.isOption, qty: 0, holdQty: 0, productCount: 0 };
         catMap.set(p.categorySlug, c);
       }
       c.qty += p.qty;
-      c.confirmedQty += p.confirmedQty;
-      c.pendingQty += p.pendingQty;
+      c.holdQty += p.holdQty;
       c.productCount += 1;
     }
     const categories = Array.from(catMap.values()).sort((a, b) => {
@@ -148,23 +148,24 @@ export async function GET(request: NextRequest) {
       return a.slug.localeCompare(b.slug);
     });
 
-    const sum = (key: "qty" | "confirmedQty" | "pendingQty") =>
+    const sum = (key: "qty" | "holdQty" | "subscriptionQty" | "orderQty") =>
       products.reduce((s, p) => s + p[key], 0);
 
     return NextResponse.json({
       date: dateParam,
       summary: {
         totalQty: sum("qty"),
-        confirmedQty: sum("confirmedQty"),
-        pendingQty: sum("pendingQty"),
+        holdQty: sum("holdQty"),
         productCount: products.length,
-        subscriptionQty: products.reduce((s, p) => s + p.subscriptionQty, 0),
-        orderQty: products.reduce((s, p) => s + p.orderQty, 0),
+        subscriptionQty: sum("subscriptionQty"),
+        orderQty: sum("orderQty"),
         subscriberCount: subscribers.size,
-        orderCount: orders.length,
+        orderCount: singleCount,
+        holdOrderCount: holds.length,
       },
       categories,
       products,
+      holds,
     });
   } catch (err) {
     console.error("GET /api/admin/production error:", err);

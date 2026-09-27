@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
 
@@ -13,8 +13,7 @@ type ProductRow = {
   isOption: boolean;
   subscriptionQty: number;
   orderQty: number;
-  confirmedQty: number;
-  pendingQty: number;
+  holdQty: number;
   qty: number;
 };
 
@@ -24,8 +23,7 @@ type CategoryRow = {
   color: string | null;
   isOption: boolean;
   qty: number;
-  confirmedQty: number;
-  pendingQty: number;
+  holdQty: number;
   productCount: number;
 };
 
@@ -33,17 +31,20 @@ type Report = {
   date: string;
   summary: {
     totalQty: number;
-    confirmedQty: number;
-    pendingQty: number;
+    holdQty: number;
     productCount: number;
     subscriptionQty: number;
     orderQty: number;
     subscriberCount: number;
     orderCount: number;
+    holdOrderCount: number;
   };
   categories: CategoryRow[];
   products: ProductRow[];
+  holds: HoldRow[];
 };
+
+type HoldRow = { orderNo: string; customer: string; reason: string; itemCount: number };
 
 type CalendarEntry = { date: string; isActive: boolean };
 
@@ -63,8 +64,7 @@ function formatKorean(dateStr: string): string {
 
 export default function ProductionClient({ initialDate }: { initialDate: string }) {
   const [date, setDate] = useState(initialDate);
-  // 결제 전(PENDING) 물량까지 합쳐 볼지. 기본은 확정 물량만 — 주방은 확정분으로 움직인다.
-  const [includePending, setIncludePending] = useState(false);
+  // 보류(배송지 문제) 건을 표에서 강조할지 — 수량 자체는 항상 합산해 보여준다
 
   // 출력 용지 — @page 의 size는 CSS 변수를 받지 못해서, 선택할 때마다
   // <style> 을 직접 갈아끼운다. 브라우저 인쇄 대화상자의 용지도 이 값을 따라간다.
@@ -123,24 +123,11 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
     [calendar],
   );
 
-  // 표시 기준 수량 — 확정만 볼지, 대기까지 합쳐 볼지
-  const pick = useCallback(
-    (row: { qty: number; confirmedQty: number }) => (includePending ? row.qty : row.confirmedQty),
-    [includePending],
-  );
+  const products = useMemo(() => (data ? data.products.filter((p) => p.qty > 0) : []), [data]);
+  const categories = useMemo(() => (data ? data.categories.filter((c) => c.qty > 0) : []), [data]);
 
-  const products = useMemo(() => {
-    if (!data) return [];
-    return data.products.filter((p) => pick(p) > 0);
-  }, [data, pick]);
-
-  const categories = useMemo(() => {
-    if (!data) return [];
-    return data.categories.filter((c) => pick(c) > 0);
-  }, [data, pick]);
-
-  const shownTotal = products.reduce((s, p) => s + pick(p), 0);
-  const mainTotal = products.filter((p) => !p.isOption).reduce((s, p) => s + pick(p), 0);
+  const shownTotal = products.reduce((s, p) => s + p.qty, 0);
+  const mainTotal = products.filter((p) => !p.isOption).reduce((s, p) => s + p.qty, 0);
   const optionTotal = shownTotal - mainTotal;
 
   return (
@@ -219,20 +206,12 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
             <span className="material-symbols-outlined text-lg">chevron_right</span>
           </button>
 
-          <label className="ml-auto flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includePending}
-              onChange={(e) => setIncludePending(e.target.checked)}
-              className="w-4 h-4 accent-[#1D9E75]"
-            />
-            미결제 물량 포함
-            {data && data.summary.pendingQty > 0 && (
-              <span className="text-xs text-[#EF9F27] font-semibold">
-                (+{data.summary.pendingQty}개)
-              </span>
-            )}
-          </label>
+          {data && data.summary.holdOrderCount > 0 && (
+            <span className="ml-auto flex items-center gap-1.5 text-sm text-[#EF9F27] font-semibold">
+              <span className="material-symbols-outlined text-lg">warning</span>
+              배송 보류 {data.summary.holdOrderCount}건 ({data.summary.holdQty}개)
+            </span>
+          )}
         </div>
 
         {/* 이 달 배송일 빠른 이동 */}
@@ -260,7 +239,8 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
       <div className="hidden print:block mb-3 pb-2 border-b-2 border-gray-800">
         <h1 className="text-xl font-bold">{formatKorean(date)} 생산 작업지시서</h1>
         <p className="text-xs text-gray-600">
-          {includePending ? "미결제 물량 포함" : "확정 물량"} · 총 {shownTotal}개 · {products.length}종
+총 {shownTotal}개 · {products.length}종
+          {data && data.summary.holdQty > 0 && <span> · 보류 {data.summary.holdQty}개 포함</span>}
           {printedAt && <span className="ml-2 text-gray-400">출력 {printedAt}</span>}
         </p>
       </div>
@@ -275,11 +255,9 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
             production_quantity_limits
           </span>
           <p className="text-gray-500 font-medium">{formatKorean(date)}에 생산할 물량이 없습니다</p>
-          {data && data.summary.pendingQty > 0 && !includePending && (
-            <p className="text-xs text-[#EF9F27] mt-2">
-              결제 대기 중인 물량이 {data.summary.pendingQty}개 있습니다 — 위의 &quot;미결제 물량 포함&quot;을 켜면 보입니다
-            </p>
-          )}
+          <p className="text-xs text-gray-400 mt-2">
+            결제가 끝난 단건 주문과 구독 배송 건만 집계합니다
+          </p>
           {deliveryDays.length > 0 && (
             <p className="text-xs text-gray-400 mt-2">
               이 달 배송일: {deliveryDays.map((d) => `${Number(d.slice(8, 10))}일`).join(", ")}
@@ -333,7 +311,7 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
                     {c.isOption && <span className="text-gray-400 font-medium"> (옵션)</span>}
                   </p>
                   <p className="text-xl font-black text-gray-800">
-                    {pick(c)}
+                    {c.qty}
                     <span className="text-xs font-medium text-gray-400 ml-0.5">개</span>
                   </p>
                   <p className="text-[10px] text-gray-400">{c.productCount}종</p>
@@ -349,7 +327,7 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
                 상품별 생산 수량 ({products.length}종)
               </h3>
               <span className="text-xs text-gray-400">
-                {includePending ? "미결제 포함" : "확정 물량만"}
+                배송 건 기준 (단건 + 구독)
               </span>
             </div>
             <table className="w-full text-sm">
@@ -383,9 +361,9 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
                       </td>
                       <td className="px-4 py-2.5 font-medium text-gray-800">
                         {p.name}
-                        {p.pendingQty > 0 && !includePending && (
-                          <span className="ml-2 text-[10px] text-[#EF9F27]">
-                            대기 {p.pendingQty}
+                        {p.holdQty > 0 && (
+                          <span className="ml-2 text-[10px] text-[#EF9F27] font-semibold">
+                            보류 {p.holdQty}
                           </span>
                         )}
                       </td>
@@ -396,7 +374,7 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
                         {p.orderQty || "-"}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className="text-lg font-black text-gray-900">{pick(p)}</span>
+                        <span className="text-lg font-black text-gray-900">{p.qty}</span>
                         <span className="text-xs text-gray-400 ml-0.5">개</span>
                       </td>
                     </tr>
@@ -416,6 +394,41 @@ export default function ProductionClient({ initialDate }: { initialDate: string 
               </tfoot>
             </table>
           </div>
+
+          {/* 배송 보류 건 — 배송지 문제로 나가지 못할 수 있어 따로 확인해야 한다 */}
+          {data && data.holds.length > 0 && (
+            <div className="bg-white rounded-xl border border-[#EF9F27]/40 overflow-hidden mt-4">
+              <div className="px-4 py-2.5 bg-[#EF9F27]/10 border-b border-[#EF9F27]/20 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#EF9F27] text-lg">warning</span>
+                <h3 className="text-sm font-bold text-gray-700">
+                  배송 보류 {data.holds.length}건 · {data.summary.holdQty}개
+                </h3>
+                <span className="text-xs text-gray-500">
+                  위 생산 수량에 포함돼 있습니다 — 배송 전에 주소를 확인하세요
+                </span>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50/50 border-b text-xs text-gray-500">
+                  <tr>
+                    <th className="text-left px-4 py-2 font-semibold">주문번호</th>
+                    <th className="text-left px-4 py-2 font-semibold">고객</th>
+                    <th className="text-left px-4 py-2 font-semibold">보류 사유</th>
+                    <th className="text-right px-4 py-2 font-semibold w-20">수량</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.holds.map((h) => (
+                    <tr key={h.orderNo} className="border-b last:border-0">
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{h.orderNo}</td>
+                      <td className="px-4 py-2.5 text-gray-800">{h.customer}</td>
+                      <td className="px-4 py-2.5 text-[#EF9F27]">{h.reason}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-gray-900">{h.itemCount}개</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -184,6 +184,9 @@ export default function AboutSection() {
           <p className="text-[#2d5a3f] mt-4">
             샐러드·간편식·반찬까지, 가정의 한 끼를 매일 새벽 문 앞으로.
           </p>
+          <p className="text-[#1D9E75] font-semibold mt-2">
+            배송비, 가입비 없는 실속 소비 시작
+          </p>
           <div className="mt-6 inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/70 border border-[#1D9E75]/20 backdrop-blur-sm">
             <span className="text-[#1D9E75] font-black text-sm tracking-widest">W2O</span>
             <span className="w-px h-4 bg-[#1D9E75]/30" />

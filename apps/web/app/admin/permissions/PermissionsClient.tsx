@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
-import { ALL_PERMISSIONS, PERMISSION_LABELS, type AdminPermission } from "../../lib/auth-guard";
+import { ALL_PERMISSIONS, PERMISSION_LABELS, type AdminPermission } from "../../lib/permissions";
 
 type Member = {
   id: string;

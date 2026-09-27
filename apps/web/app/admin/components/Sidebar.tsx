@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { type AdminPermission, parsePermissions } from "../../lib/auth-guard";
+import { type AdminPermission, parsePermissions } from "../../lib/permissions";
 
 type MenuItem = { href: string; icon: string; label: string };
 type MenuGroup = { title: string; permission: AdminPermission; items: MenuItem[] };

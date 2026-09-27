@@ -13,7 +13,7 @@ async function getPrisma() {
 
 // 세션 서명 키 — 저장소에 적힌 폴백으로 떨어지면 누구나 ADMIN 토큰을 위조할 수 있다. 운영에선 없으면 기동 실패
 const AUTH_SECRET = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
-if (!AUTH_SECRET && process.env.NODE_ENV === "production") {
+if (typeof window === "undefined" && !AUTH_SECRET && process.env.NODE_ENV === "production") {
   throw new Error("NEXTAUTH_SECRET(또는 AUTH_SECRET) 환경변수가 없습니다. 세션 서명 키 없이 운영할 수 없습니다.");
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import type { RefundRequestStatus } from "@prisma/client";
 import { requireAdmin } from "../../../lib/auth-guard";
+import { getRefundFeePercent } from "../../../lib/refund-policy";
 
 const STATUSES: RefundRequestStatus[] = ["PENDING", "APPROVED", "REJECTED", "COMPLETED"];
 
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     const where = STATUSES.includes(status as RefundRequestStatus) ? { status: status as RefundRequestStatus } : {};
 
     const since30 = new Date(Date.now() - 30 * 86400000);
-    const [rows, byReasonAll, byReason30, pendingAgg] = await Promise.all([
+    const [rows, byReasonAll, byReason30, pendingAgg, feePercent] = await Promise.all([
       prisma.refundRequest.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -32,11 +33,13 @@ export async function GET(request: Request) {
       prisma.refundRequest.groupBy({ by: ["reason"], _count: { _all: true }, where: { kind: "SUBSCRIPTION_CANCEL" } }),
       prisma.refundRequest.groupBy({ by: ["reason"], _count: { _all: true }, where: { kind: "SUBSCRIPTION_CANCEL", createdAt: { gte: since30 } } }),
       prisma.refundRequest.aggregate({ where: { status: "PENDING" }, _sum: { requestedAmount: true }, _count: { _all: true } }),
+      getRefundFeePercent(),
     ]);
 
     return NextResponse.json({
       requests: rows,
       stats: {
+        feePercent,
         pendingCount: pendingAgg._count._all,
         pendingAmount: pendingAgg._sum.requestedAmount ?? 0,
         byReason: byReasonAll.map((r) => ({ reason: r.reason ?? "UNKNOWN", count: r._count._all })),

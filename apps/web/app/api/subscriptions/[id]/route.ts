@@ -3,6 +3,7 @@ import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
 import { holdFromStatus } from "../../../lib/geo";
 import { remainingPaidSelections } from "../../../lib/subscription-settle";
+import { getRefundFeePercent } from "../../../lib/refund-policy";
 
 const ADDRESS_SELECT = {
   id: true, label: true, name: true, phone: true, zipCode: true, address1: true, address2: true,
@@ -34,8 +35,9 @@ export async function GET(
     }
 
     // 일시정지·해지 화면에서 "남은 배송분이 얼마인지" 보여주기 위한 정산 정보
-    const [remaining, refundRequests] = await Promise.all([
+    const [remaining, refundRequests, feePercent] = await Promise.all([
       subscription.status === "ACTIVE" || subscription.status === "PAUSED" ? remainingPaidSelections(id) : null,
+      getRefundFeePercent(),
       prisma.refundRequest.findMany({
         where: { subscriptionId: id },
         orderBy: { createdAt: "desc" },
@@ -46,7 +48,7 @@ export async function GET(
 
     return NextResponse.json({
       ...subscription,
-      settlement: { remainingCount: remaining?.count ?? 0, remainingAmount: remaining?.amount ?? 0, creditBalance: subscription.creditBalance },
+      settlement: { remainingCount: remaining?.count ?? 0, remainingAmount: remaining?.amount ?? 0, creditBalance: subscription.creditBalance, feePercent },
       refundRequests,
     });
   } catch (err) {

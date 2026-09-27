@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { getRefundFeePercent } from "../../lib/refund-policy";
 
-export default function SubscriptionTermsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SubscriptionTermsPage() {
+  const feePercent = await getRefundFeePercent();
   return (
     <div className="min-h-screen bg-white">
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b">
@@ -92,13 +96,14 @@ export default function SubscriptionTermsPage() {
                 주문 마감이 지난 배송분은 정상 배송되며 환불 대상이 아닙니다.
               </li>
               <li>
-                <strong>취소 수수료:</strong> 회사는 환불 대상 금액에서 다음 금액을 공제할 수 있습니다.
-                <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
-                  <li>결제대행사(PG) 취소 수수료 등 결제 취소에 실제로 드는 비용</li>
-                  <li>구독 조건으로 제공된 혜택(구독 단가 할인, 무료배송 등) 중 이미 배송된 회차에 해당하는 금액</li>
-                  <li>재료 발주가 끝난 배송분(배송 2일 전 이후)의 재료비 실비</li>
-                </ul>
-                수수료 금액과 산정 근거는 환불 처리 시 마이페이지 환불 신청 현황에서 확인할 수 있습니다.
+                <strong>취소 수수료:</strong> 회사는 환불 대상 금액의 <strong>{feePercent}%</strong>를 취소 수수료로 공제하고 나머지를 환불합니다.
+                수수료에는 결제대행사(PG) 취소 수수료와 결제 취소 처리 비용이 포함됩니다.
+                <br />
+                <span className="text-xs text-gray-500">
+                  예시: 환불 대상 금액 47,200원 → 수수료 {feePercent}% {Math.round((47200 * feePercent) / 100).toLocaleString()}원 공제 → {(47200 - Math.round((47200 * feePercent) / 100)).toLocaleString()}원 환불
+                </span>
+                <br />
+                공제된 수수료와 환불액은 마이페이지 환불 신청 현황에서 확인할 수 있습니다.
               </li>
               <li>회사는 신청일로부터 7영업일 이내에 검토를 마치고, 승인된 금액을 결제 수단으로 환불합니다. 카드사 사정에 따라 실제 입금은 3~5영업일이 더 걸릴 수 있습니다.</li>
               <li>상품 하자, 배송 누락 등 회사의 책임으로 인한 환불은 수수료 없이 전액 환불하며, 이 경우 고객센터로 접수해 주시기 바랍니다.</li>

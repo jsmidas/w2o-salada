@@ -21,6 +21,7 @@ type Req = {
   order: { id: string; orderNo: string; totalAmount: number; paymentKey: string | null; status: string } | null;
 };
 type Stats = {
+  feePercent: number;
   pendingCount: number;
   pendingAmount: number;
   byReason: { reason: string; count: number }[];
@@ -50,7 +51,10 @@ export default function RefundsClient() {
   const [busy, setBusy] = useState(false);
 
   const open = (r: Req, m: "approve" | "manual" | "reject") => {
-    setTarget(r); setMode(m); setFee(r.feeAmount ?? 0); setNote(r.adminNote ?? "");
+    // 기본 수수료 = 설정의 수수료율(약관 6조) × 신청 금액. 담당자가 사안에 따라 조정한다
+    const pct = stats?.feePercent ?? 0;
+    const defaultFee = r.feeAmount > 0 ? r.feeAmount : Math.round((r.requestedAmount * pct) / 100);
+    setTarget(r); setMode(m); setFee(defaultFee); setNote(r.adminNote ?? "");
   };
 
   const submit = async () => {
@@ -196,7 +200,7 @@ export default function RefundsClient() {
 
             {mode !== "reject" && (
               <div className="mb-4">
-                <label className="text-sm font-medium text-gray-600 block mb-1">취소 수수료 (원)</label>
+                <label className="text-sm font-medium text-gray-600 block mb-1">취소 수수료 (원) <span className="text-xs text-gray-400 font-normal">— 약관 기준 {stats?.feePercent ?? 0}%, 사안에 따라 조정</span></label>
                 <input type="number" min={0} max={target.requestedAmount} value={fee} onChange={(e) => setFee(Math.max(0, Number(e.target.value) || 0))} className="w-full px-3 py-2 border rounded-lg text-sm" />
                 <p className="text-xs text-gray-500 mt-1">
                   환불액 <b className="text-gray-800">{Math.max(0, target.requestedAmount - fee).toLocaleString()}원</b>

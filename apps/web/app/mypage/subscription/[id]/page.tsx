@@ -28,7 +28,7 @@ type Subscription = {
   address: SubAddress | null;
   creditBalance: number;
   pauseMode: "CREDIT" | "EXTEND" | null;
-  settlement?: { remainingCount: number; remainingAmount: number; creditBalance: number };
+  settlement?: { remainingCount: number; remainingAmount: number; creditBalance: number; feePercent: number };
   refundRequests?: { id: string; kind: string; status: string; requestedAmount: number; feeAmount: number; refundAmount: number | null; createdAt: string; processedAt: string | null; adminNote: string | null }[];
 };
 
@@ -554,7 +554,9 @@ export default function SubscriptionDetailPage() {
             {settlement && (settlement.remainingAmount + sub.creditBalance) > 0 ? (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 mb-4 leading-relaxed">
                 결제된 남은 배송 {settlement.remainingCount}회분 {settlement.remainingAmount.toLocaleString()}원{sub.creditBalance > 0 ? ` + 크레딧 ${sub.creditBalance.toLocaleString()}원` : ""} = <b>{(settlement.remainingAmount + sub.creditBalance).toLocaleString()}원</b>이 환불 신청으로 접수됩니다.
-                담당자 검토 후 이용약관에 따른 취소 수수료를 뺀 금액이 결제 수단으로 환불됩니다.
+                담당자 검토 후 약관에 따른 취소 수수료 {settlement.feePercent}%({Math.round(((settlement.remainingAmount + sub.creditBalance) * settlement.feePercent) / 100).toLocaleString()}원)를 뺀
+                약 <b>{((settlement.remainingAmount + sub.creditBalance) - Math.round(((settlement.remainingAmount + sub.creditBalance) * settlement.feePercent) / 100)).toLocaleString()}원</b>이 결제 수단으로 환불됩니다.
+                <a href="/terms/subscription" target="_blank" rel="noopener noreferrer" className="underline ml-1">약관 보기</a>
               </div>
             ) : (
               <p className="text-xs text-gray-500 mb-4">환불 대상 금액은 없습니다.</p>

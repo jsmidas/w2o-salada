@@ -3,6 +3,7 @@ import { prisma } from "@repo/db";
 import type { RefundReason } from "@prisma/client";
 import { requireAuth } from "../../../../lib/auth-guard";
 import { removeRemainingForCancel } from "../../../../lib/subscription-settle";
+import { feeFor, getRefundFeePercent } from "../../../../lib/refund-policy";
 
 const REASONS: RefundReason[] = ["TASTE", "DELIVERY", "PRICE", "PERSONAL", "HEALTH", "COMPETITOR", "OTHER"];
 
@@ -77,9 +78,11 @@ export async function POST(
       }),
     ]);
 
+    const feePercent = await getRefundFeePercent();
+    const fee = feeFor(requestedAmount, feePercent);
     const message =
       requestedAmount > 0
-        ? `해지되었습니다. 남은 배송 ${remaining.count}회분 ${remaining.amount.toLocaleString()}원${credit > 0 ? ` + 크레딧 ${credit.toLocaleString()}원` : ""} = ${requestedAmount.toLocaleString()}원의 환불 신청이 접수됐습니다. 담당자 검토 후 약관에 따른 수수료를 뺀 금액이 결제 수단으로 환불됩니다.`
+        ? `해지되었습니다. 남은 배송 ${remaining.count}회분 ${remaining.amount.toLocaleString()}원${credit > 0 ? ` + 크레딧 ${credit.toLocaleString()}원` : ""} = ${requestedAmount.toLocaleString()}원의 환불 신청이 접수됐습니다. 담당자 검토 후 약관에 따른 취소 수수료 ${feePercent}%(${fee.toLocaleString()}원)를 뺀 약 ${(requestedAmount - fee).toLocaleString()}원이 결제 수단으로 환불됩니다.`
         : "해지되었습니다. 환불 대상 금액은 없습니다.";
 
     return NextResponse.json({ ok: true, refundRequest: req, remainingAmount: remaining.amount, credit, requestedAmount, message });

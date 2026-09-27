@@ -67,6 +67,7 @@ export default async function Footer() {
             <ul className="space-y-2 text-sm text-gray-500">
               <li><Link href="/about-service" className="hover:text-gray-300 transition">자주 묻는 질문</Link></li>
               <li><a href="https://pf.kakao.com/_xfLLuX/chat" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition">카톡 문의</a></li>
+              <li><Link href="/terms/subscription" className="hover:text-gray-300 transition">구독 이용약관</Link></li>
               <li><Link href="/terms" className="hover:text-gray-300 transition">이용약관</Link></li>
               <li><Link href="/privacy" className="hover:text-gray-300 transition">개인정보처리방침</Link></li>
             </ul>

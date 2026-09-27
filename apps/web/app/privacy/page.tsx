@@ -287,7 +287,7 @@ export default function PrivacyPolicyPage() {
             <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-5 text-sm">
               <p className="font-semibold text-gray-900">개인정보보호 책임자</p>
               <ul className="mt-2 space-y-1">
-                <li>성명: OOO</li>
+                <li>성명: 손정수</li>
                 <li>직위: 대표이사</li>
                 <li>이메일: dahamfood@dahamfood.co.kr</li>
                 <li>전화: 053-721-7794</li>
@@ -363,7 +363,7 @@ export default function PrivacyPolicyPage() {
             <ul className="space-y-1 text-gray-600">
               <li>상호: 주식회사 다함푸드</li>
               <li>브랜드: W2O SALADA (더블유 투 오 샐러다)</li>
-              <li>대표: OOO</li>
+              <li>대표: 손정수</li>
               <li>사업자등록번호: 452-87-02160</li>
               <li>소재지: 대구광역시 달서구 성서공단로 332-10, 2층</li>
               <li>전화: 053-721-7794</li>

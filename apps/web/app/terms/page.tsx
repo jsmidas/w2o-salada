@@ -374,7 +374,7 @@ export default function TermsOfServicePage() {
             <ul className="space-y-1 text-gray-600">
               <li>상호: 주식회사 다함푸드</li>
               <li>브랜드: W2O SALADA (더블유 투 오 샐러다)</li>
-              <li>대표: OOO</li>
+              <li>대표: 손정수</li>
               <li>사업자등록번호: 452-87-02160</li>
               <li>소재지: 대구광역시 달서구 성서공단로 332-10, 2층</li>
               <li>전화: 053-721-7794</li>

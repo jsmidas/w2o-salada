@@ -120,8 +120,8 @@ export default function RightDock() {
 
   const activeFaq = config.faqs.find((f) => f.id === openFaq);
 
-  // 관리자 페이지에서는 숨김
-  if (pathname?.startsWith("/admin")) return null;
+  // 관리자·기사 페이지에서는 숨김
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/driver")) return null;
 
   return (
     <>

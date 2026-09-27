@@ -86,6 +86,8 @@ type ReportOrder = {
     autoFilled?: boolean; // 지난번 코스로 자동 채워짐
     sortOrder: number;
     status: string;
+    photoUrl?: string | null; // 기사 앱 배송 완료 사진
+    memo?: string | null;     // 배송 못함 사유
   } | null;
 };
 
@@ -135,6 +137,13 @@ const statusLabels: Record<string, string> = {
 
 function fmt(n: number) {
   return n.toLocaleString();
+}
+
+// YYYY-MM-DD 문자열을 days만큼 이동 (UTC 기준으로 계산해 타임존 영향 없음)
+function shiftDate(ymd: string, days: number): string {
+  const t = new Date(`${ymd}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + days);
+  return t.toISOString().slice(0, 10);
 }
 
 export default function DeliveryClient({
@@ -277,6 +286,12 @@ export default function DeliveryClient({
   const handlePrintAll = () => {
     window.open(`/admin/delivery/print?date=${date}`, "_blank");
   };
+  // 날짜 변경 — SWR 키가 date라 바꾸는 즉시 해당 날짜가 조회된다. 편집 중 draft는 버린다
+  const changeDate = (next: string) => {
+    setDate(next);
+    setDrafts({});
+  };
+
   const handlePrintCourse = (label: string | null) => {
     const q = new URLSearchParams({ date });
     if (label) q.set("course", label);
@@ -296,17 +311,36 @@ export default function DeliveryClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="date"
-            aria-label="배송 날짜 선택"
-            title="배송 날짜"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setDrafts({});
-            }}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
-          />
+          <div className="inline-flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => changeDate(shiftDate(date, -1))}
+              aria-label="이전 날짜"
+              title="이전 날짜"
+              className="px-2 py-2 text-gray-500 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center"
+            >
+              <span className="material-symbols-outlined text-lg">chevron_left</span>
+            </button>
+            <input
+              type="date"
+              aria-label="배송 날짜 선택"
+              title="배송 날짜"
+              value={date}
+              onChange={(e) => {
+                if (e.target.value) changeDate(e.target.value);
+              }}
+              className="px-2 py-2 text-sm border-x border-gray-200 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => changeDate(shiftDate(date, 1))}
+              aria-label="다음 날짜"
+              title="다음 날짜"
+              className="px-2 py-2 text-gray-500 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center"
+            >
+              <span className="material-symbols-outlined text-lg">chevron_right</span>
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => mutate()}
@@ -510,7 +544,21 @@ export default function DeliveryClient({
                       const routeLabel = d.routeLabel || "";
                       return (
                         <tr key={o.id} className="border-b last:border-0 hover:bg-gray-50">
-                          <td className="px-3 py-2 text-xs text-gray-500">{o.orderNo.slice(-8)}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">
+                            {o.orderNo.slice(-8)}
+                            {d.status === "DELIVERED" && d.photoUrl && (
+                              <a href={d.photoUrl} target="_blank" rel="noreferrer" className="ml-1 text-[#1D9E75]" title="배송 완료 사진 보기">
+                                📷
+                              </a>
+                            )}
+                            {d.status === "DELIVERED" && !d.photoUrl && (
+                              <span className="ml-1 text-[#1D9E75]" title="배송 완료 (사진 없음)">완료</span>
+                            )}
+                            {d.status === "IN_TRANSIT" && <span className="ml-1 text-blue-600">배송중</span>}
+                            {d.status === "FAILED" && (
+                              <span className="ml-1 text-red-600" title={d.memo ?? ""}>못함</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="text-gray-800">{o.customer.name}</span>

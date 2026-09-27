@@ -86,3 +86,21 @@ export async function requireAuth() {
 
   return { error: null, session };
 }
+
+/**
+ * 배송 기사 API 가드 — DRIVER 전용. ADMIN 도 통과시켜 관리자가 기사 화면을 점검할 수 있게 한다.
+ */
+export async function requireDriver() {
+  const session = await auth();
+
+  if (!session?.user) {
+    return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }), session: null, isAdmin: false };
+  }
+
+  const role = (session.user as { role?: string }).role;
+  if (role !== "DRIVER" && role !== "ADMIN") {
+    return { error: NextResponse.json({ error: "배송 기사 권한이 필요합니다." }, { status: 403 }), session: null, isAdmin: false };
+  }
+
+  return { error: null, session, isAdmin: role === "ADMIN" };
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
-import { sendAlimtalkSafe, TEMPLATE } from "../../../../lib/notification";
+import { afterDeliveryStatusChange, type DeliveryTransition } from "../../../../lib/delivery-status";
 
 export async function PATCH(
   request: NextRequest,
@@ -50,39 +50,14 @@ export async function PATCH(
       },
     });
 
-    // 배송 상태 전환 시 주문 상태 동기화 + 알림톡 발송
+    // 배송 상태 전환 시 주문 상태 동기화 + 알림톡 발송 (기사 앱과 같은 규칙)
     if (status && status !== delivery.status) {
-      const user = updated.order.user;
-      // IN_TRANSIT = 배송 출발
-      if (status === "IN_TRANSIT") {
-        await prisma.order.update({
-          where: { id: updated.order.id },
-          data: { status: "SHIPPING" },
-        });
-        if (user.phone) {
-          await sendAlimtalkSafe({
-            userId: user.id,
-            to: user.phone,
-            templateCode: TEMPLATE.DELIVERY_START,
-            variables: { 고객명: user.name },
-          });
-        }
-      }
-      // DELIVERED = 배송 완료
-      if (status === "DELIVERED") {
-        await prisma.order.update({
-          where: { id: updated.order.id },
-          data: { status: "DELIVERED", deliveredAt: new Date() },
-        });
-        if (user.phone) {
-          await sendAlimtalkSafe({
-            userId: user.id,
-            to: user.phone,
-            templateCode: TEMPLATE.DELIVERY_DONE,
-            variables: { 고객명: user.name },
-          });
-        }
-      }
+      await afterDeliveryStatusChange({
+        orderId: updated.order.id,
+        user: updated.order.user,
+        from: delivery.status,
+        to: status as DeliveryTransition,
+      });
     }
 
     return NextResponse.json(updated);

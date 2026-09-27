@@ -225,6 +225,8 @@ export async function GET(request: NextRequest) {
             autoFilled: autoFilledIds.has(o.id),
             sortOrder: o.delivery.sortOrder,
             status: o.delivery.status,
+            photoUrl: o.delivery.photoUrl,
+            memo: o.delivery.memo,
           }
         : null,
     }));

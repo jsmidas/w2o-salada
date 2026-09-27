@@ -132,8 +132,20 @@ export async function extendAfterPause(subscription: { id: string; pausedAt: Dat
     for (let i = 0; i < targets.length; i++) {
       const from = missedDates[i]!;
       const to = targets[i]!.date;
-      const r = await tx.subscriptionSelection.updateMany({ where: { subscriptionPeriodId: periodId, deliveryDate: from }, data: { deliveryDate: to } });
-      moved += r.count;
+      // 옮길 날짜에 같은 상품이 이미 있으면 (주기·배송일·상품 유니크) 수량을 합치고 원본은 지운다
+      const moving = await tx.subscriptionSelection.findMany({ where: { subscriptionPeriodId: periodId, deliveryDate: from }, select: { id: true, productId: true, quantity: true } });
+      const atTarget = await tx.subscriptionSelection.findMany({ where: { subscriptionPeriodId: periodId, deliveryDate: to }, select: { id: true, productId: true } });
+      const targetByProduct = new Map(atTarget.map((t) => [t.productId, t.id]));
+      for (const m of moving) {
+        const dupId = targetByProduct.get(m.productId);
+        if (dupId) {
+          await tx.subscriptionSelection.update({ where: { id: dupId }, data: { quantity: { increment: m.quantity } } });
+          await tx.subscriptionSelection.delete({ where: { id: m.id } });
+        } else {
+          await tx.subscriptionSelection.update({ where: { id: m.id }, data: { deliveryDate: to } });
+        }
+        moved++;
+      }
       // 놓친 날짜에 남아 있던(배송 안 나간) 배송 건 정리
       const stale = await tx.order.findMany({ where: { subscriptionId, type: "SUBSCRIPTION_DELIVERY", deliveryDate: from, status: { in: ["PENDING", "PAID"] } }, select: { id: true } });
       for (const o of stale) {

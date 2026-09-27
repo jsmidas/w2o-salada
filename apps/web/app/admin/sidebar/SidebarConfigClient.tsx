@@ -23,11 +23,7 @@ type SidebarConfig = {
   faqs: Faq[];
 };
 
-const DEFAULT_CONFIG: SidebarConfig = {
-  hero: { line1: "새벽배송", line2: "안내", subtitle: "W2O SALADA", href: "/about-service" },
-  support: { kakaoUrl: "", phone: "" },
-  faqs: [],
-};
+import { DEFAULT_SIDEBAR_CONFIG as DEFAULT_CONFIG } from "../../lib/sidebar-defaults";
 
 export default function SidebarConfigClient({
   initialConfig,

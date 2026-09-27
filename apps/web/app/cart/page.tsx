@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useCart } from "../store/cart";
 
@@ -16,6 +17,10 @@ export default function CartPage() {
   const minOrderAmount = settings ? Number(settings.minOrderAmount) : 11000;
   const baseDeliveryFee = settings ? Number(settings.deliveryFee) : 0;
   const freeShippingMin = settings ? Number(settings.freeShippingMin) : 11000;
+  // persist 스토어는 첫 클라이언트 렌더에 localStorage 값이 들어와 SSR(빈 장바구니)과 어긋난다 → 마운트 뒤 렌더
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return <div className="min-h-screen bg-brand-dark" />;
 
   if (items.length === 0) {
     return (

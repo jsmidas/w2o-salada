@@ -23,6 +23,20 @@ export async function POST(request: Request) {
   }
   const normalizedPhone = formatPhone(phoneDigits);
 
+  // 아이디·이메일·비밀번호 형식 (관리자 계정 생성과 같은 기준)
+  if (!/^[a-z0-9_]{4,20}$/.test(String(username))) {
+    return NextResponse.json({ error: "아이디는 영문 소문자·숫자·밑줄 4~20자입니다." }, { status: 400 });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email)) || String(email).length > 254) {
+    return NextResponse.json({ error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
+  }
+  if (String(password).length < 8 || String(password).length > 72) {
+    return NextResponse.json({ error: "비밀번호는 8자 이상이어야 합니다." }, { status: 400 });
+  }
+  if (String(name).trim().length < 2 || String(name).trim().length > 30) {
+    return NextResponse.json({ error: "이름은 2~30자입니다." }, { status: 400 });
+  }
+
   // 아이디 중복 체크
   const existingUsername = await prisma.user.findUnique({ where: { username } });
   if (existingUsername) {

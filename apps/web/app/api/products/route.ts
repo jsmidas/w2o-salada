@@ -16,7 +16,12 @@ export async function GET(request: Request) {
           ? { category: { slug: category } }
           : {}),
       },
-      include: { category: true },
+      // 예약 인상가·일일 제한·재고 같은 내부 계획은 내려보내지 않는다
+      select: {
+        id: true, name: true, description: true, originalPrice: true, singlePrice: true, price: true, kcal: true, tags: true, imageUrl: true,
+        sortOrder: true, isActive: true, categoryId: true, availableDays: true, createdAt: true,
+        category: { select: { id: true, name: true, slug: true, icon: true, color: true, isOption: true, sortOrder: true, isActive: true } },
+      },
       orderBy: { sortOrder: "asc" },
     });
     return NextResponse.json(products);

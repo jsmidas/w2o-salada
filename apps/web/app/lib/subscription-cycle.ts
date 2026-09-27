@@ -51,12 +51,17 @@ export async function previewCycle(params: {
   });
   const items: CycleItem[] = [];
   const productIds = new Set<string>();
+  // 최근 14일 창: 이 미리보기 안에서 앞 배송일에 고른 상품도 "최근" 으로 넘겨 8회가 전부 같은 상품이 되지 않게
+  const recent: { date: Date; productId: string }[] = [];
   for (const d of days) {
     const slots = slotsForDate(baseSlots, weekdaySlots, d.date, d.substituteWeekday);
-    const r = await autoAssignForDelivery({ subscriptionId, slots, deliveryDate: d.date });
+    const since = d.date.getTime() - 14 * DAY;
+    const extraRecent = recent.filter((r) => r.date.getTime() >= since).map((r) => r.productId);
+    const r = await autoAssignForDelivery({ subscriptionId, slots, deliveryDate: d.date, extraRecent });
     for (const f of r.filled) {
       items.push({ deliveryDate: d.date, productId: f.productId, quantity: 1, unitPrice: 0 });
       productIds.add(f.productId);
+      recent.push({ date: d.date, productId: f.productId });
     }
   }
   if (productIds.size > 0) {

@@ -48,6 +48,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "year, month, dates 필수" }, { status: 400 });
   }
 
+  // 결제된 구독 선택분이 있는 날짜를 끄면 그 배송이 조용히 사라진다 — force 없이는 막고 건수를 알려준다
+  const turningOff = dates.filter((d) => d.isActive === false).map((d) => new Date(d.date));
+  if (turningOff.length > 0 && !(body as { force?: boolean }).force) {
+    const affected = await prisma.subscriptionSelection.groupBy({
+      by: ["deliveryDate"],
+      where: { deliveryDate: { in: turningOff }, subscriptionPeriod: { status: { in: ["PAID", "DELIVERING"] } } },
+      _count: { _all: true },
+    });
+    if (affected.length > 0) {
+      const detail = affected.map((a) => `${a.deliveryDate.toISOString().slice(0, 10)} (${a._count._all}건)`).join(", ");
+      return NextResponse.json(
+        { error: `결제된 구독 배송이 있는 날짜입니다: ${detail}. 대체 배송일을 먼저 켜고 선택분을 옮긴 뒤 끄거나, 그래도 끄려면 force 로 다시 저장하세요.`, affected },
+        { status: 409 },
+      );
+    }
+  }
+
   const substituteOf = (v: number | null | undefined) =>
     v === undefined ? undefined : Number.isInteger(v) && v! >= 0 && v! <= 6 ? v : null;
 

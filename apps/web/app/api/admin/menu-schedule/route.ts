@@ -36,21 +36,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "year, month, entries 필수" }, { status: 400 });
   }
 
-  // 해당 월 기존 데이터 삭제 후 재생성
-  await prisma.menuSchedule.deleteMany({ where: { year, month } });
-
-  if (entries.length > 0) {
-    await prisma.menuSchedule.createMany({
-      data: entries.map((e) => ({
-        year,
-        month,
-        week: e.week,
-        day: e.day,
-        slot: e.slot,
-        productId: e.productId,
-      })),
-    });
+  // 상품 존재 확인 후, 삭제 + 재생성을 한 트랜잭션으로
+  const ids = Array.from(new Set(entries.map((e) => e.productId)));
+  if (ids.length > 0) {
+    const found = await prisma.product.count({ where: { id: { in: ids } } });
+    if (found !== ids.length) return NextResponse.json({ error: "존재하지 않는 상품이 포함돼 있습니다." }, { status: 400 });
   }
+  await prisma.$transaction([
+    prisma.menuSchedule.deleteMany({ where: { year, month } }),
+    ...(entries.length > 0
+      ? [prisma.menuSchedule.createMany({ data: entries.map((e) => ({ year, month, week: e.week, day: e.day, slot: e.slot, productId: e.productId })) })]
+      : []),
+  ]);
 
   const saved = await prisma.menuSchedule.findMany({
     where: { year, month },

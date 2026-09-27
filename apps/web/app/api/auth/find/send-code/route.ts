@@ -21,13 +21,8 @@ export async function POST(request: Request) {
 
   const users = await findUsersByNamePhone(name, phone);
   if (users.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          "입력한 이름과 휴대폰 번호로 가입된 계정이 없습니다. 가입 시 휴대폰을 등록하지 않았다면 고객센터로 문의해주세요.",
-      },
-      { status: 404 },
-    );
+    // 계정 유무를 응답으로 알려주면 이름×번호 조합으로 가입 여부를 훑을 수 있다 — 발송 없이 같은 응답
+    return NextResponse.json({ ok: true, message: "가입된 계정이면 인증번호가 발송됩니다. 5분 안에 입력해주세요." });
   }
 
   const result = await sendVerificationCode(phone);

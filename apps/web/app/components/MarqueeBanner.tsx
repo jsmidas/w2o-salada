@@ -3,7 +3,7 @@ const items = [
   { icon: "restaurant", text: "샐러드·간편식·반찬", accent: false },
   { icon: "autorenew", text: "정기구독", accent: true },
   { icon: "dark_mode", text: "새벽 6시 전 도착", accent: false },
-  { icon: "savings", text: "구독 시 21% 할인", accent: true },
+  { icon: "savings", text: "정가 대비 상시 할인", accent: true },
   { icon: "eco", text: "100% 신선 재료", accent: false },
 ];
 

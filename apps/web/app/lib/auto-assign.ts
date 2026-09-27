@@ -70,8 +70,10 @@ export async function autoAssignForDelivery(params: {
   subscriptionId: string;
   slots: SlotMap;
   deliveryDate: Date;
+  /** 아직 DB 에 없는 최근 배정 (주기 미리보기가 앞 배송일에서 고른 상품) — 같은 주기 안에서 매번 같은 상품이 뽑히지 않게 */
+  extraRecent?: Iterable<string>;
 }): Promise<AutoAssignResult> {
-  const { subscriptionId, slots, deliveryDate } = params;
+  const { subscriptionId, slots, deliveryDate, extraRecent } = params;
 
   // 1) 해당 배송일의 메뉴 풀 로드
   const calendar = await prisma.deliveryCalendar.findUnique({
@@ -114,6 +116,7 @@ export async function autoAssignForDelivery(params: {
     select: { productId: true },
   });
   const recentSet = new Set(recentSelections.map((s) => s.productId));
+  for (const id of extraRecent ?? []) recentSet.add(id);
 
   // 3) 슬롯별 배정
   const filled: { slug: string; productId: string }[] = [];

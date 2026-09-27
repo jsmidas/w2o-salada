@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     activeSubscriptions,
     recentOrders,
   ] = await Promise.all([
-    prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
+    prisma.order.count({ where: { createdAt: { gte: todayStart }, type: { not: "SUBSCRIPTION_DELIVERY" } } }), // /api/admin/stats/overview 와 같은 기준
     prisma.payment.aggregate({
       where: { status: "DONE", createdAt: { gte: todayStart } },
       _sum: { amount: true },

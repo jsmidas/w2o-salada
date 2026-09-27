@@ -3,16 +3,71 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"],
-      "env": ["DATABASE_URL", "DIRECT_URL", "NEXTAUTH_SECRET", "AUTH_SECRET", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_TOSS_CLIENT_KEY", "TOSS_SECRET_KEY"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ],
+      "env": [
+        "AUTH_SECRET",
+        "BILLING_ENCRYPTION_KEY",
+        "CI",
+        "CRON_SECRET",
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "KAKAO_CLIENT_ID",
+        "KAKAO_CLIENT_SECRET",
+        "KAKAO_REST_API_KEY",
+        "NAVER_CLIENT_ID",
+        "NAVER_CLIENT_SECRET",
+        "NEXTAUTH_SECRET",
+        "NEXTAUTH_URL",
+        "NEXT_PUBLIC_KAKAO_JS_KEY",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_TOSS_CLIENT_KEY",
+        "NEXT_RUNTIME",
+        "NODE_ENV",
+        "PHONE_VERIFY_SECRET",
+        "SENTRY_AUTH_TOKEN",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "SOLAPI_API_KEY",
+        "SOLAPI_API_SECRET",
+        "SOLAPI_PFID",
+        "SOLAPI_SENDER_PHONE",
+        "SOLAPI_TEMPLATE_DELIVERY_DONE",
+        "SOLAPI_TEMPLATE_DELIVERY_START",
+        "SOLAPI_TEMPLATE_ORDER_PAID",
+        "SOLAPI_TEMPLATE_PAYMENT_FAIL",
+        "SOLAPI_TEMPLATE_SUB_PAID",
+        "SOLAPI_TEMPLATE_SUB_RENEWAL_FAILED",
+        "SOLAPI_TEMPLATE_SUB_RENEWAL_NOTICE",
+        "SOLAPI_TEMPLATE_SUB_RENEWED",
+        "SOLAPI_TEMPLATE_SUB_SELECT_MENU",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "TOSS_SECRET_KEY",
+        "VWORLD_API_KEY"
+      ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": [
+        "^lint"
+      ]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": [
+        "^check-types"
+      ]
     },
     "dev": {
       "cache": false,

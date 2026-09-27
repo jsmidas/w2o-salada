@@ -160,7 +160,7 @@ const features = [
   { icon: "eco", title: "100% 신선 재료", desc: "매일 아침 산지에서 직송한 채소·과일·국거리로 만듭니다.", stat: 100, statLabel: "%" },
   { icon: "restaurant_menu", title: "가정식 풀라인업", desc: "샐러드·간편식·반찬·국까지 한 번에 우리 집 식탁으로.", stat: 4, statLabel: "종 카테고리" },
   { icon: "dark_mode", title: "새벽 배송", desc: "밤사이 준비해서 아침 6시 전 문 앞에 도착합니다.", stat: 6, statLabel: "시 전 도착" },
-  { icon: "savings", title: "구독 시 할인", desc: "정가 7,500원 → 구독 5,900원! 개당 1,600원 할인됩니다.", stat: 21, statLabel: "% 할인" },
+  { icon: "savings", title: "상시 할인가", desc: "구독하지 않아도 정가보다 싸게, 구독하면 배송 고정·자동 결제까지 편하게.", stat: 21, statLabel: "% 할인" },
 ];
 
 export default function AboutSection() {

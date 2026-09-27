@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { requireSubscriptionOwner } from "../../../../lib/subscription-guard";
 
 const DEFAULT_MIN_ORDER_AMOUNT = 11000;
-const FREE_SHIPPING_THRESHOLD = 15000;
-const DELIVERY_FEE = 3000;
 
 function generateOrderNo() {
   const now = new Date();
@@ -90,7 +88,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const deliveryFee = itemsTotal >= FREE_SHIPPING_THRESHOLD ? 0 : DELIVERY_FEE;
+    const deliveryFee = 0; // 정기구독은 금액과 무관하게 무료배송 (/api/subscribe 와 같은 규칙)
     const totalAmount = itemsTotal + deliveryFee;
 
     // 배송지: 구독에 고정된 배송지 → 없으면 기본 배송지. 반경 밖이면 보류 표시

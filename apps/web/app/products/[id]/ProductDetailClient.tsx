@@ -123,7 +123,7 @@ export default function ProductDetailClient({
           <div className="bg-white rounded-xl p-5 border border-[#1D9E75]/10 mb-6">
             {/* 구독가 */}
             <div className="mb-4">
-              <p className="text-[#1D9E75] text-xs font-semibold tracking-wider mb-1">구독가</p>
+              <p className="text-[#1D9E75] text-xs font-semibold tracking-wider mb-1">판매가</p>
               <div className="flex items-center gap-3">
                 {product.originalPrice && product.originalPrice > product.price && (
                   <span className="text-gray-400 text-lg line-through">

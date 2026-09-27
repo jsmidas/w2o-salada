@@ -19,13 +19,22 @@ export async function requireAdmin(permission?: AdminPermission) {
     return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }), session: null };
   }
 
-  const role = (session.user as { role?: string }).role;
+  const u = session.user as { id?: string; role?: string; permissions?: string | null };
+  // JWT 에 박힌 role/permissions 는 최대 30일 묵는다 — 강등·권한 회수가 바로 먹도록 DB 값을 다시 읽는다
+  if (u.id) {
+    try {
+      const { prisma } = await import("@repo/db");
+      const fresh = await prisma.user.findUnique({ where: { id: u.id }, select: { role: true, permissions: true } });
+      if (fresh) { u.role = fresh.role; u.permissions = fresh.permissions; }
+    } catch { /* DB 장애 시엔 토큰 값으로 진행 */ }
+  }
+  const role = u.role;
   if (role !== "ADMIN") {
     return { error: NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 }), session: null };
   }
 
   if (permission) {
-    const permissions = (session.user as { permissions?: string | null }).permissions;
+    const permissions = u.permissions;
     if (!hasPermission(permissions, permission)) {
       return { error: NextResponse.json({ error: `'${PERMISSION_LABELS[permission]}' 권한이 필요합니다.` }, { status: 403 }), session: null };
     }

@@ -28,9 +28,23 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const entries = Object.entries(body) as [string, string][];
+    const entries = Object.entries(body) as [string, unknown][];
 
-    for (const [key, value] of entries) {
+    // 키 형식 + 숫자 키 검증. "11,000" 같은 값이 들어가면 NaN 비교로 최소 주문액 검사가 통째로 뚫렸다
+    const NUMERIC_KEYS = new Set(["minOrderAmount", "deliveryFee", "freeShippingMin", "deliveryRadiusKm", "deliveryCenterLat", "deliveryCenterLng"]);
+    const RESERVED_PREFIX = ["sidebar.", "subscribe."]; // 다른 화면이 관리하는 키는 여기서 덮어쓰지 않는다
+    for (const [key, raw] of entries) {
+      if (!/^[A-Za-z0-9_.]{1,64}$/.test(key)) return NextResponse.json({ error: `설정 키가 올바르지 않습니다: ${key}` }, { status: 400 });
+      if (RESERVED_PREFIX.some((p) => key.startsWith(p))) return NextResponse.json({ error: `${key} 는 이 화면에서 바꿀 수 없습니다.` }, { status: 400 });
+      if (NUMERIC_KEYS.has(key)) {
+        const n = Number(String(raw).replace(/,/g, "").trim());
+        if (String(raw).trim() !== "" && !Number.isFinite(n)) return NextResponse.json({ error: `${key} 는 숫자여야 합니다.` }, { status: 400 });
+        if (key !== "deliveryCenterLat" && key !== "deliveryCenterLng" && n < 0) return NextResponse.json({ error: `${key} 는 0 이상이어야 합니다.` }, { status: 400 });
+      }
+    }
+
+    for (const [key, raw] of entries) {
+      const value = NUMERIC_KEYS.has(key) && String(raw).trim() !== "" ? String(Number(String(raw).replace(/,/g, "").trim())) : String(raw);
       await prisma.setting.upsert({
         where: { key },
         update: { value: String(value) },

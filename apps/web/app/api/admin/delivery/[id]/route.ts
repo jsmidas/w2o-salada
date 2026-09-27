@@ -27,6 +27,12 @@ export async function PATCH(
     const data: Record<string, unknown> = {};
 
     if (status) {
+      const VALID = ["PENDING", "IN_TRANSIT", "DELIVERED", "FAILED"];
+      if (!VALID.includes(status)) return NextResponse.json({ error: `배송 상태가 올바르지 않습니다: ${status}` }, { status: 400 });
+      // 완료된 배송은 되돌리지 않는다 (되돌리면 주문 상태·알림톡이 어긋난다)
+      if (delivery.status === "DELIVERED" && status !== "DELIVERED") {
+        return NextResponse.json({ error: "배송 완료된 건은 상태를 되돌릴 수 없습니다." }, { status: 400 });
+      }
       data.status = status;
     }
     if (driverId !== undefined) {

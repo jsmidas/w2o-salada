@@ -33,6 +33,9 @@ function ymd(date: Date) {
 
 export async function ensureSubscriptionDeliveries(date: Date): Promise<{ created: number; updated: number; removed: number }> {
   const { start, end } = dayRange(date);
+  // 캘린더에서 꺼진 날짜(휴일)는 배송 건을 만들지 않는다
+  const day = await prisma.deliveryCalendar.findUnique({ where: { date: start }, select: { isActive: true } });
+  if (day && !day.isActive) return { created: 0, updated: 0, removed: 0 };
   const editable = isOrderable(ymd(start)); // 마감 전이면 선택분 변경을 따라간다
 
   const selections = await prisma.subscriptionSelection.findMany({
@@ -76,6 +79,7 @@ export async function ensureSubscriptionDeliveries(date: Date): Promise<{ create
     if (!cur) {
       const addr = await pickAddressForUser(entry.userId, entry.addressId);
       const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+      try {
       await prisma.order.create({
         data: {
           orderNo: `W2O-${ymd(start).replace(/-/g, "")}-S${subId.slice(-4).toUpperCase()}`,
@@ -94,6 +98,10 @@ export async function ensureSubscriptionDeliveries(date: Date): Promise<{ create
         },
       });
       created++;
+      } catch (err) {
+        // 리포트와 인쇄 화면이 동시에 열리면 같은 배송 건을 두 요청이 만든다 — 유니크 위반은 "이미 있음" 으로 넘긴다
+        if ((err as { code?: string }).code !== "P2002") throw err;
+      }
       continue;
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
-import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
+import { sendAlimtalk, TEMPLATE } from "../../../lib/notification";
+import * as Sentry from "@sentry/nextjs";
 import { nextCycleWindow, previewCycle } from "../../../lib/subscription-cycle";
 import type { SlotMap, WeekdaySlotMap } from "../../../lib/auto-assign";
 
@@ -52,8 +53,9 @@ export async function POST(request: Request) {
         const credit = Math.min(sub.creditBalance, preview.amount);
         const charge = preview.amount - credit;
 
+        let delivered = false;
         if (sub.user.phone) {
-          await sendAlimtalkSafe({
+          const r = await sendAlimtalk({
             userId: sub.user.id,
             to: sub.user.phone,
             templateCode: TEMPLATE.SUB_RENEWAL_NOTICE,
@@ -66,11 +68,19 @@ export async function POST(request: Request) {
               차감: credit > 0 ? `${credit.toLocaleString()}원 차감` : "",
             },
           });
+          delivered = r.ok;
+          if (!r.ok) Sentry.captureMessage("갱신 사전 고지 발송 실패", { level: "warning", tags: { area: "subscription", phase: "renewal-notify" }, extra: { subId: sub.id, error: r.error } });
         }
-        await prisma.subscription.update({ where: { id: sub.id }, data: { renewalNotifiedAt: now } });
-        sent++;
-      } catch {
+        // 변동 금액 정기결제라 고지는 필수 — 실제로 나갔을 때만 기록해 실패 건은 다음 실행에서 다시 시도한다
+        if (delivered) {
+          await prisma.subscription.update({ where: { id: sub.id }, data: { renewalNotifiedAt: now } });
+          sent++;
+        } else {
+          failed++;
+        }
+      } catch (err) {
         failed++;
+        Sentry.captureException(err, { level: "error", tags: { area: "subscription", phase: "renewal-notify" }, extra: { subId: sub.id } });
       }
     }
 

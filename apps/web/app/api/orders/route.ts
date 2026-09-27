@@ -175,12 +175,13 @@ export async function POST(request: Request) {
     const groupList = [...groups.values()];
     const paymentGroupNo = groupList.length > 1 ? `W2O-${today}-G${randomCode(6)}` : null;
 
-    const created = await prisma.$transaction(async (tx) => {
+    // 주문번호는 4자리 랜덤이라 드물게 겹친다 — 유니크 위반이면 번호를 새로 뽑아 최대 3번 시도
+    const createOrders = () => prisma.$transaction(async (tx) => {
       const out = [];
       for (const g of groupList) {
         const order = await tx.order.create({
           data: {
-            orderNo: `W2O-${today}-${randomCode(4)}`,
+            orderNo: `W2O-${today}-${randomCode(5)}`,
             userId,
             addressId: addr.addressId,
             type: "SINGLE",
@@ -200,6 +201,15 @@ export async function POST(request: Request) {
       }
       return out;
     });
+    let created: Awaited<ReturnType<typeof createOrders>> | null = null;
+    for (let attempt = 0; attempt < 3 && !created; attempt++) {
+      try {
+        created = await createOrders();
+      } catch (err) {
+        if ((err as { code?: string }).code !== "P2002" || attempt === 2) throw err;
+      }
+    }
+    if (!created) return NextResponse.json({ error: "주문번호 생성에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
 
     const first = created[0]!;
     const totalAmount = created.reduce((s, o) => s + o.totalAmount, 0);

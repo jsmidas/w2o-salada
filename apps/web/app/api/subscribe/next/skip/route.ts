@@ -43,27 +43,24 @@ export async function POST(request: Request) {
       }
     }
 
-    await prisma.subscriptionSelection.deleteMany({
-      where: { subscriptionPeriod: { subscriptionId }, deliveryDate: currentDate },
-    });
-
-    // 배송일별 배송 건이 이미 만들어졌다면 함께 정리 (마감 전이라 안전)
-    await prisma.order.deleteMany({
-      where: { subscriptionId, type: "SUBSCRIPTION_DELIVERY", deliveryDate: currentDate, status: { in: ["PENDING", "PAID"] }, delivery: null },
-    });
-
     const afterDate = new Date(currentDate);
     afterDate.setDate(afterDate.getDate() + 1);
     const next = await findNextDeliveryDate(afterDate);
-
     const applyCredit = credited > 0 && subscription.autoRenew && !!subscription.billingKey;
-    await prisma.subscription.update({
-      where: { id: subscriptionId },
-      data: {
-        nextDeliveryDate: next ?? null,
-        ...(applyCredit ? { creditBalance: { increment: credited } } : {}),
-      },
+
+    // 선점: nextDeliveryDate 가 아직 이 날짜일 때만 진행 — 더블클릭으로 두 요청이 겹치면 크레딧이 2배로 쌓였다
+    const claimed = await prisma.subscription.updateMany({
+      where: { id: subscriptionId, nextDeliveryDate: currentDate },
+      data: { nextDeliveryDate: next ?? null, ...(applyCredit ? { creditBalance: { increment: credited } } : {}) },
     });
+    if (claimed.count === 0) {
+      return NextResponse.json({ error: "이미 처리된 요청입니다. 화면을 새로고침해주세요." }, { status: 409 });
+    }
+    await prisma.$transaction([
+      prisma.subscriptionSelection.deleteMany({ where: { subscriptionPeriod: { subscriptionId }, deliveryDate: currentDate } }),
+      // 배송일별 배송 건이 이미 만들어졌다면 함께 정리 (마감 전이라 안전)
+      prisma.order.deleteMany({ where: { subscriptionId, type: "SUBSCRIPTION_DELIVERY", deliveryDate: currentDate, status: { in: ["PENDING", "PAID"] }, delivery: null } }),
+    ]);
 
     return NextResponse.json({
       ok: true,

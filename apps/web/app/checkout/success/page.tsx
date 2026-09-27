@@ -83,8 +83,9 @@ function SuccessContent() {
     }
 
     if (!paymentKey || !orderId || !amount) {
-      // paymentKey가 없으면 이미 처리된 상태 (직접 접근)
-      setStatus("success");
+      // 결제 파라미터 없이 직접 들어온 경우 — "주문 완료" 로 오해하지 않게 안내
+      setStatus("error");
+      setErrorMsg("결제 정보가 없습니다. 주문 내역은 마이페이지에서 확인해주세요.");
       return;
     }
 

@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
       where.deliveryHoldResolvedAt = null;
       where.status = { in: ["PAID", "PREPARING", "SHIPPING"] };
     } else if (status) {
+      const VALID = ["PENDING", "PAID", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED", "REFUNDED", "FAILED"];
+      if (!VALID.includes(status)) return NextResponse.json({ error: `status 가 올바르지 않습니다: ${status}` }, { status: 400 });
       where.status = status;
     }
     if (type) {
@@ -39,6 +41,7 @@ export async function GET(request: NextRequest) {
         { user: { name: { contains: search, mode: "insensitive" } } },
         { user: { email: { contains: search, mode: "insensitive" } } },
         { id: { contains: search } },
+        { orderNo: { contains: search, mode: "insensitive" } },
       ];
     }
     if (dateFrom || dateTo) {

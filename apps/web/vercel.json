@@ -4,24 +4,12 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/renewal-notify",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/renewal-charge",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron/menu-select-notify",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/push-due-prices",
-      "schedule": "5 15 * * *"
-    },
-    {
-      "path": "/api/cron/delivery-arrived",
+      "path": "/api/cron/morning",
       "schedule": "30 22 * * *"
+    },
+    {
+      "path": "/api/cron/notices",
+      "schedule": "0 0 * * *"
     }
   ]
 }

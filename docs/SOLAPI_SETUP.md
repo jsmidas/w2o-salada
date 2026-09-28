@@ -84,10 +84,15 @@ SOLAPI_TEMPLATE_PAYMENT_FAIL      = KA01TP260412175953755DVv1oA37ff1
 | 알림 | 시각 (KST) | 크론 |
 |---|---|---|
 | 주문 완료 / 구독 결제 | 결제 즉시 | — |
-| 배송 도착(사진) | **07:30** | `/api/cron/delivery-arrived` |
-| 구독 갱신 예고 | 09:00 | `/api/cron/renewal-notify` |
-| 구독 갱신 결제 | 06:00 | `/api/cron/renewal-charge` |
-| 메뉴 선택 요청 | 09:00 | `/api/cron/menu-select-notify` |
+| 배송 도착(사진) | **07:30** | `/api/cron/morning` |
+| 구독 갱신 결제·완료 | 07:30 | `/api/cron/morning` |
+| 구독 갱신 예고 | 09:00 | `/api/cron/notices` |
+| 메뉴 선택 요청 | 09:00 | `/api/cron/notices` |
+
+Vercel Hobby 는 프로젝트당 크론이 **2개**까지라, 작업마다 크론을 걸면 상한을 넘는
+것이 조용히 등록되지 않는다. 그래서 시각이 비슷한 작업을 `morning`·`notices`
+두 묶음으로 돌린다. 개별 엔드포인트(`/api/cron/renewal-charge` 등)는 그대로
+살아 있어 하나만 손으로 돌릴 수도 있다.
 
 도착 알림은 배송 직후가 아니라 아침에 모아서 보낸다. 07:30 이 지난 뒤에 완료 처리된
 건(지연·재배송)은 크론을 기다리면 하루가 밀리므로 그 자리에서 바로 나간다.

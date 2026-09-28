@@ -9,7 +9,7 @@
 | 1 | ~~솔라피 승인분 4종 ID 등록~~ **(9/28 완료)** — `ORDER_PAID`·`PAYMENT_FAIL`·`SUB_PAID`·`SUB_RENEWED` 등록·재배포·실발송 확인 | Vercel → Environment Variables | 테스트 발송으로 SMS 폴백까지 확인 |
 | 1-b | **검수 중 4종** 승인되면 ID 등록 + 재배포: `SOLAPI_TEMPLATE_DELIVERY_DONE`, `SUB_RENEWAL_NOTICE`, `SUB_RENEWAL_FAILED`, `SUB_SELECT_MENU` | 같은 곳. 값은 [SOLAPI_SETUP.md](SOLAPI_SETUP.md) | 등록 전까지는 알림톡 대신 SMS/LMS 로 나감 |
 | 1-c | **발신번호 053-721-7794 승인**되면 `SOLAPI_SENDER_PHONE` 교체 + 재배포 | 9/28 변경 신청, 1~3일 소요 | 지금은 대체발송 문자가 개인 번호로 나감 |
-| 1-d | **Vercel 크론 개수 확인** — Hobby 플랜은 2개 제한인데 `vercel.json` 에 5개가 있다 | Vercel → Cron Jobs | **`renewal-charge` 가 안 돌면 구독 결제가 아예 안 걷힌다.** 오픈 전 필수 |
+| 1-d | ~~Vercel 크론 개수~~ **(9/28 조치 완료)** — 크론 5개를 `morning`(07:30)·`notices`(09:00) 2묶음으로 합쳐 Hobby 상한(2개) 안에 들어왔다 | Vercel → Cron Jobs 에 2개가 보이면 정상 | 개별 엔드포인트는 그대로 살아 있어 손으로도 돌릴 수 있다 |
 | 2 | 약관 수수료 30% 법률 검토 | 구독 약관 제6조 (`/terms/subscription`) | 방문판매법 계속거래 위약금 관행(10% 안팎)과 비교. 바꾸면 관리자 → 설정 → "환불 취소 수수료율"만 수정 |
 | 3 | 관리자 임시 비밀번호 변경 (9/27 복구 때 만든 계정) | 관리자 → 관리자 권한 | — |
 | 4 | Supabase Pro 전환 검토 (Free 는 자체 백업 없음) | Supabase 대시보드 | 현재는 GitHub Actions 일일 pg_dump 가 유일한 백업 |

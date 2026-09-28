@@ -51,10 +51,28 @@ export async function POST(request: Request) {
 
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
     const month = threeDaysLater.getMonth() + 1;
+
+    // 오늘 이미 이 안내를 받은 사람은 건너뛴다.
+    // 크론이 두 번 돌거나 손으로 한 번 더 돌려도 같은 날 두 통이 가지 않게.
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const alreadySent = new Set(
+      (
+        await prisma.notification.findMany({
+          where: { templateCode: "SUB_SELECT_MENU", createdAt: { gte: todayStart } },
+          select: { userId: true },
+        })
+      ).map((n) => n.userId),
+    );
 
     for (const sub of subscriptions) {
       try {
+        if (alreadySent.has(sub.userId)) {
+          skipped++;
+          continue;
+        }
         if (sub.user.phone) {
           await sendAlimtalkSafe({
             userId: sub.user.id,
@@ -77,6 +95,7 @@ export async function POST(request: Request) {
       targetDate: targetDateStr,
       total: subscriptions.length,
       sent,
+      skipped,
       failed,
       timestamp: now.toISOString(),
     });

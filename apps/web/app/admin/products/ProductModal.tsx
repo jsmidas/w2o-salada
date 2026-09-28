@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { prepareUpload, FileTooLargeError } from "../../lib/compress-image";
 
 type Product = {
@@ -275,7 +276,7 @@ export default function ProductModal({
             <label className="text-sm font-medium text-gray-700 mb-2 block">상품 이미지</label>
             {form.imageUrl && (
               <div className="mb-2 relative inline-block">
-                <img src={form.imageUrl} alt="미리보기" className="w-32 h-32 object-cover rounded-lg border" />
+                <Image src={form.imageUrl} alt="미리보기" width={128} height={128} className="w-32 h-32 object-cover rounded-lg border" />
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, imageUrl: "" })}

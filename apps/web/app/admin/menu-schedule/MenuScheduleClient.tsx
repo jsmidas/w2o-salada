@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
 type Product = {
   id: string;
@@ -271,7 +272,7 @@ export default function MenuScheduleClient({
                     >
                       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
                         {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover rounded-lg" />
+                          <Image src={p.imageUrl} alt={p.name} width={40} height={40} className="w-full h-full object-cover rounded-lg" />
                         ) : (
                           <span className="material-symbols-outlined text-gray-300">lunch_dining</span>
                         )}

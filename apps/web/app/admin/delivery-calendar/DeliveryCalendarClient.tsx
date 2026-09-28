@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import useSWR from "swr";
+import Image from "next/image";
 import { fetcher } from "../../lib/fetcher";
 
 type Category = {
@@ -68,9 +69,11 @@ function ProductThumb({ product }: { product: Product }) {
   return (
     <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
       {showImage ? (
-        <img
+        <Image
           src={product.imageUrl!}
           alt=""
+          width={44}
+          height={44}
           className="w-full h-full object-cover"
           onError={() => setFailed(true)}
         />

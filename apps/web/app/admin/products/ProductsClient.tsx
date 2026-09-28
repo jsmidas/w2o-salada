@@ -3,6 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
+import Image from "next/image";
 import { fetcher } from "../../lib/fetcher";
 
 const ProductModal = dynamic(() => import("./ProductModal"), { ssr: false });
@@ -139,7 +140,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       {p.imageUrl ? (
-                        <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                        <Image src={p.imageUrl} alt="" width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
                       ) : (
                         <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                           <span className="material-symbols-outlined text-gray-300">image</span>

@@ -46,16 +46,27 @@ async function collectUrls(): Promise<string[]> {
   const [products, deliveries, pages] = await Promise.all([
     prisma.product.findMany({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }),
     prisma.delivery.findMany({ where: { photoUrl: { not: null } }, select: { photoUrl: true } }),
-    prisma.productPage.findMany({ select: { content: true } }).catch(() => [] as { content: string | null }[]),
+    // 상세페이지는 이미지 URL 을 JSON 문자열 배열로 들고 있다
+    prisma.productPage.findMany({
+      select: { heroImages: true, featureImages: true, detailImages: true, galleryImages: true },
+    }),
   ]);
 
   const urls = new Set<string>();
   for (const p of products) if (isStorageUrl(p.imageUrl)) urls.add(p.imageUrl);
   for (const d of deliveries) if (isStorageUrl(d.photoUrl)) urls.add(d.photoUrl);
-  // 상세페이지 본문(HTML/JSON)에 박힌 이미지도 긁는다
+
+  // 상세페이지 이미지 필드는 JSON 문자열 배열이다. 깨져 있으면 조용히 건너뛴다.
   for (const pg of pages) {
-    for (const m of String(pg.content ?? "").matchAll(/https:\/\/[^"'\s)]+\/storage\/v1\/object\/public\/[^"'\s)]+/g)) {
-      if (isStorageUrl(m[0])) urls.add(m[0]);
+    for (const field of [pg.heroImages, pg.featureImages, pg.detailImages, pg.galleryImages]) {
+      if (!field) continue;
+      try {
+        const arr: unknown = JSON.parse(field);
+        if (!Array.isArray(arr)) continue;
+        for (const u of arr) if (typeof u === "string" && isStorageUrl(u)) urls.add(u);
+      } catch {
+        // JSON 이 아니면 그 필드만 포기한다 — 나머지 이미지는 계속 받는다
+      }
     }
   }
   return [...urls].sort();

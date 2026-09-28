@@ -8,7 +8,7 @@
 |---|---|---|
 | Postgres (public 스키마) | ✅ 매일 03:00 KST | GitHub Actions `db-backup.yml`, 아티팩트 90일 보관 |
 | 테이블별 JSON + 행 수 매니페스트 | ✅ 같은 워크플로 | 복원 검증용 |
-| **Supabase Storage `images` 버킷** | ❌ **백업 없음** | 상품 사진이 날아가면 복구 불가 (DB엔 URL만 있다) |
+| Supabase Storage 이미지 | ✅ 같은 워크플로 | **DB가 참조하는 파일만** — 고아 파일은 제외 |
 
 Supabase Free 플랜에는 자체 백업이 없어 이 워크플로가 유일한 안전장치다.
 
@@ -35,6 +35,8 @@ restore/db-backup-<RUN_ID>/
   w2o-YYYYMMDD-HHMM.schema.sql   ← 스키마만 (읽기용)
   json/manifest.json             ← 테이블별 행 수 (검증용)
   json/*.json                    ← 테이블별 데이터
+  images/manifest.json           ← 이미지 목록 (URL·크기·sha256)
+  images/images/pages/*.jpg      ← Storage 사본 (원래 경로 그대로)
 ```
 
 ### 2. 빈 DB 만들고 복원
@@ -105,18 +107,25 @@ SELECT tablename FROM pg_tables WHERE schemaname='public' AND NOT rowsecurity;
 **복원 리허설의 목적이 이것이다.** 백업이 열리는지만 보는 게 아니라, 복원본과
 운영본을 비교해 운영 쪽 설정이 어긋난 것을 찾아낸다. 정기적으로 돌려야 한다.
 
-## 남은 과제 — 이미지 버킷 백업
+## 이미지 복원
 
-Supabase Storage 의 `images` 버킷이 백업되지 않는다. 상품 사진이 사라지면
-DB 를 복원해도 URL 만 남고 파일은 돌아오지 않는다.
+`tools/backup_images.ts` 가 **DB 에 적힌 URL 로** Storage 파일을 받아 둔다.
+이미지가 public 경로라 서비스 롤 키가 필요 없고, DB 와 항상 일관된다.
 
-방법은 둘이다.
+```bash
+cd packages/db && npx tsx ../../tools/backup_images.ts ../../backup/images
+```
 
-- `supabase storage cp -r` (Supabase CLI) — 공식 도구, 서비스 롤 키 필요
-- `rclone` S3 프로토콜 연결 — Supabase Storage 는 S3 호환 엔드포인트를 제공한다
+받은 파일은 버킷 안의 경로를 그대로 유지하므로(`images/pages/<파일명>`),
+복원은 Supabase 대시보드 Storage 에서 같은 경로로 올리거나
+`supabase storage cp -r` 로 통째로 밀어 넣으면 된다.
+`manifest.json` 의 sha256 으로 올린 파일이 원본과 같은지 확인할 수 있다.
 
-`db-backup.yml` 에 단계를 덧붙여 같은 아티팩트에 올리는 게 가장 간단하다.
-용량이 커지면 별도 워크플로로 분리하고 주 1회로 낮춘다.
+### 한계 — 고아 파일은 백업되지 않는다
+
+DB 가 참조하지 않는 파일(삭제된 상품의 이미지, 업로드만 하고 안 쓴 파일)은
+빠진다. 복구에 필요한 건 참조되는 파일뿐이라 의도한 동작이지만,
+버킷 전체를 떠야 한다면 서비스 롤 키로 `supabase storage cp -r` 를 쓴다.
 
 ## 권장 주기
 

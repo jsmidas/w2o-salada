@@ -6,7 +6,10 @@
 
 | # | 할 일 | 어디서 | 확인 방법 |
 |---|---|---|---|
-| 1 | 솔라피 갱신 알림톡 템플릿 4종 승인 후 ID 등록 | Vercel → Environment Variables: `SOLAPI_TEMPLATE_SUB_RENEWAL_NOTICE`, `SOLAPI_TEMPLATE_SUB_RENEWED`, `SOLAPI_TEMPLATE_SUB_RENEWAL_FAILED`, `SOLAPI_TEMPLATE_SUB_SELECT_MENU` → Redeploy | 등록 전까지는 알림톡 대신 SMS/LMS 로 나감 |
+| 1 | ~~솔라피 승인분 4종 ID 등록~~ **(9/28 완료)** — `ORDER_PAID`·`PAYMENT_FAIL`·`SUB_PAID`·`SUB_RENEWED` 등록·재배포·실발송 확인 | Vercel → Environment Variables | 테스트 발송으로 SMS 폴백까지 확인 |
+| 1-b | **검수 중 4종** 승인되면 ID 등록 + 재배포: `SOLAPI_TEMPLATE_DELIVERY_DONE`, `SUB_RENEWAL_NOTICE`, `SUB_RENEWAL_FAILED`, `SUB_SELECT_MENU` | 같은 곳. 값은 [SOLAPI_SETUP.md](SOLAPI_SETUP.md) | 등록 전까지는 알림톡 대신 SMS/LMS 로 나감 |
+| 1-c | **발신번호 053-721-7794 승인**되면 `SOLAPI_SENDER_PHONE` 교체 + 재배포 | 9/28 변경 신청, 1~3일 소요 | 지금은 대체발송 문자가 개인 번호로 나감 |
+| 1-d | **Vercel 크론 개수 확인** — Hobby 플랜은 2개 제한인데 `vercel.json` 에 5개가 있다 | Vercel → Cron Jobs | **`renewal-charge` 가 안 돌면 구독 결제가 아예 안 걷힌다.** 오픈 전 필수 |
 | 2 | 약관 수수료 30% 법률 검토 | 구독 약관 제6조 (`/terms/subscription`) | 방문판매법 계속거래 위약금 관행(10% 안팎)과 비교. 바꾸면 관리자 → 설정 → "환불 취소 수수료율"만 수정 |
 | 3 | 관리자 임시 비밀번호 변경 (9/27 복구 때 만든 계정) | 관리자 → 관리자 권한 | — |
 | 4 | Supabase Pro 전환 검토 (Free 는 자체 백업 없음) | Supabase 대시보드 | 현재는 GitHub Actions 일일 pg_dump 가 유일한 백업 |
@@ -18,6 +21,7 @@
 3. **구독 일시정지·해지 흐름**: 마이페이지 → 구독 상세 → 일시정지(크레딧/주기 연장 선택 모달) → 재개 → 해지(사유 선택) → 관리자 → 구독 → 환불 신청에 접수되는지 → 승인(수수료 30% 기본) → 토스 부분 취소
 4. **크론 시각**: 내일 아침 Vercel → Settings → Cron Jobs 에서 `renewal-notify`·`menu-select-notify` 가 09:00 KST, `renewal-charge` 가 06:00 KST 에 200 으로 돌았는지 (어젯밤 UTC 보정)
 5. **소셜 로그인**: 카카오 로그인 후 마이페이지 주문내역이 보이는지 (세션 id → DB id 매핑 수정)
+6. ~~**배송 도착 알림**~~ **(9/28 확인 완료)** — 테스트 주문으로 관리자 강제 완료 → 문자 수신 → `/delivery/<토큰>` 페이지 확인까지 정상. 알림톡 전환은 템플릿 검수 후
 
 ## C. 남은 코드 작업 (우선순위 순)
 

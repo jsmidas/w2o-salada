@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useCart } from "../store/cart";
@@ -86,7 +87,7 @@ export default function CartPage() {
               {/* 이미지 */}
               <div className="w-20 h-20 bg-white/5 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                  <Image src={item.imageUrl} alt="" width={80} height={80} className="w-full h-full object-cover" />
                 ) : (
                   <span className="material-symbols-outlined text-white/10 text-3xl">lunch_dining</span>
                 )}

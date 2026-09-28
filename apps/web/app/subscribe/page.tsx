@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { firstOrderableDate } from "../lib/cutoff";
 import DeliveryAddressPicker, { type AddressSelection } from "../components/address/DeliveryAddressPicker";
 import SavedCardChoice, { type PayMethod, type SavedCardInfo } from "../components/SavedCardChoice";
@@ -856,7 +857,7 @@ function SubscribeContent() {
                               selected ? "border-[#1D9E75] shadow-lg scale-[1.01]" : full ? "border-gray-200 opacity-40 cursor-not-allowed" : "border-gray-200 hover:border-[#1D9E75]/40 hover:shadow-md"
                             }`}>
                             <div className="h-28 bg-gradient-to-br from-[#e8f5ee] to-[#d4edda] flex items-center justify-center relative overflow-hidden">
-                              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              {p.imageUrl ? <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 640px) 50vw, 200px" className="object-cover" />
                                 : <span className="material-symbols-outlined text-[#1D9E75]/25 text-4xl">lunch_dining</span>}
                               {selected && (
                                 <div className="absolute top-2 right-2 w-7 h-7 bg-[#1D9E75] rounded-full flex items-center justify-center shadow">

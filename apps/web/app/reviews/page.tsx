@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type Review = {
   id: string;
@@ -68,7 +69,7 @@ export default function ReviewsPage() {
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
                     {r.product.imageUrl ? (
-                      <img src={r.product.imageUrl} alt={r.product.name} className="w-full h-full object-cover rounded-lg" />
+                      <Image src={r.product.imageUrl} alt={r.product.name} width={40} height={40} className="w-full h-full object-cover rounded-lg" />
                     ) : (
                       <span className="material-symbols-outlined text-gray-300">eco</span>
                     )}

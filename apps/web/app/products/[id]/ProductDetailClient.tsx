@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "../../store/cart";
 import ProductPageView, { type ProductPageData } from "../../components/ProductPageView";
 
@@ -71,10 +72,15 @@ export default function ProductDetailClient({
         {/* 히어로 이미지 — 업로드 비율 그대로 */}
         <div className="mt-6 rounded-2xl overflow-hidden border border-[#1D9E75]/10 shadow-sm bg-white">
           {heroImage ? (
-            <img
+            <Image
               src={heroImage}
               alt={product.name}
-              className="w-full h-auto block"
+              width={1200}
+              height={900}
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="block"
+              style={{ width: "100%", height: "auto" }}
+              priority
             />
           ) : (
             <div className="aspect-video flex flex-col items-center justify-center">

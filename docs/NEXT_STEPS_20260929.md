@@ -21,7 +21,7 @@
 
 ## C. 남은 코드 작업 (우선순위 순)
 
-> **2026-09-29 진행분** — C-2·C-3·C-4·C-5·C-6·C-7·C-10 완료. 남은 항목: 1(백업 리허설)·8(ESLint)·9(데드 코드).
+> **2026-09-29 진행분** — C-1·C-2·C-3·C-4·C-5·C-6·C-7·C-9·C-10 완료. **남은 항목: 8(ESLint 정리)뿐.**
 
 | 우선 | 항목 | 예상 | 메모 |
 |---|---|---|---|
@@ -33,7 +33,7 @@
 | ~~6~~ | ~~로그인·인증코드 rate limit~~ | — | **완료** — DB(AccessAttempt) 기반. Redis 없이 처리, 교체 가능하게 `lib/rate-limit.ts`로 분리 |
 | ~~7~~ | ~~`middleware.ts` → `proxy.ts`~~ | — | **완료** — 파일명·export 함수명 모두 `proxy`. 빌드 경고 해소 |
 | 8 | ESLint 경고 68건 정리 (`<img>` → `next/image` 29건 포함) | 2h | `remotePatterns` 에 `*.supabase.co` |
-| 9 | 미사용 의존성·데드 코드 | 1h | `recharts`, `date-fns`, `@auth/prisma-adapter`, `packages/shared`, `StatsSection`, `MenuSection`, `signup-preview` |
+| ~~9~~ | ~~미사용 의존성·데드 코드~~ | — | **완료** — 38개 패키지 제거. `packages/shared`·`StatsSection`·`MenuSection`·`signup-preview` 삭제 |
 | ~~10~~ | ~~관리자 설정의 토스 키 입력란 제거~~ | — | **완료** — 결제 설정 섹션과 기본값 제거 |
 
 ## D. 오늘 바뀐 규칙 (팀 공유용 한 줄씩)

@@ -109,9 +109,14 @@ export async function POST(request: Request) {
           });
           if (!r.ok) {
             failed++;
-            await recordFailure({ sub, order, period, amount, raw: r.data, now });
+            const { paused } = await recordFailure({ sub, order, period, amount, raw: r.data, now });
             if (sub.user.phone) {
-              await sendAlimtalkSafe({ userId: sub.user.id, to: sub.user.phone, templateCode: TEMPLATE.SUB_RENEWAL_FAILED, variables: { 고객명: sub.user.name } });
+              await sendAlimtalkSafe({
+                userId: sub.user.id,
+                to: sub.user.phone,
+                templateCode: paused ? TEMPLATE.PAYMENT_FAIL : TEMPLATE.SUB_RENEWAL_FAILED,
+                variables: { 고객명: sub.user.name },
+              });
             }
             results.push({ subId: sub.id, status: "failed", error: r.data.message ?? r.data.code });
             continue;
@@ -286,8 +291,11 @@ async function prepareRenewal(p: {
   });
 }
 
-/** 결제 실패 기록. 7일 내 3회면 구독 PAUSED + 앵커 주문·주기 정리 */
-async function recordFailure(p: { sub: SubRow; order: OrderRow; period: PeriodRow; amount: number; raw: TossPaymentData; now: Date }) {
+/**
+ * 결제 실패 기록. 7일 내 3회면 구독 PAUSED + 앵커 주문·주기 정리.
+ * 일시정지까지 갔는지 돌려준다 — 고객에게 보낼 문구가 달라지기 때문이다.
+ */
+async function recordFailure(p: { sub: SubRow; order: OrderRow; period: PeriodRow; amount: number; raw: TossPaymentData; now: Date }): Promise<{ paused: boolean }> {
   const { sub, order, period, amount, raw, now } = p;
   await prisma.payment.create({
     data: { orderId: order.id, amount, status: "FAILED", billingKey: sub.billingKey, rawResponse: JSON.stringify(raw) },
@@ -303,7 +311,9 @@ async function recordFailure(p: { sub: SubRow; order: OrderRow; period: PeriodRo
       prisma.subscriptionPeriod.update({ where: { id: period.id }, data: { status: "CANCELLED" } }),
     ]);
     Sentry.captureMessage("구독 자동 갱신 3회 실패 → 일시정지", { level: "warning", tags: { area: "subscription", phase: "renewal-paused" }, extra: { subId: sub.id, userId: sub.userId } });
+    return { paused: true };
   }
+  return { paused: false };
 }
 
 /** 토스 결제 성공(또는 조회로 확인) 후 DB 마무리 — 한 트랜잭션 */

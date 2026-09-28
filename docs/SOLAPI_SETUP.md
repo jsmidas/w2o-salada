@@ -35,7 +35,14 @@
 | `SUB_RENEWAL_NOTICE` | 구독 갱신 예고 | 고객명·금액·결제일·배송횟수·기간·차감 | 같음 | 검수 후 확인 |
 | `SUB_RENEWAL_FAILED` | 구독 갱신 실패 | 고객명 | 같음 | 검수 후 확인 |
 | `SUB_SELECT_MENU` | 메뉴 선택 요청 | 고객명·월 | 같음 | 검수 후 확인 |
-| `PAYMENT_FAIL` | 결제 실패 알림 | — | — | 확인 필요 |
+| `PAYMENT_FAIL` | 결제 실패 알림 | 고객명 | 같음 | `KA01TP260412175953755DVv1oA37ff1` |
+
+`PAYMENT_FAIL`(결제 실패)은 **구독 자동 갱신이 7일 내 3회 실패해
+구독이 일시정지된 회차에만** 나간다. 1·2회차 실패는 `SUB_RENEWAL_FAILED`(구독 갱신 실패)가
+맡는다. 단건 결제 실패는 고객이 결제창 앞에 있어 화면에 바로 뜨므로 보내지 않는다.
+
+> 문구가 "결제에 실패했습니다. 카드 정보를 확인해주세요"라 **구독이 멈췄다는
+> 사실이 빠져 있다.** 정지 안내 전용 템플릿을 따로 만들면 더 정확하다.
 
 `DELIVERY_START`(배송 출발)는 **쓰지 않는다.** 새벽 3시에 울리는 알림은 고객에게
 득이 없다고 판단해 발송 자체를 없앴다. 지난 발송 기록이 남아 있어 관리자 화면의
@@ -65,7 +72,7 @@ SOLAPI_TEMPLATE_SUB_RENEWED       = KA01TP260928084145660d61jNQcPzsY
 SOLAPI_TEMPLATE_SUB_RENEWAL_NOTICE=
 SOLAPI_TEMPLATE_SUB_RENEWAL_FAILED=
 SOLAPI_TEMPLATE_SUB_SELECT_MENU   =
-SOLAPI_TEMPLATE_PAYMENT_FAIL      =
+SOLAPI_TEMPLATE_PAYMENT_FAIL      = KA01TP260412175953755DVv1oA37ff1
 ```
 
 넣은 뒤 **재배포해야** 반영된다. 빈 항목은 비워 둬도 되고, 그 템플릿만 SMS로 나간다.

@@ -49,12 +49,21 @@ try {
         await page.evaluate(() => window.scrollTo(0, 0));
         await page.waitForTimeout(300);
         await page.screenshot({ path: file, fullPage: true });
-        // 실제로 깨진 이미지가 있는지 센다
-        const broken = await page.evaluate(() =>
-          [...document.querySelectorAll("img")].filter((i) => i.complete && i.naturalWidth === 0).length,
+        // 깨진 이미지와 next/image 적용 여부를 함께 본다.
+        // next/image 를 타면 src 가 /_next/image?url=... 로 바뀐다.
+        const stat = await page.evaluate(() => {
+          const imgs = [...document.querySelectorAll("img")];
+          return {
+            total: imgs.length,
+            broken: imgs.filter((i) => i.complete && i.naturalWidth === 0).length,
+            optimized: imgs.filter((i) => i.currentSrc.includes("/_next/image")).length,
+            remoteRaw: imgs.filter((i) => /^https?:/.test(i.currentSrc) && !i.currentSrc.includes("/_next/image")).length,
+          };
+        });
+        const flag = stat.broken > 0 ? " ⚠ 깨짐" : "";
+        console.log(
+          `  ${vp.name.padEnd(7)} ${route.padEnd(22)} img ${String(stat.total).padStart(2)} · 최적화 ${String(stat.optimized).padStart(2)} · 원격원본 ${String(stat.remoteRaw).padStart(2)} · 깨짐 ${stat.broken}${flag}`,
         );
-        const total = await page.evaluate(() => document.querySelectorAll("img").length);
-        console.log(`  ${vp.name.padEnd(7)} ${route.padEnd(24)} img ${total}개, 깨짐 ${broken}개 → ${file}`);
       } catch (err) {
         console.log(`  ${vp.name.padEnd(7)} ${route.padEnd(24)} 실패: ${err.message.slice(0, 60)}`);
       }

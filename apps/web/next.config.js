@@ -6,6 +6,14 @@ const nextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/webp"],
+    // next/image 로 가져올 수 있는 원격 호스트. 등록하지 않은 호스트는 아예 막힌다.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
   },
 };
 

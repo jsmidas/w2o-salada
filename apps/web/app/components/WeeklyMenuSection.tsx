@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "../store/cart";
+import Image from "next/image";
 import { firstOrderableDate } from "../lib/cutoff";
 
 type Category = {
@@ -425,7 +426,7 @@ function MenuItemRow({ item, deliveryDate }: { item: Product; deliveryDate: stri
         aria-label={`${item.name} 상세보기`}
       >
         {item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover rounded-xl" width={48} height={48} decoding="async" />
+          <Image src={item.imageUrl} alt={item.name} width={48} height={48} className="w-full h-full object-cover rounded-xl" />
         ) : (
           <span className="material-symbols-outlined text-[#1D9E75] text-xl">lunch_dining</span>
         )}

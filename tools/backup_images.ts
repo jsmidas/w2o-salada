@@ -11,12 +11,17 @@
  *
  * 사용: npx tsx tools/backup_images.ts <출력_디렉터리>
  */
+import "dotenv/config";
 import { createHash } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// Actions 는 DIRECT_URL 만 secret 으로 준다. 로컬은 dotenv 가 .env 를 읽는다.
+const dbUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+if (!dbUrl) throw new Error("DB 접속 문자열이 없습니다 (DIRECT_URL / DATABASE_URL).");
+const prisma = new PrismaClient({ datasourceUrl: dbUrl });
+
 const outDir = process.argv[2] ?? "backup/images";
 
 /** Supabase Storage public URL 만 고른다 (상대경로는 저장소의 정적 파일이라 제외) */

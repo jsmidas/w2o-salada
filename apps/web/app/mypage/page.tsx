@@ -81,6 +81,8 @@ export default function MyPage() {
         <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
           <div className="flex items-center gap-4">
             {session.user?.image ? (
+              // 소셜 CDN(카카오·네이버·구글)은 호스트가 제각각이라 next/image 로 열지 않는다
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={session.user.image}
                 alt="프로필 사진"

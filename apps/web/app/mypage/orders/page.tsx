@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 
 type OrderItem = {
@@ -132,9 +133,11 @@ export default function OrdersPage() {
                     <div key={item.id} className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {item.product.imageUrl ? (
-                          <img
+                          <Image
                             src={item.product.imageUrl}
                             alt=""
+                            width={40}
+                            height={40}
                             className="w-full h-full object-cover"
                           />
                         ) : (

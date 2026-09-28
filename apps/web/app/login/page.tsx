@@ -26,7 +26,9 @@ export default function LoginPage() {
         setUsername(u);
         setSaveLogin(true);
       }
-    } catch {}
+    } catch {
+      // 저장된 아이디를 읽지 못하면 빈 폼으로 시작한다
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

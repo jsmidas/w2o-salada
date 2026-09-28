@@ -129,13 +129,6 @@ type Report = {
   center?: { name: string; lat: number | null; lng: number | null; radiusKm: number } | null; // 물류센터 — 지도 중심·반경 원
 };
 
-const statusLabels: Record<string, string> = {
-  PAID: "결제완료",
-  PREPARING: "준비중",
-  SHIPPING: "배송중",
-  DELIVERED: "배송완료",
-};
-
 function fmt(n: number) {
   return n.toLocaleString();
 }
@@ -512,7 +505,7 @@ export default function DeliveryClient({
                   </li>
                 ))}
               </ul>
-              <p className="text-[11px] text-amber-700 mt-2">고객과 통화해 "확인 완료"를 누르면 다음 새로고침부터 코스 편성에 들어옵니다. 취소면 주문 상태를 취소로 바꾸세요.</p>
+              <p className="text-[11px] text-amber-700 mt-2">고객과 통화해 “확인 완료”를 누르면 다음 새로고침부터 코스 편성에 들어옵니다. 취소면 주문 상태를 취소로 바꾸세요.</p>
             </div>
           )}
 

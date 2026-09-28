@@ -116,7 +116,7 @@ function savedToAddress(s: SavedAddress, prev: CheckoutAddress): CheckoutAddress
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { items, clearCart } = useCart();
+  const { items } = useCart();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -358,7 +358,9 @@ export default function CheckoutPage() {
     // 결제가 끝나면 성공 페이지가 이 라인들만 장바구니에서 지운다
     try {
       localStorage.setItem(PAID_LINES_KEY, JSON.stringify(payItems.map((i) => ({ productId: i.productId, deliveryDate: i.deliveryDate ?? null }))));
-    } catch {}
+    } catch {
+      // 저장소가 막힌 환경(사생활 보호 모드 등)이면 그냥 넘어간다 — 결제는 계속 진행
+    }
 
     // 서버가 계산한 금액을 사용 (위변조 방지)
     const payAmount: number = order.totalAmount ?? finalTotal;

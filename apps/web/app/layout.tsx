@@ -75,9 +75,12 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
         />
+        {/* 아이콘 폰트는 display=block — optional 로 두면 로드가 늦을 때 아이콘 자리에
+            리거처 이름이 그대로 보인다. 규칙은 optional 을 권하지만 여기선 맞지 않는다. */}
+        {/* eslint-disable-next-line @next/next/google-font-display */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
         />
       </head>
       <body className="bg-brand-dark">

@@ -1,4 +1,4 @@
-// @ts-nocheck - NextAuth v5 beta 타입 추론 이슈 회피
+// NextAuth v5 (beta) 설정 — 자격증명·소셜 로그인, 세션/JWT 콜백
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Kakao from "next-auth/providers/kakao";

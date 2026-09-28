@@ -50,9 +50,6 @@ const DAY_MS = 86400000;
 function addDays(dateStr: string, n: number): string {
   return new Date(new Date(dateStr + "T00:00:00Z").getTime() + n * DAY_MS).toISOString().slice(0, 10);
 }
-function dowOf(dateStr: string): number {
-  return new Date(dateStr + "T00:00:00Z").getUTCDay();
-}
 function fmtMD(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00Z");
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
@@ -828,7 +825,7 @@ function SubscribeContent() {
                         </p>
                       )) : <p className="text-xs text-gray-400">이 날짜에 배정된 메뉴가 없습니다</p>;
                     })()}
-                    <p className="text-[11px] text-[#7aaa90] mt-2">메뉴는 그날 식단표에서 알아서 담깁니다. 직접 고르려면 위의 "직접 선택"을 누르세요.</p>
+                    <p className="text-[11px] text-[#7aaa90] mt-2">메뉴는 그날 식단표에서 알아서 담깁니다. 직접 고르려면 위의 “직접 선택”을 누르세요.</p>
                   </div>
                 ) : (
                   <>

@@ -22,7 +22,9 @@ function SuccessContent() {
         removeLines(lines);
         return;
       }
-    } catch {}
+    } catch {
+      // 저장해 둔 결제 내역을 읽지 못하면 아래 기본 흐름으로 간다
+    }
     clearCart();
   };
 
@@ -78,7 +80,11 @@ function SuccessContent() {
       setStatus("success");
       setOrderNo(searchParams.get("orderNo"));
       clearPaidLines();
-      try { localStorage.removeItem("w2o_checkout_draft"); } catch {}
+      try {
+        localStorage.removeItem("w2o_checkout_draft");
+      } catch {
+        // 임시 저장분을 지우지 못해도 결제 완료에는 지장이 없다
+      }
       return;
     }
 
@@ -121,7 +127,11 @@ function SuccessContent() {
           setOrderNo(data.order?.orderNo ?? null);
           clearPaidLines();
           // 결제 성공했으니 입력 중이던 draft 제거
-          try { localStorage.removeItem("w2o_checkout_draft"); } catch {}
+          try {
+            localStorage.removeItem("w2o_checkout_draft");
+          } catch {
+            // 지우지 못해도 결제 완료에는 지장이 없다
+          }
           return;
         }
 

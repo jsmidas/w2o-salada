@@ -74,7 +74,7 @@ export default function RoutesClient() {
 
       {drivers.length === 0 && (
         <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg">
-          기사 계정이 없습니다. <a href="/admin/permissions" className="underline">관리자 권한 → 관리자 추가 → 새 계정 만들기</a>에서 역할을 "배송 기사"로 만들면 여기서 코스에 연결할 수 있습니다.
+          기사 계정이 없습니다. <a href="/admin/permissions" className="underline">관리자 권한 → 관리자 추가 → 새 계정 만들기</a>에서 역할을 “배송 기사”로 만들면 여기서 코스에 연결할 수 있습니다.
         </div>
       )}
 

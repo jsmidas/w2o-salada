@@ -23,7 +23,6 @@ type SidebarConfig = {
   faqs: Faq[];
 };
 
-import { DEFAULT_SIDEBAR_CONFIG as DEFAULT_CONFIG } from "../../lib/sidebar-defaults";
 
 export default function SidebarConfigClient({
   initialConfig,

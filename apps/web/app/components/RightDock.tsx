@@ -82,7 +82,7 @@ export default function RightDock() {
   const [showTop, setShowTop] = useState(false);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [config, setConfig] = useState<SidebarConfig>(DEFAULT_CONFIG);
-  const { canInstall, install, isInstalled } = useInstallPWA();
+  const { install, isInstalled } = useInstallPWA();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400);

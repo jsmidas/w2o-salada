@@ -37,15 +37,6 @@ interface PageForm {
 
 /* ── Constants ────────────────────────────────────────── */
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: "1", name: "시저 샐러드", categoryId: "salad", category: { name: "샐러드", slug: "salad" }, price: 8900, imageUrl: null, isActive: true },
-  { id: "2", name: "콥 샐러드", categoryId: "salad", category: { name: "샐러드", slug: "salad" }, price: 9500, imageUrl: null, isActive: true },
-  { id: "3", name: "그릴드 치킨 볼", categoryId: "bowl", category: { name: "그레인볼", slug: "bowl" }, price: 10900, imageUrl: null, isActive: true },
-  { id: "4", name: "연어 포케 볼", categoryId: "bowl", category: { name: "그레인볼", slug: "bowl" }, price: 12900, imageUrl: null, isActive: true },
-  { id: "5", name: "프로틴 박스", categoryId: "protein", category: { name: "프로틴", slug: "protein" }, price: 11500, imageUrl: null, isActive: true },
-  { id: "6", name: "디톡스 주스", categoryId: "juice", category: { name: "주스/음료", slug: "juice" }, price: 5900, imageUrl: null, isActive: true },
-];
-
 const DEFAULT_SECTION_ORDER = [
   "hero",
   "feature",
@@ -592,9 +583,6 @@ export default function PageEditorPage() {
   /* ── Shared UI ── */
   const inputClass =
     "w-full px-4 py-2.5 rounded-xl border border-white/10 bg-[#0f1420] text-white placeholder:text-gray-500 focus:outline-none focus:border-[#1D9E75] transition-colors text-sm";
-  const inputSmClass =
-    "w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0f1420] text-white placeholder:text-gray-500 focus:outline-none focus:border-[#1D9E75] transition-colors text-sm";
-
   if (loading) {
     return <div className="text-center py-20 text-gray-400">로딩 중...</div>;
   }

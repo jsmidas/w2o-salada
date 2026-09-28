@@ -41,7 +41,6 @@ export default function TrialPage() {
   const [loading, setLoading] = useState(true);
   const [minAmount, setMinAmount] = useState(11000);
 
-  const addItem = useCart((s) => s.addItem);
   const updateQuantity = useCart((s) => s.updateQuantity);
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clearCart);
@@ -90,7 +89,6 @@ export default function TrialPage() {
   const trialBaseTotal = trialLines
     .filter((i) => !i.isOption)
     .reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const trialFullTotal = trialLines.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const trialCount = trialLines.reduce((sum, i) => sum + i.quantity, 0);
   const meetsMin = trialBaseTotal >= minAmount;
 

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 
-// 상품 목록은 이미지·가격 변경이 잦으므로 항상 fresh 반환
+// 정적 프리렌더는 막되(force-dynamic), CDN 에서 30초 캐시 + 60초 stale-while-revalidate.
+// 메뉴 페이지가 방문마다 이 API 를 부르므로 캐시가 없으면 동시 접속 수만큼 DB 조회가 난다.
+// 30초 지연은 안전하다 — 주문 API 가 금액을 DB 가격으로 다시 계산한다(/api/orders, /api/subscribe).
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
       },
       orderBy: { sortOrder: "asc" },
     });
-    return NextResponse.json(products);
+    return NextResponse.json(products, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("GET /api/products error:", err);
     // DB 장애 시에도 프론트가 깨지지 않도록 빈 배열 반환

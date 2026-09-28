@@ -90,18 +90,41 @@ export default function SettingsClient({
     }
   };
 
+  // 주소가 많으면 한 요청으로 다 못 돈다 (건마다 외부 지오코딩 → 타임아웃).
+  // 서버가 커서를 돌려주므로 끝날 때까지 이어서 호출하고, 진행 상황을 그때그때 보여준다.
   const backfillAddresses = async () => {
     setAreaBusy("backfill");
-    setAreaMsg(null);
+    setAreaMsg("재판정 준비 중...");
     try {
-      const res = await fetch("/api/admin/delivery-area", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "backfill" }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setAreaMsg(data.error ?? "실패"); return; }
-      setAreaMsg(`주소 ${data.total}건 재판정 — 권역 내 ${data.inRange} · 반경 밖 ${data.outOfRange} · 좌표 미확인 ${data.unknown}${data.geocodeFailed ? ` (지오코딩 실패 ${data.geocodeFailed})` : ""}`);
+      let cursor: string | null = null;
+      let total = 0, inRange = 0, outOfRange = 0, unknown = 0, geocodeFailed = 0, released = 0;
+
+      for (let guard = 0; guard < 500; guard++) {
+        const res: Response = await fetch("/api/admin/delivery-area", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "backfill", cursor }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setAreaMsg(data.error ?? "실패"); return; }
+
+        total += data.processed ?? 0;
+        inRange += data.inRange ?? 0;
+        outOfRange += data.outOfRange ?? 0;
+        unknown += data.unknown ?? 0;
+        geocodeFailed += data.geocodeFailed ?? 0;
+        released += data.released ?? 0;
+
+        if (data.done || !data.nextCursor) break;
+        cursor = data.nextCursor as string;
+        setAreaMsg(`재판정 중... ${total}건 처리`);
+      }
+
+      setAreaMsg(
+        `주소 ${total}건 재판정 — 권역 내 ${inRange} · 반경 밖 ${outOfRange} · 좌표 미확인 ${unknown}` +
+          (geocodeFailed ? ` (지오코딩 실패 ${geocodeFailed})` : "") +
+          (released ? ` · 보류 해제 ${released}건` : ""),
+      );
     } finally {
       setAreaBusy(null);
     }

@@ -69,7 +69,34 @@ export default function ApartmentsClient() {
       })
       .filter((r) => r.name);
     if (rows.length === 0) return;
-    post({ rows }).then(() => setBulk(""));
+    postBulk(rows).then(() => setBulk(""));
+  };
+
+  // 단지마다 지오코딩을 부르므로 한 번에 다 보내면 타임아웃이 난다 — 25행씩 끊어 보낸다
+  const postBulk = async (rows: { name?: string; address?: string; households?: string; aliases?: string }[]) => {
+    const CHUNK = 25;
+    setBusy(true);
+    setMsg(null);
+    try {
+      let created = 0, updated = 0, skipped = 0;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        setMsg(`등록 중... ${Math.min(i + CHUNK, rows.length)}/${rows.length}행`);
+        const res = await fetch("/api/admin/apartments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: rows.slice(i, i + CHUNK) }),
+        });
+        const d = await res.json();
+        if (!res.ok) { setMsg(d.error ?? "실패"); return; }
+        created += d.created ?? 0;
+        updated += d.updated ?? 0;
+        skipped += d.skipped ?? 0;
+      }
+      setMsg(`등록 ${created} · 갱신 ${updated}${skipped ? ` · 건너뜀 ${skipped}` : ""}`);
+      mutate();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const patch = async (id: string, body: Record<string, unknown>) => {

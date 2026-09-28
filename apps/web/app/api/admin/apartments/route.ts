@@ -40,7 +40,7 @@ export async function GET() {
 
 type Row = { name?: string; address?: string; households?: number | string | null; dongCount?: number | string | null; aliases?: string | string[]; memo?: string };
 
-async function buildData(row: Row) {
+async function buildData(row: Row, center: { lat: number | null; lng: number | null }) {
   const name = String(row.name ?? "").trim();
   if (!name) return null;
   const address = row.address ? String(row.address).trim() : null;
@@ -54,11 +54,8 @@ async function buildData(row: Row) {
   else geo = await geocodeAddress(name); // 주소가 없으면 단지명 키워드 검색
 
   let distanceKm: number | null = null;
-  if (geo) {
-    const center = await getDeliveryCenter();
-    if (center.lat !== null && center.lng !== null) {
-      distanceKm = Math.round(haversineKm(geo, { lat: center.lat, lng: center.lng }) * 10) / 10;
-    }
+  if (geo && center.lat !== null && center.lng !== null) {
+    distanceKm = Math.round(haversineKm(geo, { lat: center.lat, lng: center.lng }) * 10) / 10;
   }
   return {
     name,
@@ -81,10 +78,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as Row & { rows?: Row[] };
-    const rows = Array.isArray(body.rows) ? body.rows : [body];
+    const all = Array.isArray(body.rows) ? body.rows : [body];
+    // 행마다 외부 지오코딩을 부르므로 한 요청에서 다 돌리면 서버리스 타임아웃이 난다.
+    // 화면이 25행씩 잘라 보내고, 서버도 상한을 둔다.
+    const MAX_PER_REQUEST = 25;
+    const rows = all.slice(0, MAX_PER_REQUEST);
+    const center = await getDeliveryCenter(); // 행마다 다시 읽지 않는다
     let created = 0, updated = 0, skipped = 0;
-    for (const row of rows.slice(0, 500)) {
-      const data = await buildData(row);
+    for (const row of rows) {
+      const data = await buildData(row, center);
       if (!data) { skipped++; continue; }
       const existing = await prisma.apartment.findFirst({ where: { name: data.name, ...(data.bname ? { bname: data.bname } : {}) } });
       if (existing) {
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
         created++;
       }
     }
-    return NextResponse.json({ created, updated, skipped });
+    return NextResponse.json({ created, updated, skipped, processed: rows.length, ignored: all.length - rows.length });
   } catch (err) {
     console.error("POST /api/admin/apartments error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

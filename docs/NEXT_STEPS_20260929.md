@@ -21,13 +21,13 @@
 
 ## C. 남은 코드 작업 (우선순위 순)
 
-> **2026-09-29 진행분** — C-2·C-7·C-10 완료 (커밋 `fa9377e` 이후). 나머지는 아래 표 그대로.
+> **2026-09-29 진행분** — C-2·C-3·C-7·C-10 완료. 나머지는 아래 표 그대로.
 
 | 우선 | 항목 | 예상 | 메모 |
 |---|---|---|---|
 | 1 | 백업 복원 리허설 + 이미지 버킷 백업 | 1~2h | 월 1회 수동 워크플로로 빈 Postgres 에 `pg_restore` 후 `prisma migrate status`; `images` 버킷은 rclone/supabase CLI |
 | ~~2~~ | ~~생산 집계 vs 배송 리포트 수량 기준 통일~~ | — | **완료** — 생산 집계도 `ensureSubscriptionDeliveries` + `DELIVERABLE_ORDER_TYPES` 기준. 보류 건은 상품 행 배지 + 하단 별도 표 |
-| 3 | 주소 일괄 보정·아파트 지오코딩 배치화 | 1h | `take: 25` + cursor, 설정 화면이 반복 호출 (서버리스 타임아웃 방지) |
+| ~~3~~ | ~~주소 일괄 보정·아파트 지오코딩 배치화~~ | — | **완료** — 주소 보정은 커서 페이징(25건/요청), 아파트 CSV는 25행씩 청크 전송 |
 | 4 | 첫 주기 창 클라이언트/서버 불일치 | 30m | 클라이언트가 `windowStart` 전송, 서버가 그 창으로 `cycleWindow` |
 | 5 | `/api/subscribe` 입력 검증 | 30m | 날짜가 활성 배송일·마감 전인지, `slots` sanitize |
 | 6 | 로그인·인증코드 rate limit | 1h | Upstash Ratelimit (Redis 필요) 또는 DB 카운터 |

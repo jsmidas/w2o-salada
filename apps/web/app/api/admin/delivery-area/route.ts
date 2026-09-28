@@ -14,7 +14,12 @@ export async function POST(request: Request) {
   if (error) return error;
 
   try {
-    const body = (await request.json()) as { action?: string; address?: string };
+    const body = (await request.json()) as {
+      action?: string;
+      address?: string;
+      cursor?: string | null; // backfill/rejudge 이어서 처리할 위치
+      limit?: number; // 한 번에 처리할 주소 수 (기본 25)
+    };
 
     if (body.action === "geocodeCenter") {
       const address = String(body.address ?? "").trim();
@@ -31,8 +36,19 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "backfill" || body.action === "rejudge") {
+      // 주소가 쌓이면 한 번에 다 돌릴 수 없다 (건마다 외부 지오코딩 호출 → 서버리스 타임아웃).
+      // 커서로 잘라서 돌려주고, 화면이 nextCursor 가 없어질 때까지 반복 호출한다.
       const center = await getDeliveryCenter();
-      const addresses = await prisma.address.findMany({ orderBy: { createdAt: "asc" } });
+      const limit = Math.min(Math.max(Number(body.limit) || 25, 1), 100);
+      const cursorId = typeof body.cursor === "string" && body.cursor ? body.cursor : null;
+
+      const page = await prisma.address.findMany({
+        orderBy: { id: "asc" }, // 커서 페이징은 고유 키로 정렬해야 건너뛰거나 겹치지 않는다
+        take: limit + 1, // 하나 더 읽어 다음 배치가 있는지 본다
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      });
+      const hasMore = page.length > limit;
+      const addresses = hasMore ? page.slice(0, limit) : page;
       let inRange = 0, outOfRange = 0, unknown = 0, geocodeFailed = 0;
 
       for (const a of addresses) {
@@ -53,20 +69,28 @@ export async function POST(request: Request) {
         await prisma.address.update({ where: { id: a.id }, data });
       }
 
-      // 아직 처리 안 된 보류 주문은 주소 재판정 결과를 따라간다 (권역 내가 되면 큐에서 자동 제외)
-      const holds = await prisma.order.findMany({
-        where: { deliveryHold: true, deliveryHoldResolvedAt: null, addressId: { not: null } },
-        select: { id: true, address: { select: { areaStatus: true } } },
-      });
+      // 보류 주문 해제는 모든 주소를 다시 판정한 뒤라야 의미가 있으므로 마지막 배치에서만 한다
       let released = 0;
-      for (const o of holds) {
-        if (o.address?.areaStatus === "IN_RANGE") {
-          await prisma.order.update({ where: { id: o.id }, data: { deliveryHold: false, deliveryHoldReason: null } });
-          released++;
+      if (!hasMore) {
+        const holds = await prisma.order.findMany({
+          where: { deliveryHold: true, deliveryHoldResolvedAt: null, addressId: { not: null } },
+          select: { id: true, address: { select: { areaStatus: true } } },
+        });
+        for (const o of holds) {
+          if (o.address?.areaStatus === "IN_RANGE") {
+            await prisma.order.update({ where: { id: o.id }, data: { deliveryHold: false, deliveryHoldReason: null } });
+            released++;
+          }
         }
       }
 
-      return NextResponse.json({ total: addresses.length, inRange, outOfRange, unknown, geocodeFailed, released, center });
+      return NextResponse.json({
+        processed: addresses.length,
+        inRange, outOfRange, unknown, geocodeFailed, released,
+        nextCursor: hasMore ? addresses[addresses.length - 1]!.id : null,
+        done: !hasMore,
+        center,
+      });
     }
 
     return NextResponse.json({ error: "알 수 없는 action" }, { status: 400 });

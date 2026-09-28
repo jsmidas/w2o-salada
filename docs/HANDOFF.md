@@ -5,6 +5,65 @@
 
 ---
 
+## 📅 2026-09-28 (월) 코드 점검 후속 — NEXT_STEPS C 항목 처리
+
+`docs/NEXT_STEPS_20260929.md` 의 "남은 코드 작업" 10건 중 9건 완료, 1건 부분 완료.
+
+### ✅ 완료
+
+**생산 집계와 배송 리포트 기준 통일 (C-2)**
+- 생산 집계가 구독 물량을 `SubscriptionSelection` 에서 직접 세고 있어 배송
+  리포트(배송 건 기준)와 수량이 어긋날 수 있었다. 둘 다
+  `ensureSubscriptionDeliveries` + `DELIVERABLE_ORDER_TYPES` 로 통일
+- 배송 보류(`deliveryHold`) 건은 상품 행 배지 + 하단 별도 표로 분리
+
+**서버리스 타임아웃 대비 (C-3)** — 주소 일괄 보정은 커서 페이징(25건/요청),
+아파트 CSV 등록은 25행씩 청크 전송. 둘 다 건마다 외부 지오코딩을 부르므로
+한 요청에서 다 돌리면 중간에 끊겼다
+
+**구독 생성 검증 (C-4·C-5)**
+- 주기 창을 화면이 보낸 `windowStart` 기준으로 확정. 서버가 "첫 선택일"로
+  다시 잡던 탓에 첫 회를 건너뛰면 기간·결제일이 7일 밀렸다
+- 활성 배송일 검증 + `sanitizeSlots` 추가
+
+**rate limit (C-6)** — DB(`AccessAttempt`) 기반. 워커가 없어 Redis 를 쓰는
+곳이 전무하므로 이것 하나 때문에 서비스를 늘리지 않았다. 로그인 계정당
+10분 10회·IP당 30회, 인증번호 발송 IP당 1시간 20회
+
+**정리** — `middleware.ts` → `proxy.ts`(Next 16), 죽은 토스 키 입력란 제거,
+미사용 의존성·데드 코드 제거(패키지 38개 감소), ESLint 68 → 23건
+
+**백업 (C-1)**
+- 복원 리허설 수행. 25개 테이블 행 수가 백업 매니페스트와 전부 일치
+- Storage 이미지 백업 추가 — DB 가 참조하는 URL 로 받아 아티팩트에 함께 올린다
+- `docs/BACKUP_RESTORE.md` 신설 (절차·검증·월 1회 리허설 권장)
+
+### 🐞 작업 중 발견해 고친 버그
+
+| 무엇 | 어떻게 찾았나 |
+|---|---|
+| `products/placeholder.jpg` 파일 없음 — 판매중 상품 7개가 깨져 보임 | Playwright 로 `/menu` 를 찍어 확인 |
+| 개발용 데모 관리자 로그인이 P2002 로 실패 (username 중복) | 로그인 자동화 중 발견 |
+| `_prisma_migrations` RLS 가 운영 DB 에서 꺼져 있음 | 백업 복원본과 운영본을 대조하다 발견 |
+| `auth.ts` 의 `@ts-nocheck` — 로그인·세션 전체가 타입 검사 밖 | 제거해도 에러 0건이라 삭제 |
+
+### 🖼 next/image 전환 (C-8 부분)
+
+`remotePatterns` 등록 후 화면마다 Playwright 로 전후를 대조하며 전환했다.
+`/menu` 22 · `/products/<id>` 1 · `/trial` 10 · `/admin/products` 22 ·
+`/mypage/orders` 33 — 모두 깨짐 0.
+
+남은 15건과 이어서 하는 방법은 `docs/NEXT_STEPS_20260929.md` 상단 참고.
+
+### 🔧 새로 생긴 도구
+
+- `tools/shot.mjs` — 경로를 데스크톱·모바일 두 벌로 찍고 **깨진 이미지 수와
+  next/image 적용 수**를 보고한다. `SHOT_LOGIN=1` 로 로그인 화면도 촬영.
+  MCP Playwright 가 끊겨 있어도 패키지를 직접 써서 동작한다
+- `tools/backup_images.ts` — Storage 이미지 백업
+
+---
+
 ## 📅 2026-09-27 (일) 오전 — 구독 요일별 구성 + 휴일 대체 배송일 + 간편결제 계획
 
 ### ✅ 완료 (모두 푸시·마이그레이션 적용 완료)

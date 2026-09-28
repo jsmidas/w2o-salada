@@ -21,7 +21,24 @@
 
 ## C. 남은 코드 작업 (우선순위 순)
 
-> **2026-09-29 진행분** — C-1·C-2·C-3·C-4·C-5·C-6·C-7·C-9·C-10 완료. **남은 항목: 8(ESLint 정리)뿐.**
+> **2026-09-29 진행분** — C-1~C-7·C-9·C-10 완료, C-8 부분 완료.
+>
+> ### C-8 에서 남은 `<img>` 15건 (데이터가 생기면 이어서)
+>
+> | 위치 | 건수 | 왜 미뤘나 |
+> |---|---|---|
+> | `components/ProductPageView.tsx` | 7 | 상세페이지 데이터 0건. `w-full h-auto` 로 원본 비율을 살리는 방식이라 눈으로 확인하지 않고 바꾸면 위험 |
+> | `admin/pages` (목록·편집) | 4 | 같은 이유 |
+> | `subscribe/next` | 2 | 진행 중인 구독이 있어야 렌더된다 |
+> | `mypage/reviews`, `mypage/subscription/[id]` | 2 | 후기·구독 데이터 필요 |
+>
+> 작업 방법: `npm run dev` 로 띄운 뒤
+> `SHOT_LOGIN=1 MSYS_NO_PATHCONV=1 node tools/shot.mjs <라벨> <경로...>` 로
+> 전후를 찍어 대조한다. 스크립트가 깨진 이미지 수와 next/image 적용 수를
+> 함께 보고하므로 매번 눈으로 볼 필요는 없다.
+>
+> 의도적으로 `<img>` 로 남긴 곳: `mypage/page.tsx` 프로필 사진 —
+> 소셜 CDN 은 호스트가 제각각이라 remotePatterns 를 넓게 열면 위험하다.
 
 | 우선 | 항목 | 예상 | 메모 |
 |---|---|---|---|
@@ -32,7 +49,7 @@
 | ~~5~~ | ~~`/api/subscribe` 입력 검증~~ | — | **완료** — 활성 배송일 검증 + `sanitizeSlots` 추가 (마감 검증은 `d4ad47e`에서) |
 | ~~6~~ | ~~로그인·인증코드 rate limit~~ | — | **완료** — DB(AccessAttempt) 기반. Redis 없이 처리, 교체 가능하게 `lib/rate-limit.ts`로 분리 |
 | ~~7~~ | ~~`middleware.ts` → `proxy.ts`~~ | — | **완료** — 파일명·export 함수명 모두 `proxy`. 빌드 경고 해소 |
-| 8 | ESLint 경고 68건 정리 (`<img>` → `next/image` 29건 포함) | 2h | `remotePatterns` 에 `*.supabase.co` |
+| 8 | ESLint 경고 정리 | **부분 완료** | 68 → 23건. `<img>` 15건만 남음 — 전부 데이터가 없어 화면 검증이 불가능한 곳이라 실제 데이터가 생기면 이어서 한다 (아래 참고) |
 | ~~9~~ | ~~미사용 의존성·데드 코드~~ | — | **완료** — 38개 패키지 제거. `packages/shared`·`StatsSection`·`MenuSection`·`signup-preview` 삭제 |
 | ~~10~~ | ~~관리자 설정의 토스 키 입력란 제거~~ | — | **완료** — 결제 설정 섹션과 기본값 제거 |
 

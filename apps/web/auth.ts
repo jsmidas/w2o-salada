@@ -54,11 +54,27 @@ const config: NextAuthConfig = {
         username: { label: "아이디", type: "text" },
         password: { label: "비밀번호", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.username || !credentials?.password) return null;
 
         const usernameStr = credentials.username as string;
         const passwordStr = credentials.password as string;
+
+        // 비밀번호 무차별 대입 차단 — 두 축으로 본다.
+        //  IP : 번호를 바꿔가며 두드리는 경우 (넉넉히)
+        //  계정: 한 계정을 집중적으로 노리는 경우 (엄격히)
+        // 제한에 걸리면 비밀번호가 맞아도 null — 로그인 실패와 같은 응답이라
+        // 공격자에게 "이 계정이 잠겼다"는 정보를 주지 않는다.
+        const { clientIp, hitRateLimit, clearRateLimit } = await import("./app/lib/rate-limit");
+        const ip = clientIp(request as { headers: Headers } | undefined);
+        const accountKey = `login:id:${usernameStr.toLowerCase()}`;
+
+        const gates = await Promise.all([
+          hitRateLimit(accountKey, 10, 10 * 60 * 1000),
+          // IP를 못 얻으면 모두가 한 키로 묶여 정상 사용자까지 막힌다 — 계정 제한만 건다
+          ...(ip === "unknown" ? [] : [hitRateLimit(`login:ip:${ip}`, 30, 10 * 60 * 1000)]),
+        ]);
+        if (gates.some((g) => !g.allowed)) return null;
 
         // 개발 전용 데모 관리자 계정 — prod 환경에선 비활성화
         if (
@@ -110,6 +126,9 @@ const config: NextAuthConfig = {
 
           const valid = await bcrypt.compare(passwordStr, user.password);
           if (!valid) return null;
+
+          // 정상 로그인이면 그 계정의 실패 기록을 지운다 (다음 로그인이 제한에 걸리지 않게)
+          await clearRateLimit(accountKey);
 
           return {
             id: user.id,

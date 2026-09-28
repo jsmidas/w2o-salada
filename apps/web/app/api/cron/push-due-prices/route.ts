@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pushDuePrices } from "../../../lib/effective-price";
+import { purgeRateLimits } from "../../../lib/rate-limit";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
@@ -15,7 +16,9 @@ export async function GET(request: Request) {
 
   try {
     const promoted = await pushDuePrices();
-    return NextResponse.json({ ok: true, promoted });
+    // 매일 도는 크론에 얹어 접근 시도 기록을 정리한다 (크론 개수를 늘리지 않으려고)
+    const purgedAttempts = await purgeRateLimits();
+    return NextResponse.json({ ok: true, promoted, purgedAttempts });
   } catch (err) {
     console.error("GET /api/cron/push-due-prices error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

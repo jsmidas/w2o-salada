@@ -21,7 +21,7 @@
 
 ## C. 남은 코드 작업 (우선순위 순)
 
-> **2026-09-29 진행분** — C-2·C-3·C-4·C-5·C-7·C-10 완료. 남은 항목: 1·6·8·9.
+> **2026-09-29 진행분** — C-2·C-3·C-4·C-5·C-6·C-7·C-10 완료. 남은 항목: 1(백업 리허설)·8(ESLint)·9(데드 코드).
 
 | 우선 | 항목 | 예상 | 메모 |
 |---|---|---|---|
@@ -30,7 +30,7 @@
 | ~~3~~ | ~~주소 일괄 보정·아파트 지오코딩 배치화~~ | — | **완료** — 주소 보정은 커서 페이징(25건/요청), 아파트 CSV는 25행씩 청크 전송 |
 | ~~4~~ | ~~첫 주기 창 클라이언트/서버 불일치~~ | — | **완료** — 화면이 `windowStart` 전송, 서버가 범위 검증 후 그 창을 사용 |
 | ~~5~~ | ~~`/api/subscribe` 입력 검증~~ | — | **완료** — 활성 배송일 검증 + `sanitizeSlots` 추가 (마감 검증은 `d4ad47e`에서) |
-| 6 | 로그인·인증코드 rate limit | 1h | Upstash Ratelimit (Redis 필요) 또는 DB 카운터 |
+| ~~6~~ | ~~로그인·인증코드 rate limit~~ | — | **완료** — DB(AccessAttempt) 기반. Redis 없이 처리, 교체 가능하게 `lib/rate-limit.ts`로 분리 |
 | ~~7~~ | ~~`middleware.ts` → `proxy.ts`~~ | — | **완료** — 파일명·export 함수명 모두 `proxy`. 빌드 경고 해소 |
 | 8 | ESLint 경고 68건 정리 (`<img>` → `next/image` 29건 포함) | 2h | `remotePatterns` 에 `*.supabase.co` |
 | 9 | 미사용 의존성·데드 코드 | 1h | `recharts`, `date-fns`, `@auth/prisma-adapter`, `packages/shared`, `StatsSection`, `MenuSection`, `signup-preview` |

@@ -694,3 +694,18 @@ model Setting {
 
   @@map("settings")
 }
+
+// ── 접근 시도 기록 (rate limit) ──
+// 로그인·인증번호 같은 남용 대상 동작의 시도를 남긴다.
+// "최근 N분에 이 키로 몇 번 시도했나"를 세는 용도라 슬라이딩 윈도우로 동작하고,
+// PhoneVerification 이 발송 기록으로 같은 일을 하는 것과 같은 방식이다.
+// 서버리스는 인스턴스가 매번 달라 메모리에 셀 수 없어 DB에 둔다.
+model AccessAttempt {
+  id        String   @id @default(cuid())
+  key       String   // "login:ip:1.2.3.4" · "login:id:admin" · "sendcode:ip:1.2.3.4"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@index([createdAt]) // 만료분 정리용
+  @@map("access_attempts")
+}

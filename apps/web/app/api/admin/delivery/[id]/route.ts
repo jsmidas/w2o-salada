@@ -60,6 +60,7 @@ export async function PATCH(
     if (status && status !== delivery.status) {
       await afterDeliveryStatusChange({
         orderId: updated.order.id,
+        deliveryId: id,
         user: updated.order.user,
         from: delivery.status,
         to: status as DeliveryTransition,

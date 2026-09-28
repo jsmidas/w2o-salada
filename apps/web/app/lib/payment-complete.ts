@@ -78,16 +78,27 @@ export async function completeOrderPayment(params: CompletePaymentParams) {
   });
 
   if (order.user.phone) {
-    await sendAlimtalkSafe({
-      userId: order.user.id,
-      to: order.user.phone,
-      templateCode: TEMPLATE.ORDER_PAID,
-      variables: {
-        고객명: order.user.name,
-        주문번호: order.orderNo,
-        배송일: formatDeliveryDate(order.deliveryDate),
-      },
-    });
+    // 구독 결제는 배송일이 여러 번이라 '배송일 하나'를 적는 주문 완료 문구가 맞지 않는다.
+    // 구독은 결제 사실만 알리고, 배송 일정은 구독 관리 화면에서 보게 한다.
+    await sendAlimtalkSafe(
+      order.subscriptionId
+        ? {
+            userId: order.user.id,
+            to: order.user.phone,
+            templateCode: TEMPLATE.SUB_PAID,
+            variables: { 금액: amount.toLocaleString("ko-KR") },
+          }
+        : {
+            userId: order.user.id,
+            to: order.user.phone,
+            templateCode: TEMPLATE.ORDER_PAID,
+            variables: {
+              고객명: order.user.name,
+              주문번호: order.orderNo,
+              배송일: formatDeliveryDate(order.deliveryDate),
+            },
+          },
+    );
   }
 
   return order;

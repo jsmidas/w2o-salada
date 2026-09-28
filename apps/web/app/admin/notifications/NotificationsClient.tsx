@@ -35,10 +35,15 @@ const statusColors: Record<string, string> = {
 
 const templateLabels: Record<string, string> = {
   ORDER_PAID: "주문 완료",
-  DELIVERY_START: "배송 출발",
-  DELIVERY_DONE: "배송 완료",
+  DELIVERY_DONE: "배송 도착",
   SUB_PAID: "구독 결제",
   PAYMENT_FAIL: "결제 실패",
+  SUB_RENEWAL_NOTICE: "구독 갱신 예고",
+  SUB_RENEWED: "구독 갱신 완료",
+  SUB_RENEWAL_FAILED: "구독 갱신 실패",
+  SUB_SELECT_MENU: "메뉴 선택 요청",
+  // 지금은 보내지 않지만 지난 발송 기록에 남아 있어 라벨은 남겨 둔다
+  DELIVERY_START: "배송 출발(중단)",
 };
 
 type InitialData = {

@@ -16,7 +16,8 @@ import { prisma } from "@repo/db";
 // ── 템플릿 코드 ───────────────────────────────────────────
 export const TEMPLATE = {
   ORDER_PAID: "ORDER_PAID",
-  DELIVERY_START: "DELIVERY_START",
+  // 배송 출발 알림은 두지 않는다 — 새벽 3시에 울리는 알림은 고객에게 득이 없다.
+  // 도착 알림 하나만 아침 07:30 에 보낸다 (api/cron/delivery-arrived).
   DELIVERY_DONE: "DELIVERY_DONE",
   SUB_PAID: "SUB_PAID",
   PAYMENT_FAIL: "PAYMENT_FAIL",
@@ -32,10 +33,9 @@ export type TemplateCode = (typeof TEMPLATE)[keyof typeof TEMPLATE];
 export const TEMPLATE_PREVIEW: Record<TemplateCode, string> = {
   ORDER_PAID:
     "[W2O SALADA]\n#{고객명}님, 주문이 완료되었습니다.\n주문번호: #{주문번호}\n#{배송일} 새벽 도착 예정입니다.",
-  DELIVERY_START:
-    "[W2O SALADA]\n#{고객명}님, 새벽배송이 출발했습니다.\n안전하게 배송해드리겠습니다.",
+  // 알림톡이 막혀 대체발송(SMS/LMS)으로 나갈 때를 대비해 버튼 주소를 본문에도 적어 둔다
   DELIVERY_DONE:
-    "[W2O SALADA]\n#{고객명}님, 문 앞에 도착했습니다.\n맛있게 드세요!",
+    "[W2O SALADA]\n#{고객명}님, 간밤에 문 앞으로 배송해 드렸습니다.\n\n배송 사진을 확인해보세요.\n맛있게 드세요!\nwww.w2o.co.kr/delivery/#{링크}",
   SUB_PAID:
     "[W2O SALADA]\n정기구독 결제가 완료되었습니다.\n금액: #{금액}원",
   PAYMENT_FAIL:
@@ -53,7 +53,6 @@ export const TEMPLATE_PREVIEW: Record<TemplateCode, string> = {
 // 솔라피 템플릿 ID 매핑 (승인 후 환경변수나 DB에서 읽어오도록 교체 가능)
 const TEMPLATE_ID_MAP: Record<TemplateCode, string | undefined> = {
   ORDER_PAID: process.env.SOLAPI_TEMPLATE_ORDER_PAID,
-  DELIVERY_START: process.env.SOLAPI_TEMPLATE_DELIVERY_START,
   DELIVERY_DONE: process.env.SOLAPI_TEMPLATE_DELIVERY_DONE,
   SUB_PAID: process.env.SOLAPI_TEMPLATE_SUB_PAID,
   PAYMENT_FAIL: process.env.SOLAPI_TEMPLATE_PAYMENT_FAIL,
@@ -151,6 +150,16 @@ async function callSolapi(
 
     if (!res.ok) {
       return { ok: false, error: data.errorMessage ?? JSON.stringify(data) };
+    }
+    // 솔라피는 접수 실패도 HTTP 200 으로 답한다. statusCode 가 2xxx 가 아니면 나가지 않은 것이다.
+    const failed = Array.isArray(data.failedMessageList) ? data.failedMessageList : [];
+    if (failed.length > 0) {
+      const f = failed[0];
+      return { ok: false, error: `${f?.statusCode ?? ""} ${f?.statusMessage ?? JSON.stringify(f)}`.trim() };
+    }
+    const statusCode = String(data.statusCode ?? "");
+    if (statusCode && !statusCode.startsWith("2")) {
+      return { ok: false, error: `${statusCode} ${data.statusMessage ?? ""}`.trim() };
     }
     return { ok: true, messageId: data.messageId };
   } catch (err) {

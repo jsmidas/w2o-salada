@@ -438,8 +438,13 @@ model Delivery {
   startedAt     DateTime?
   completedAt   DateTime?
   photoUrl      String?        // 배송 확인 사진
+  publicToken   String?  @unique // 고객용 배송 확인 페이지 주소에 쓰는 공개 키
+                                 // (주문번호는 규칙적이라 남의 배송을 들여다볼 수 있다)
   memo          String?
   sortOrder     Int            @default(0) // 배송 코스 순서
+  // 도착 알림톡을 보낸 시각. 알림은 새벽 도착 직후가 아니라 아침 07:30 크론이 보내므로
+  // "보냈는지"를 배송 건에 남겨 두 번 가지 않게 한다.
+  arrivedNotifiedAt DateTime?
 
   @@index([routeId, scheduledDate])
   @@index([scheduledDate])

@@ -1,46 +1,36 @@
 import { prisma } from "@repo/db";
-import { sendAlimtalkSafe, TEMPLATE } from "./notification";
+import { notifyArrival, pastArrivalNotifyTime } from "./delivery-notify";
 
 /**
  * 배송 상태 전환의 부수효과 — 주문 상태 동기화 + 고객 알림톡.
  * 관리자 배송 화면과 기사 앱이 같은 규칙을 타도록 한곳에 둔다.
  *
- *  IN_TRANSIT (출발)  → Order.SHIPPING  + '배송 출발' 알림톡
- *  DELIVERED  (완료)  → Order.DELIVERED + deliveredAt + '배송 완료' 알림톡
+ *  IN_TRANSIT (출발)  → Order.SHIPPING (알림 없음 — 새벽 3시에 알림을 보내지 않는다)
+ *  DELIVERED  (완료)  → Order.DELIVERED + deliveredAt + '배송 도착' 알림톡(아침 07:30)
  *  FAILED / PENDING   → 주문 상태는 건드리지 않는다 (관리자가 판단). FAILED 도 completedAt(처리 시각)을 남긴다
  */
 export type DeliveryTransition = "PENDING" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
 export async function afterDeliveryStatusChange(args: {
   orderId: string;
+  /** 도착 알림을 보낼 배송 건. 넘기지 않으면 알림은 07:30 크론에 맡긴다 */
+  deliveryId?: string;
   user: { id: string; name: string; phone: string | null };
   from: string;
   to: DeliveryTransition;
 }) {
-  const { orderId, user, from, to } = args;
+  const { orderId, deliveryId, user, from, to } = args;
   if (from === to) return;
 
   if (to === "IN_TRANSIT") {
     await prisma.order.update({ where: { id: orderId }, data: { status: "SHIPPING" } });
-    if (user.phone) {
-      await sendAlimtalkSafe({
-        userId: user.id,
-        to: user.phone,
-        templateCode: TEMPLATE.DELIVERY_START,
-        variables: { 고객명: user.name },
-      });
-    }
   }
 
   if (to === "DELIVERED") {
     await prisma.order.update({ where: { id: orderId }, data: { status: "DELIVERED", deliveredAt: new Date() } });
-    if (user.phone) {
-      await sendAlimtalkSafe({
-        userId: user.id,
-        to: user.phone,
-        templateCode: TEMPLATE.DELIVERY_DONE,
-        variables: { 고객명: user.name },
-      });
+    // 새벽에 끝난 배송은 07:30 크론이 모아서 보낸다. 그 시각이 지난 뒤 처리된 건만 바로 보낸다
+    if (deliveryId && pastArrivalNotifyTime()) {
+      await notifyArrival(deliveryId).catch((err) => console.error("도착 알림 실패:", err));
     }
   }
 }
@@ -69,7 +59,13 @@ export async function transitionDelivery(
   if (to === "PENDING") { data.startedAt = null; data.completedAt = null; }
 
   const updated = await prisma.delivery.update({ where: { id: deliveryId }, data });
-  await afterDeliveryStatusChange({ orderId: before.order.id, user: before.order.user, from: before.status, to });
+  await afterDeliveryStatusChange({
+    orderId: before.order.id,
+    deliveryId,
+    user: before.order.user,
+    from: before.status,
+    to,
+  });
   return updated;
 }
 

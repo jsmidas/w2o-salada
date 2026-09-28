@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../../lib/auth-guard";
-import { afterDeliveryStatusChange, type DeliveryTransition } from "../../../../lib/delivery-status";
+import { transitionDelivery, type DeliveryTransition } from "../../../../lib/delivery-status";
+
+const VALID: DeliveryTransition[] = ["PENDING", "IN_TRANSIT", "DELIVERED", "FAILED"];
 
 export async function PATCH(
   request: NextRequest,
@@ -13,7 +15,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, driverId, sortOrder } = body;
+    const { status, driverId, sortOrder, memo } = body;
 
     const delivery = await prisma.delivery.findUnique({ where: { id } });
 
@@ -24,27 +26,36 @@ export async function PATCH(
       );
     }
 
-    const data: Record<string, unknown> = {};
-
-    if (status) {
-      const VALID = ["PENDING", "IN_TRANSIT", "DELIVERED", "FAILED"];
-      if (!VALID.includes(status)) return NextResponse.json({ error: `배송 상태가 올바르지 않습니다: ${status}` }, { status: 400 });
+    if (status !== undefined) {
+      if (!VALID.includes(status)) {
+        return NextResponse.json({ error: `배송 상태가 올바르지 않습니다: ${status}` }, { status: 400 });
+      }
       // 완료된 배송은 되돌리지 않는다 (되돌리면 주문 상태·알림톡이 어긋난다)
       if (delivery.status === "DELIVERED" && status !== "DELIVERED") {
         return NextResponse.json({ error: "배송 완료된 건은 상태를 되돌릴 수 없습니다." }, { status: 400 });
       }
-      data.status = status;
-    }
-    if (driverId !== undefined) {
-      data.driverId = driverId;
-    }
-    if (sortOrder !== undefined) {
-      data.sortOrder = sortOrder;
     }
 
-    const updated = await prisma.delivery.update({
+    // 코스·순번은 상태와 무관하게 그대로 저장한다
+    const plain: Record<string, unknown> = {};
+    if (driverId !== undefined) plain.driverId = driverId;
+    if (sortOrder !== undefined) plain.sortOrder = sortOrder;
+    if (Object.keys(plain).length > 0) {
+      await prisma.delivery.update({ where: { id }, data: plain });
+    }
+
+    // 상태 전환은 기사 앱과 같은 함수를 탄다 — completedAt·주문 상태·도착 알림이 한곳에서 처리된다.
+    // 기사가 사진을 남기지 못한 건을 관리자가 대신 완료 처리하는 경로이기도 하다(사진 없이 완료된다).
+    if (status !== undefined && status !== delivery.status) {
+      await transitionDelivery(id, status as DeliveryTransition, {
+        ...(typeof memo === "string" ? { memo: memo.trim() || null } : {}),
+      });
+    } else if (typeof memo === "string") {
+      await prisma.delivery.update({ where: { id }, data: { memo: memo.trim() || null } });
+    }
+
+    const updated = await prisma.delivery.findUnique({
       where: { id },
-      data,
       include: {
         order: {
           include: {
@@ -55,17 +66,6 @@ export async function PATCH(
         },
       },
     });
-
-    // 배송 상태 전환 시 주문 상태 동기화 + 알림톡 발송 (기사 앱과 같은 규칙)
-    if (status && status !== delivery.status) {
-      await afterDeliveryStatusChange({
-        orderId: updated.order.id,
-        deliveryId: id,
-        user: updated.order.user,
-        from: delivery.status,
-        to: status as DeliveryTransition,
-      });
-    }
 
     return NextResponse.json(updated);
   } catch (err) {

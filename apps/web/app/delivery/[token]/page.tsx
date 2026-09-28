@@ -50,7 +50,8 @@ export default async function DeliveryConfirmPage({
     select: {
       status: true,
       photoUrl: true,
-      memo: true,
+      // memo 는 기사·관리자의 내부 기록이다("기사 사진 누락 — 관리자 확인" 같은 말이 들어간다).
+      // 고객 화면에는 내보내지 않는다.
       completedAt: true,
       scheduledDate: true,
       order: {
@@ -101,8 +102,15 @@ export default async function DeliveryConfirmPage({
               />
             </div>
           ) : (
-            <div className="flex aspect-[4/3] w-full items-center justify-center bg-gray-100 text-sm text-gray-500">
-              {done ? "배송 사진이 등록되지 않았습니다" : "배송 후 사진이 올라옵니다"}
+            // 기사가 사진을 남기지 못한 건(관리자 대신 처리)도 빈 칸으로 두지 않는다.
+            // 다만 사진이 있는 것처럼 보이면 안 되므로 로고와 함께 사실을 적는다.
+            <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 bg-brand-light">
+              <Image src="/logo-w2o-square.svg" alt="W2O SALADA" width={72} height={72} priority />
+              <p className="whitespace-pre-line px-6 text-center text-xs leading-relaxed text-gray-500">
+                {done
+                  ? "이 건은 배송 사진이 남지 않았습니다.\n배송은 정상적으로 완료되었습니다."
+                  : "배송이 끝나면 사진이 올라옵니다."}
+              </p>
             </div>
           )}
 
@@ -128,12 +136,6 @@ export default async function DeliveryConfirmPage({
                 ))}
               </dd>
             </div>
-            {delivery.memo && (
-              <div className="py-3">
-                <dt className="mb-1 text-gray-500">배송 메모</dt>
-                <dd className="text-brand-dark">{delivery.memo}</dd>
-              </div>
-            )}
           </dl>
 
           <div className="border-t border-gray-100 px-5 py-4">

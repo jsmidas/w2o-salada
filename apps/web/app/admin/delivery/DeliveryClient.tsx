@@ -158,6 +158,7 @@ export default function DeliveryClient({
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true); // 코스 편성 지도 — 핀으로 보고 핀에서 코스를 바꾼다
+  const [statusBusy, setStatusBusy] = useState<string | null>(null); // 상태 변경 중인 배송 id
 
   const apiUrl = `/api/admin/delivery/report?date=${date}`;
   const isInitial = date === initialDate;
@@ -283,6 +284,46 @@ export default function DeliveryClient({
       setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * 관리자 강제 상태 변경.
+   * 기사가 사진을 남기지 못한 채 배송을 끝낸 경우, 이 건은 기사 앱에서 완료할 방법이
+   * 없다(완료에 사진이 필수라서). 그대로 두면 고객에게 도착 알림도 나가지 않으므로
+   * 관리자가 사유를 남기고 대신 처리한다. 사유는 내부 기록이고 고객에게는 보이지 않는다.
+   */
+  const handleForceStatus = async (deliveryId: string, to: "DELIVERED" | "FAILED", orderNo: string) => {
+    const label = to === "DELIVERED" ? "배송 완료" : "배송 못함";
+    const preset = to === "DELIVERED" ? "기사 사진 누락 — 관리자 확인 후 완료" : "";
+    const reason = window.prompt(
+      `${orderNo.slice(-8)} 건을 '${label}'로 처리합니다.\n` +
+        (to === "DELIVERED" ? "완료하면 고객에게 도착 알림이 나갑니다.\n\n" : "\n") +
+        "사유 (내부 기록용, 고객에게 보이지 않습니다)",
+      preset,
+    );
+    if (reason === null) return; // 취소
+
+    setStatusBusy(deliveryId);
+    try {
+      const res = await fetch(`/api/admin/delivery/${deliveryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: to, memo: reason }),
+      });
+      if (!res.ok) {
+        const msg = await res.json().catch(() => ({}));
+        throw new Error(msg.error ?? (await res.text()));
+      }
+      await mutate();
+      setToast(`${label}로 처리했습니다`);
+      setTimeout(() => setToast(null), 2500);
+    } catch (err) {
+      console.error(err);
+      setToast(err instanceof Error ? err.message : "처리 실패");
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setStatusBusy(null);
     }
   };
 
@@ -538,6 +579,7 @@ export default function DeliveryClient({
                       <th className="text-right px-3 py-2 font-medium">금액</th>
                       <th className="text-left px-3 py-2 font-medium w-28">코스</th>
                       <th className="text-center px-3 py-2 font-medium w-16">순번</th>
+                      <th className="text-center px-3 py-2 font-medium w-24">처리</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -661,6 +703,31 @@ export default function DeliveryClient({
                               }
                               className="w-14 px-1 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-[#1D9E75]"
                             />
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {d.status === "DELIVERED" ? (
+                              <span className="text-[11px] text-gray-400">완료됨</span>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  type="button"
+                                  disabled={statusBusy === d.id}
+                                  onClick={() => handleForceStatus(d.id, "DELIVERED", o.orderNo)}
+                                  title="기사가 사진을 남기지 못한 건을 관리자가 대신 완료 처리합니다"
+                                  className="px-2 py-1 rounded text-[11px] font-medium bg-[#1D9E75] text-white hover:bg-[#167A5B] disabled:opacity-50"
+                                >
+                                  {statusBusy === d.id ? "처리 중…" : "완료 처리"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={statusBusy === d.id}
+                                  onClick={() => handleForceStatus(d.id, "FAILED", o.orderNo)}
+                                  className="px-2 py-1 rounded text-[11px] border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                  배송 못함
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

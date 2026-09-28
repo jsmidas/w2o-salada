@@ -426,6 +426,9 @@ function SubscribeContent() {
           slots: slotCounts,
           weekdaySlots: weekdaySlotsPayload,
           cycleWeeks,
+          // 화면이 안내한 주기 시작일 — 서버가 "가장 빠른 선택일"로 다시 잡으면
+          // 첫 배송일을 건너뛰고 고른 경우 기간·결제일이 화면과 어긋난다
+          windowStart: cutoffDate,
           autoRenew: isSub && autoRenew,
           selections,
           ...(addressSel ?? {}),

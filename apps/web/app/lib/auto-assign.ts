@@ -23,6 +23,17 @@ export function slotsForDate(
   return override && typeof override === "object" ? override : base;
 }
 
+/** 클라이언트에서 온 기본 슬롯 검증 — slug→음이 아닌 정수만 남긴다. 형식이 틀리면 null */
+export function sanitizeSlots(input: unknown): SlotMap | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const out: SlotMap = {};
+  for (const [slug, n] of Object.entries(input as Record<string, unknown>)) {
+    const num = Number(n);
+    if (Number.isInteger(num) && num >= 0 && num <= 99) out[slug] = num;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 /**
  * 클라이언트에서 온 요일별 슬롯 검증 — 요일 키 0~6, 값은 slug→음이 아닌 정수. 형식이 틀리면 null.
  * 요일이 하나도 없으면 null (기본 구성만 쓰는 것과 같다)

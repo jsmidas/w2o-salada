@@ -10,21 +10,23 @@ export async function POST(request: Request) {
       getSessionUserId(),
     ]);
 
-    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address, slots, weekdaySlots: rawWeekdaySlots, cycleWeeks: rawWeeks, autoRenew: rawAutoRenew } = body as {
+    const { plan, selectionMode, itemsPerDelivery, selections, addressId, address, slots, weekdaySlots: rawWeekdaySlots, cycleWeeks: rawWeeks, autoRenew: rawAutoRenew, windowStart: rawWindowStart } = body as {
       plan: "trial" | "subscription";
       selectionMode?: "MANUAL" | "AUTO";
       itemsPerDelivery?: number;
       slots?: Record<string, number>;
       weekdaySlots?: Record<string, Record<string, number>> | null; // 요일별 구성 { "2": {...}, "4": {...} } — 없으면 slots 만 쓴다
       cycleWeeks?: number;   // 2 / 4 / 6 / 8 — 롤링 청구 주기
+      windowStart?: string;  // 화면이 안내한 주기 시작일 (YYYY-MM-DD)
       autoRenew?: boolean;   // false 면 이번 주기만 결제 (빌링키 없음)
       selections: { date: string; productIds: string[] }[];
       addressId?: string | null;
       address?: import("../../lib/address-resolve").AddressInput | null;
     };
     const cycleWeeks = [2, 4, 6, 8].includes(Number(rawWeeks)) ? Number(rawWeeks) : 4;
-    const { sanitizeWeekdaySlots } = await import("../../lib/auto-assign");
+    const { sanitizeWeekdaySlots, sanitizeSlots } = await import("../../lib/auto-assign");
     const weekdaySlots = sanitizeWeekdaySlots(rawWeekdaySlots);
+    const safeSlots = sanitizeSlots(slots); // 음수·소수·과도한 수량을 그대로 저장하지 않는다
     const autoRenew = plan === "subscription" && rawAutoRenew !== false;
 
     if (!plan || !selections || selections.length === 0) {
@@ -42,6 +44,57 @@ export async function POST(request: Request) {
           error: "주문이 마감된 배송일이 포함되어 있습니다.",
           message: `${label} 배송은 주문이 마감되었습니다. (마감: ${CUTOFF_LABEL})\n화면을 새로고침하면 마감된 날짜가 빠지고 기간이 이어집니다.`,
           closedDates,
+        },
+        { status: 400 },
+      );
+    }
+
+    // 배송일로 지정되지 않은 날짜는 거부 — 화면을 오래 열어 두면 관리자가 내린 날짜가 남아 있을 수 있다
+    const selectedDates = [...new Set(selections.map((s) => s.date))].sort();
+    const activeRows = await prisma.deliveryCalendar.findMany({
+      where: {
+        date: { in: selectedDates.map((d) => new Date(`${d}T00:00:00.000Z`)) },
+        isActive: true,
+      },
+      select: { date: true },
+    });
+    const activeSet = new Set(activeRows.map((c) => c.date.toISOString().slice(0, 10)));
+    const inactiveDates = selectedDates.filter((d) => !activeSet.has(d));
+    if (inactiveDates.length > 0) {
+      const label = inactiveDates.map((d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`).join(", ");
+      return NextResponse.json(
+        {
+          error: "배송하지 않는 날짜가 포함되어 있습니다.",
+          message: `${label}은 배송일이 아닙니다.
+화면을 새로고침하면 최신 배송일로 갱신됩니다.`,
+          inactiveDates,
+        },
+        { status: 400 },
+      );
+    }
+
+    // 주기 창은 화면이 안내한 시작일을 따른다.
+    // 서버가 "가장 빠른 선택일"로 다시 잡으면, 고객이 첫 배송일을 건너뛰고 고른 경우
+    // 화면에 보여준 기간·결제일과 어긋난다. 다만 그대로 믿지 않고 범위를 검증한다.
+    const firstSelected = selectedDates[0]!;
+    const lastSelected = selectedDates[selectedDates.length - 1]!;
+    const windowStartDate =
+      typeof rawWindowStart === "string" &&
+      /^d{4}-d{2}-d{2}$/.test(rawWindowStart) &&
+      rawWindowStart <= firstSelected
+        ? rawWindowStart
+        : firstSelected;
+
+    const { cycleWindow, billingDateFor } = await import("../../lib/subscription-cycle");
+    const { startDate: cycleStart, endDate: cycleEnd } = cycleWindow(
+      new Date(`${windowStartDate}T00:00:00Z`),
+      cycleWeeks,
+    );
+    if (plan !== "trial" && lastSelected >= cycleEnd.toISOString().slice(0, 10)) {
+      return NextResponse.json(
+        {
+          error: "선택한 배송일이 구독 주기를 벗어납니다.",
+          message: `${cycleWeeks}주 주기(${windowStartDate} 시작) 안의 배송일만 고를 수 있습니다.`,
         },
         { status: 400 },
       );
@@ -152,10 +205,9 @@ export async function POST(request: Request) {
       });
 
       if (plan !== "trial") {
-        // 주기 = 첫 선택 배송일부터 N주. 결제일은 주기 종료 이틀 전 (자동 갱신일 때만)
-        const { cycleWindow, billingDateFor } = await import("../../lib/subscription-cycle");
-        const firstDate = [...selections].map((s) => s.date).sort()[0]!;
-        const { startDate, endDate } = cycleWindow(new Date(firstDate + "T00:00:00Z"), cycleWeeks);
+        // 주기 창은 위에서 화면이 안내한 시작일로 확정해 두었다 (결제일은 주기 종료 이틀 전)
+        const startDate = cycleStart;
+        const endDate = cycleEnd;
 
         const subscription = await tx.subscription.create({
           data: {
@@ -163,7 +215,7 @@ export async function POST(request: Request) {
             addressId: resolved.addressId,
             selectionMode: selectionMode === "AUTO" ? "AUTO" : "MANUAL",
             itemsPerDelivery: itemsPerDelivery || 2,
-            slots: slots && typeof slots === "object" ? slots : undefined,
+            slots: safeSlots ?? undefined,
             weekdaySlots: weekdaySlots ?? undefined,
             cycleWeeks,
             autoRenew,

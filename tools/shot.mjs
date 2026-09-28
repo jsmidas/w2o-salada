@@ -28,10 +28,31 @@ const cached = process.env.LOCALAPPDATA
   : null;
 const launchOpts = cached && existsSync(cached) ? { executablePath: cached } : {};
 const browser = await chromium.launch(launchOpts);
+
+/**
+ * 로그인 상태가 필요한 화면(관리자·마이페이지)을 찍을 때 쓴다.
+ * SHOT_LOGIN=1 이면 개발 전용 데모 관리자(admin/admin1234)로 들어간다 —
+ * auth.ts 가 NODE_ENV=development 에서만 허용하는 계정이라 운영에는 없다.
+ */
+async function login(page) {
+  await page.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
+  await page.getByPlaceholder("아이디를 입력하세요").fill(process.env.SHOT_ID ?? "admin");
+  await page.getByPlaceholder("비밀번호를 입력하세요").fill(process.env.SHOT_PW ?? "admin1234");
+  await page.getByRole("button", { name: /로그인/ }).first().click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1000);
+}
 try {
   for (const vp of VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
     const page = await ctx.newPage();
+    if (process.env.SHOT_LOGIN === "1") {
+      try {
+        await login(page);
+      } catch (err) {
+        console.log(`  [${vp.name}] 로그인 실패: ${String(err).slice(0, 70)}`);
+      }
+    }
     const errors = [];
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 120)); });
     page.on("requestfailed", (r) => errors.push(`요청실패 ${r.url().slice(-60)}`));

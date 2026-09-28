@@ -46,3 +46,4 @@ Thumbs.db
 # 복구·백업 산출물 (DB 데이터 포함 — 커밋 금지)
 _salvage-*/
 backups/
+.shots/

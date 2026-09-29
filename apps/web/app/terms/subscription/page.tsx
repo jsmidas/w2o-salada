@@ -97,7 +97,7 @@ export default async function SubscriptionTermsPage() {
               </li>
               <li>
                 <strong>취소 수수료:</strong> 회사는 환불 대상 금액의 <strong>{feePercent}%</strong>를 취소 수수료로 공제하고 나머지를 환불합니다.
-                수수료에는 결제대행사(PG) 취소 수수료와 결제 취소 처리 비용이 포함됩니다.
+                수수료는 해지로 인해 회사에 발생하는 손실(예측 발주된 재료비 등)과 결제 취소 처리 비용에 대한 것입니다.
                 <br />
                 <span className="text-xs text-gray-500">
                   예시: 환불 대상 금액 47,200원 → 수수료 {feePercent}% {Math.round((47200 * feePercent) / 100).toLocaleString()}원 공제 → {(47200 - Math.round((47200 * feePercent) / 100)).toLocaleString()}원 환불

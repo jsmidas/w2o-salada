@@ -396,6 +396,7 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 
 - **남은 배송분** = 결제된 주기의 선택분 중 아직 주문 마감(전날 14:00) 전인 날짜. 마감 지난 배송분은 조리에 들어간 것이라 정산 대상이 아니다 (`lib/subscription-settle.ts`)
 - **일시정지** 는 고객이 방식을 고른다 (`Subscription.pauseMode`): `CREDIT` = 남은 배송분 금액을 `creditBalance` 로 적립해 다음 결제에서 차감 / `EXTEND` = 선택분을 두고, 재개 시 정지 중 놓친 횟수만큼 배송일을 주기 뒤로 옮기고 `SubscriptionPeriod.endDate`·`nextBillingDate` 를 그만큼 민다
+- **취소 수수료는 10%** (`Setting.refundFeePercent`, 2026-09-29 30%에서 인하). 구독은 방문판매법상 '계속거래'라 해지로 인한 실손해를 현저히 초과하는 위약금을 물릴 수 없고(통상 잔여 대금의 10% 이내), 과하게 잡으면 약관규제법 제8조로 조항이 무효가 되어 한 푼도 못 받는다. 조리·재료 손실의 실제 방어선은 수수료가 아니라 **"마감 지난 배송분은 환불 대상 아님"** 쪽이다
 - **해지** 는 자동 환불이 없다. 남은 배송분 + 크레딧을 `RefundRequest`(kind SUBSCRIPTION_CANCEL, 사유 필수) 로 접수하고 담당자가 `/admin/refunds` 에서 수수료(`feeAmount`)를 정해 승인하면 그 주기 결제 주문에 대해 토스 **부분 취소** (`partialRefundOrder`, Payment REFUNDED 행으로 기록). 거절 사유는 고객 화면에 보인다
 - 관리자가 크레딧을 현금으로 돌려줄 때도 `RefundRequest`(CREDIT_PAYOUT) 를 만들어 같은 검토 흐름을 탄다. 거절하면 크레딧 복구
 - 해지 사유(`RefundReason`)는 이탈 원인 통계에 쓴다 — 환불 신청 화면 상단 분포. 약관 5·6조가 이 규칙을 그대로 담고 있으니 규칙을 바꾸면 약관도 같이 바꾼다

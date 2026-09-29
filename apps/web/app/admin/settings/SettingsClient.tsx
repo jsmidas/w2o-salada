@@ -11,7 +11,8 @@ const defaultSettings = {
   address: "대구광역시 달서구",
   businessNumber: "000-00-00000",
   mailOrderNumber: "", // 통신판매업 신고번호 — 전자상거래법 필수 표기, 간편결제 심사에서 확인하는 항목
-  refundFeePercent: "30", // 구독 해지·크레딧 환불 시 공제하는 취소 수수료율(%) — 약관 6조·환불 승인 모달에 반영
+  refundFeePercent: "10", // 구독 해지·크레딧 환불 시 공제하는 취소 수수료율(%) — 약관 6조·환불 승인 모달에 반영
+                          // 계속거래 위약금 상한(통상 10%)을 넘기면 조항이 무효가 된다 — lib/refund-policy.ts 참고
   cutoffTime: "14:00",
   deliveryStart: "03:00",
   deliveryEnd: "06:00",

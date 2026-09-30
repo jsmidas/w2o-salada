@@ -22,20 +22,33 @@ import type { AreaJudgement, AreaStatus } from "./geo";
 export type ZoneMode = "LEGACY" | "ZONES";
 export const ZONE_MODE_KEY = "deliveryZoneMode";
 export const ADMIN_ALERT_PHONE_KEY = "adminAlertPhone";
+/** ZONES 모드에서 권역에 없는 주소라도 센터 반경(deliveryRadiusKm) 이내면 허용 — "1" 이면 켜짐 (2026-09-30, 반경 15km 확장 요청) */
+export const RADIUS_FALLBACK_KEY = "deliveryZoneRadiusFallback";
 
 export const ZONE_MODE_LABEL: Record<ZoneMode, string> = {
   LEGACY: "기존 규칙 (시/도·동·반경, 권역 밖은 보류 접수)",
   ZONES: "권역 테이블만 (권역 밖은 결제 차단 + 오픈 알림 신청)",
 };
 
-/** 현재 판정 모드. 키가 없거나 값이 이상하면 LEGACY (배포 직후 동작이 바뀌지 않게) */
-export async function getZoneMode(): Promise<ZoneMode> {
+export type ZoneConfig = { mode: ZoneMode; radiusFallback: boolean };
+
+/** 판정 설정. 키가 없거나 값이 이상하면 LEGACY·반경 폴백 꺼짐 (배포 직후 동작이 바뀌지 않게) */
+export async function getZoneConfig(): Promise<ZoneConfig> {
   try {
-    const row = await prisma.setting.findUnique({ where: { key: ZONE_MODE_KEY } });
-    return row?.value === "ZONES" ? "ZONES" : "LEGACY";
+    const rows = await prisma.setting.findMany({ where: { key: { in: [ZONE_MODE_KEY, RADIUS_FALLBACK_KEY] } } });
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    return {
+      mode: map.get(ZONE_MODE_KEY) === "ZONES" ? "ZONES" : "LEGACY",
+      radiusFallback: ["1", "true", "on"].includes((map.get(RADIUS_FALLBACK_KEY) ?? "").trim().toLowerCase()),
+    };
   } catch {
-    return "LEGACY";
+    return { mode: "LEGACY", radiusFallback: false };
   }
+}
+
+/** 현재 판정 모드 */
+export async function getZoneMode(): Promise<ZoneMode> {
+  return (await getZoneConfig()).mode;
 }
 
 export type ZoneInput = {
@@ -48,7 +61,7 @@ export type ZoneInput = {
   bname?: string | null;
 };
 
-export type ZoneMatchedBy = "RULE_BLOCK" | "RULE_ALLOW" | "ZONE" | "LEGACY" | "NONE";
+export type ZoneMatchedBy = "RULE_BLOCK" | "RULE_ALLOW" | "ZONE" | "RADIUS" | "LEGACY" | "NONE";
 
 export type ZoneJudgement = {
   status: AreaStatus;
@@ -61,6 +74,8 @@ export type ZoneJudgement = {
   distanceKm: number | null;
   mode: ZoneMode;
   matchedBy: ZoneMatchedBy;
+  /** 결론을 내려면 좌표가 필요하다 (ZONES 모드 반경 폴백에서 아직 좌표가 없을 때). enrichLocation 이 이때만 지오코딩한다 */
+  needsCoords?: boolean;
   legacy: AreaJudgement;
 };
 
@@ -86,7 +101,9 @@ export function normBcode(s: string | null | undefined): string | null {
  * 예외 없이 항상 값을 돌려준다 (DB 장애 시 legacy 그대로).
  */
 export async function judgeZone(input: ZoneInput, legacy: AreaJudgement, modeOverride?: ZoneMode): Promise<ZoneJudgement> {
-  const mode = modeOverride ?? (await getZoneMode());
+  const cfg = await getZoneConfig();
+  const mode = modeOverride ?? cfg.mode;
+  const radiusFallback = cfg.radiusFallback;
   const zip = normZip(input.zipCode);
   const bcode = normBcode(input.bcode);
   const bn = input.buildingName ? normName(input.buildingName) : "";
@@ -136,11 +153,32 @@ export async function judgeZone(input: ZoneInput, legacy: AreaJudgement, modeOve
 
     // 4) 매칭 없음
     if (mode === "ZONES") {
+      // 4-a) 반경 폴백 — 권역에 없어도 센터 반경 이내면 허용 (시/도·허용 동 화이트리스트는 쓰지 않는다, 거리만)
+      if (radiusFallback) {
+        if (legacy.distanceKm !== null && legacy.distanceKm <= legacy.radiusKm) {
+          return {
+            ...base,
+            status: "IN_RANGE", canOrder: true,
+            reason: `센터 반경 ${legacy.radiusKm}km 이내 (${legacy.distanceKm}km)`,
+            zoneId: null, zoneName: null, ruleId: null, matchedBy: "RADIUS",
+          };
+        }
+        if (legacy.distanceKm === null) {
+          // 좌표가 없어 거리를 모른다 — 호출부(enrichLocation)가 지오코딩한 뒤 다시 판정한다. 끝내 못 얻으면 UNKNOWN 보류
+          return {
+            ...base,
+            status: "UNKNOWN", canOrder: true,
+            reason: "권역 밖 — 센터 거리 확인 필요",
+            zoneId: null, zoneName: null, ruleId: null, matchedBy: "NONE", needsCoords: true,
+          };
+        }
+      }
       const inactive = await matchZone(zip, bcode, false);
+      const far = radiusFallback && legacy.distanceKm !== null ? ` · 센터에서 ${legacy.distanceKm}km` : "";
       return {
         ...base,
         status: "OUT_OF_RANGE", canOrder: false,
-        reason: inactive ? `권역 비활성: ${inactive.name}` : "등록된 배송 권역 없음",
+        reason: (inactive ? `권역 비활성: ${inactive.name}` : "등록된 배송 권역 없음") + far,
         zoneId: inactive?.id ?? null, zoneName: inactive?.name ?? null, ruleId: null, matchedBy: "NONE",
       };
     }
@@ -277,7 +315,10 @@ export function zoneMessage(z: ZoneJudgement): string {
     case "RULE_ALLOW":
     case "ZONE":
       return `배송 가능 지역입니다.${z.zoneName ? ` (${z.zoneName})` : ""}`;
+    case "RADIUS":
+      return `배송 가능 지역입니다. (${z.reason})`;
     case "NONE":
+      if (z.status === "UNKNOWN") return "주소 위치를 자동으로 확인하지 못했습니다. 주문은 접수되며, 담당자가 확인 후 연락드립니다.";
       return "아직 배송하지 않는 지역입니다. 오픈 알림을 신청하시면 배송이 시작될 때 알려드립니다.";
     default:
       break;

@@ -378,13 +378,14 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 
 - 우편번호(`ZIP`, 정확 일치)·법정동 코드(`BCODE`, 접두 매칭: 5자리=구, 8자리=동, 10자리=리) 단위 `DeliveryZone` + 예외 규칙 `DeliveryZoneRule`(우편번호·단지명·사전 등록 단지, ALLOW/BLOCK) + 날짜별 중지 `DeliveryZoneSuspension` + 오픈 알림 대기 `DeliveryWaitlist`. 관리는 `/admin/delivery-zones`(권한 `orders`), 판정은 `lib/delivery-zone.ts`
 - 판정 순서: **차단 규칙 → 허용 규칙 → 활성 권역 → 매칭 없음이면 모드에 따라** (Setting `deliveryZoneMode`) — `LEGACY`(기본): 위 시/도·동·반경 규칙으로 폴백, 권역 밖은 보류 접수 / `ZONES`: 권역 밖 = **결제 차단** + "우리 동네 오픈 알림 신청"(`POST /api/delivery/waitlist`). 차단 규칙은 모드와 무관하게 막는다
+- **반경 폴백** (Setting `deliveryZoneRadiusFallback`="1", 2026-09-30 켬): ZONES 모드에서 권역에 없는 주소라도 센터 반경(`deliveryRadiusKm`, **15km**로 확장) 이내면 허용. 이때만 좌표를 조회한다(VWorld 우선). 시/도·허용 동 화이트리스트는 ZONES 모드에서 쓰지 않는다
 - 배포 직후 동작이 바뀌지 않게 기본은 LEGACY. 초기 권역 CSV(`packages/db/prisma/seeds/delivery-zones.csv`, `npm run db:seed:zones -w @repo/db`)를 넣고 "기존 배송지 좌표 보정·재판정"으로 `Address.bcode/zoneId`를 채운 뒤 설정에서 ZONES 로 전환한다
 - 서버 검증 6곳이 모두 `rejudgeAddress`(현재 규칙 재판정) → `checkOrderable`(차단·중지일)을 거친다: 단건 주문·구독 신청·자동결제 크론·갱신 예고 크론·다음 주기 확정·구독 배송지 변경. 화면은 `AreaCheckNotice`의 `canOrder=false` 또는 서버 400 `code: OUT_OF_AREA`를 받으면 결제 버튼 대신 `WaitlistForm`을 보여준다
 - 권역이 꺼져 자동결제를 건너뛴 구독은 `Subscription.zoneBlockedAt`에 표시되고 "결제 보류 구독자" 탭에 모인다. 크론 선점이 `nextBillingDate`를 하루씩 미루므로 권역을 다시 켜면 다음날 아침 자동 청구된다. 고객에게는 알림이 나가지 않고, Setting `adminAlertPhone`이 있으면 관리자 SMS 1건
 - 날짜별 중지는 새 주문을 그 날짜에 막고(`DATE_SUSPENDED`), 이미 결제된 단건은 보류 큐로, 구독분은 관리자 버튼으로 크레딧 적립(건너뛰기와 같은 정산). 자동결제 직전이면 중지일을 주기에서 빼고 청구한다
 - `Address.bcode`는 다음 API `bcode`(신규) 또는 카카오 `b_code`(보정 배치)로 채운다. 기존 주소는 우편번호로만 매칭되다가 배치 후 법정동으로도 매칭된다
 - **지오코딩 비용 최소화 (2026-09-30, 카카오맵 유료 전환)**: `enrichLocation`은 좌표 없이 먼저 판정하고(규칙·권역·시/도·허용 동), 센터 반경까지 가야 할 때만 좌표를 조회한다. 좌표 조회는 무료 VWorld → 카카오 순, 법정동 코드가 목적인 보정 배치만 카카오를 먼저 부른다(`geocodeAddress(q, "bcode")`). 권역 모드에서 신규 주소는 사실상 카카오 호출이 없다
-- 절차·롤백·테스트 시나리오: [docs/DELIVERY_ZONE.md](docs/DELIVERY_ZONE.md)
+- 절차·롤백·테스트 시나리오: [docs/DELIVERY_ZONE.md](docs/DELIVERY_ZONE.md) · 관리자 사용 설명서: [docs/DELIVERY_ZONE_GUIDE.md](docs/DELIVERY_ZONE_GUIDE.md) (초기 CSV는 대구 9개 구·군, 군위군만 비활성)
 - 출입 방법·비밀번호·층수·갖다둘 곳·별칭은 **회원이 아니라 배송지(Address)** 에 둔다. 한 회원이 부모님 댁 등 여러 곳에 보낼 수 있다
 - `buildingName`은 다음 API 원문 그대로 저장(단지 묶음 키). 주소 문자열에 합치지 않는다
 

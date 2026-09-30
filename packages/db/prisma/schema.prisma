@@ -84,6 +84,12 @@ model Address {
   // 고정 코스 원칙 — 같은 배송지는 지난번 코스를 기본값으로 채운다 (관리자는 새 주소만 배정)
   lastRouteId  String?
   lastRoute    DeliveryRoute? @relation("AddressLastRoute", fields: [lastRouteId], references: [id])
+  // ── 배송 권역 (2026-09-30) ──
+  // 다음 API의 bcode(법정동 코드 10자리). 권역 매칭 키. 기존 주소는 좌표 보정 배치가 카카오 b_code 로 채운다
+  bcode        String?
+  zoneId       String?            // 매칭된 권역 (캐시 — 판정 시 다시 계산)
+  zone         DeliveryZone? @relation(fields: [zoneId], references: [id])
+  areaReason   String?            // 마지막 판정 근거 (관리자 표시용) — "권역: 달서구 이곡동" / "차단 규칙: 공사 중"
   createdAt    DateTime @default(now())
 
   orders        Order[]
@@ -91,6 +97,8 @@ model Address {
 
   @@index([sigungu, bname])
   @@index([buildingName])
+  @@index([zipCode])
+  @@index([zoneId])
   @@index([areaStatus])
   @@index([userId])
   @@map("addresses")
@@ -131,6 +139,7 @@ model Apartment {
   updatedAt   DateTime @updatedAt
 
   addresses Address[]
+  zoneRules DeliveryZoneRule[]
 
   @@index([sigungu, bname])
   @@index([name])
@@ -312,6 +321,9 @@ model Subscription {
   nextBillingDate   DateTime?
   nextDeliveryDate  DateTime?
   renewalNotifiedAt DateTime?          // 갱신 사전 알림 발송일
+  // 권역 비활성·차단으로 자동결제를 건너뛴 구독 (관리자 "결제 보류 구독자" 목록). 다시 청구되면 null
+  zoneBlockedAt     DateTime?
+  zoneBlockedReason String?
   price             Int
   startedAt         DateTime?
   pausedAt          DateTime?
@@ -713,4 +725,106 @@ model AccessAttempt {
   @@index([key, createdAt])
   @@index([createdAt]) // 만료분 정리용
   @@map("access_attempts")
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 배송 권역 (2026-09-30)
+//
+// 판정 순서: 예외 규칙(BLOCK → ALLOW) → 활성 권역(우편번호 정확 일치 / 법정동 코드 접두) →
+//   매칭 없음이면 Setting deliveryZoneMode 에 따라 LEGACY(시/도·동·반경 폴백) 또는 ZONES(불가).
+// 날짜별 중지(DeliveryZoneSuspension)는 그 배송일에만 적용. 자세한 건 apps/web/app/lib/delivery-zone.ts
+// ══════════════════════════════════════════════════════════════════
+
+// 권역 키 종류
+enum ZoneKeyKind {
+  ZIP   // 우편번호 5자리 — 정확 일치
+  BCODE // 법정동 코드 — 접두 매칭 (5자리=시군구 전체, 8자리=읍면동, 10자리=리)
+}
+
+model DeliveryZone {
+  id        String      @id @default(cuid())
+  kind      ZoneKeyKind
+  code      String
+  name      String      // "달서구 이곡동"
+  sido      String?
+  sigungu   String?
+  isActive  Boolean     @default(true)
+  memo      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  addresses   Address[]
+  suspensions DeliveryZoneSuspension[]
+
+  @@unique([kind, code])
+  @@index([isActive])
+  @@index([sigungu])
+  @@map("delivery_zones")
+}
+
+// 예외 규칙 — 권역보다 우선. 우편번호 또는 단지명(또는 사전 등록 단지) 중 하나로 매칭
+enum ZoneRuleAction {
+  ALLOW // 권역 밖이라도 배송
+  BLOCK // 권역 안이라도 배송 안 함 (공사·출입 불가 단지 등)
+}
+
+model DeliveryZoneRule {
+  id           String         @id @default(cuid())
+  action       ZoneRuleAction
+  zipCode      String?        // 우편번호 단위
+  buildingName String?        // 단지명 — 공백 제거·소문자로 비교 (matchApartment 와 같은 방식)
+  apartmentId  String?        // 사전 등록 단지와 연결하면 표기 흔들림을 흡수한다
+  apartment    Apartment?     @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  sigungu      String?        // 단지명 충돌 방지용 범위 (같은 이름의 단지가 다른 구에 있을 때)
+  reason       String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([zipCode])
+  @@index([buildingName])
+  @@index([isActive])
+  @@map("delivery_zone_rules")
+}
+
+// 날짜별 배송 중지 — 기상·기사 부족 등. zoneId 가 null 이면 그날 전 권역 중지
+// (Postgres 유니크는 NULL 을 서로 다른 값으로 보므로 "전체 중지" 중복은 API 가 막는다)
+model DeliveryZoneSuspension {
+  id          String        @id @default(cuid())
+  date        DateTime      // 배송일 (UTC 자정 — DeliveryCalendar.date 와 같은 규약)
+  zoneId      String?
+  zone        DeliveryZone? @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  reason      String
+  createdById String?
+  createdAt   DateTime      @default(now())
+
+  @@unique([date, zoneId])
+  @@index([date])
+  @@map("delivery_zone_suspensions")
+}
+
+// 권역 밖 고객의 "우리 동네 오픈 알림" 신청 — 다음 확장 지역 판단용
+model DeliveryWaitlist {
+  id               String    @id @default(cuid())
+  name             String
+  phone            String    // 숫자만 (01012345678)
+  zipCode          String
+  bcode            String?
+  sido             String?
+  sigungu          String?
+  bname            String?
+  address1         String?   // 도로명 주소 (단지 파악용, 상세주소는 받지 않는다)
+  buildingName     String?
+  marketingConsent Boolean   @default(false)
+  consentAt        DateTime? // 개인정보 수집·마케팅 동의 시각
+  userId           String?   // 로그인 상태였으면 연결 (FK 없음 — 탈퇴해도 신청 기록은 남긴다)
+  source           String    // "checkout" | "subscribe" | "landing"
+  notifiedAt       DateTime? // 오픈 안내를 보낸 시각
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([phone, zipCode]) // 같은 사람 같은 동네 재신청은 갱신
+  @@index([sigungu, bname])
+  @@index([createdAt])
+  @@map("delivery_waitlist")
 }

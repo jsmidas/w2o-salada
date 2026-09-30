@@ -8,6 +8,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { firstOrderableDate } from "../lib/cutoff";
 import DeliveryAddressPicker, { type AddressSelection } from "../components/address/DeliveryAddressPicker";
+import type { CheckResult } from "../components/address/AreaCheckNotice";
+import WaitlistForm, { type WaitlistPrefill } from "../components/address/WaitlistForm";
+import AreaLookup from "../components/address/AreaLookup";
 import SavedCardChoice, { type PayMethod, type SavedCardInfo } from "../components/SavedCardChoice";
 
 type Product = {
@@ -400,8 +403,12 @@ function SubscribeContent() {
   const allMeetMinAmount = insufficientDates.length === 0;
 
   const [addressSel, setAddressSel] = useState<AddressSelection | null>(null);
+  // 배송 권역 — 새 주소의 화면 판정 + 서버가 결제 직전에 막은 결과. 불가면 결제 대신 오픈 알림 신청
+  const [areaCheck, setAreaCheck] = useState<CheckResult | null>(null);
+  const [serverBlock, setServerBlock] = useState<{ message: string; prefill: WaitlistPrefill | null } | null>(null);
+  const areaBlocked = (areaCheck !== null && !areaCheck.canOrder) || serverBlock !== null;
 
-  const allReady = termsAgreed && meetsMinimum && allMeetMinAmount && addressSel !== null && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
+  const allReady = termsAgreed && meetsMinimum && allMeetMinAmount && addressSel !== null && !areaBlocked && (mode === "auto" || (activeDates.length > 0 && completedCount === activeDates.length));
 
   const totalPrice = activeDates.reduce((s, d) => s + getDateTotal(d.dateStr), 0);
 
@@ -435,6 +442,23 @@ function SubscribeContent() {
 
       if (!orderRes.ok) {
         const err = await orderRes.json();
+        if (err?.code === "OUT_OF_AREA") {
+          // 권역 밖 — 결제 대신 오픈 알림 신청 폼으로 (저장된 배송지를 골랐으면 폼에서 주소를 다시 고른다)
+          const a = addressSel && "address" in addressSel ? addressSel.address : null;
+          setServerBlock({
+            message: err.message ?? "아직 배송하지 않는 지역입니다.",
+            prefill: a ? { zipCode: a.zipCode, bcode: a.bcode, sido: a.sido, sigungu: a.sigungu, bname: a.bname, address1: a.address1, buildingName: a.buildingName } : null,
+          });
+          setPaying(false);
+          return;
+        }
+        if (err?.code === "DATE_SUSPENDED" && Array.isArray(err.suspendedDates) && err.suspendedDates.length > 0) {
+          // 그 지역만 중지된 배송일 — 화면에서 건너뛰기로 빼고 다시 결제하도록 안내
+          setSkippedDates((prev) => new Set([...prev, ...(err.suspendedDates as string[])]));
+          alert(`${err.message}\n해당 날짜를 건너뛰기로 표시했습니다. 금액을 확인하고 다시 결제해주세요.`);
+          setPaying(false);
+          return;
+        }
         alert(err.message || err.error || "주문 생성에 실패했습니다.");
         setPaying(false);
         return;
@@ -540,6 +564,11 @@ function SubscribeContent() {
                 ← 유형 변경
               </Link>
             </div>
+
+            {/* 배송 가능 지역 확인 — 메뉴를 고르기 전에 먼저 확인할 수 있게 맨 위에 둔다 (비회원·첫 방문자용) */}
+            {!session?.user && (
+              <AreaLookup source="subscribe" theme="light" title="배송 가능한 지역인지 먼저 확인해 보세요" className="mb-6" />
+            )}
 
             {/* 기본 수량 카드 */}
             {(() => {
@@ -1008,7 +1037,21 @@ function SubscribeContent() {
                   <span className="material-symbols-outlined text-base text-[#1D9E75]">location_on</span>
                   배송지
                 </h3>
-                <DeliveryAddressPicker loggedIn={!!session?.user} defaultName={session?.user?.name} theme="light" onChange={setAddressSel} />
+                <DeliveryAddressPicker
+                  loggedIn={!!session?.user}
+                  defaultName={session?.user?.name}
+                  theme="light"
+                  source="subscribe"
+                  dates={activeDates.map((d) => d.dateStr)}
+                  onChange={(sel) => { setAddressSel(sel); setServerBlock(null); }}
+                  onAreaResult={setAreaCheck}
+                />
+                {serverBlock && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-amber-700">{serverBlock.message}</p>
+                    <WaitlistForm prefill={serverBlock.prefill} source="subscribe" theme="light" defaultName={session?.user?.name} />
+                  </div>
+                )}
               </div>
 
               {/* 약관 동의 */}
@@ -1051,6 +1094,7 @@ function SubscribeContent() {
                   : !meetsMinimum ? `최소 ${MIN_DELIVERIES}회 이상 필요 (현재 ${activeDates.length}회)`
                   : mode !== "auto" && completedCount < activeDates.length ? `메뉴를 선택해주세요 (${completedCount}/${activeDates.length})`
                   : !allMeetMinAmount ? `회당 ${minOrderAmount.toLocaleString()}원 미달 ${insufficientDates.length}회`
+                  : areaBlocked ? "배송 불가 지역 — 오픈 알림을 신청해주세요"
                   : addressSel === null ? "배송지의 필수 항목(받는 분·전화번호·주소)을 채워주세요"
                   : mode === "trial" ? "맛보기 결제하기"
                   : autoRenew ? `${totalPrice.toLocaleString()}원 결제하고 구독 시작` : `${totalPrice.toLocaleString()}원 결제 (이번 ${cycleWeeks}주만)`}

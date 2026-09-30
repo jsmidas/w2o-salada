@@ -5,8 +5,8 @@ import type { Prisma } from "@prisma/client";
 import { sendAlimtalkSafe, TEMPLATE } from "../../../lib/notification";
 import { pushDuePrices } from "../../../lib/effective-price";
 import { decryptBillingKey } from "../../../lib/billing-crypto";
-import { pickAddressForUser } from "../../../lib/address-resolve";
-import { holdFromStatus } from "../../../lib/geo";
+import { pickAndJudgeAddress } from "../../../lib/address-resolve";
+import { checkOrderable, clearSubscriptionZoneBlock, markSubscriptionZoneBlocked } from "../../../lib/delivery-zone";
 import { billingDateFor, nextCycleWindow, previewCycle, type CycleItem } from "../../../lib/subscription-cycle";
 import type { SlotMap, WeekdaySlotMap } from "../../../lib/auto-assign";
 
@@ -75,6 +75,27 @@ export async function POST(request: Request) {
         const weekdaySlots = sub.weekdaySlots as WeekdaySlotMap | null;
         const preview = await previewCycle({ subscriptionId: sub.id, slots, weekdaySlots, startDate, endDate });
 
+        // 배송지: 구독 고정 배송지 → 기본 배송지. 청구 직전에 현재 권역 규칙으로 다시 판정한다.
+        // 권역이 꺼졌거나 차단됐으면(ZONES 모드) 청구하지 않고 표시만 — 선점이 하루 미뤄 두었으니 권역이 켜지면 다음날 자동 청구된다
+        const judged = await pickAndJudgeAddress(sub.userId, sub.addressId);
+        const addr = judged?.address ?? null;
+        const hold = judged?.hold ?? { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+        const zoneCheck = await checkOrderable(
+          { areaStatus: addr?.areaStatus ?? "UNKNOWN", zoneId: addr?.zoneId ?? null, canOrder: judged?.zone.canOrder, areaReason: judged?.zone.reason, mode: judged?.zone.mode },
+          preview.deliveryDates.map((d) => d.toISOString().slice(0, 10)),
+        );
+        if (zoneCheck.blocked?.code === "OUT_OF_AREA") {
+          await markSubscriptionZoneBlocked(sub, judged?.zone.reason ?? "배송지 없음", { userName: sub.user.name, phase: "renewal-charge" });
+          results.push({ subId: sub.id, status: "zone-blocked", error: judged?.zone.reason ?? "배송 권역 밖" });
+          continue;
+        }
+        // 중지된 배송일은 이번 주기에서 빼고 청구한다 (금액도 그만큼 준다)
+        if (zoneCheck.suspended.size > 0) {
+          preview.items = preview.items.filter((it) => !zoneCheck.suspended.has(it.deliveryDate.toISOString().slice(0, 10)));
+          preview.deliveryDates = preview.deliveryDates.filter((d) => !zoneCheck.suspended.has(d.toISOString().slice(0, 10)));
+          preview.amount = preview.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
+        }
+
         if (preview.items.length === 0) {
           // 배송 캘린더가 아직 없으면 내일 다시 (선점에서 이미 하루 미뤘다)
           Sentry.captureMessage("갱신 결제 보류: 다음 주기 배송일 없음", { level: "warning", tags: { area: "subscription", phase: "renewal-deferred" }, extra: { subId: sub.id, startDate, endDate } });
@@ -85,10 +106,6 @@ export async function POST(request: Request) {
         const credit = Math.min(sub.creditBalance, preview.amount);
         const amount = preview.amount - credit;
         const firstDate = preview.items[0]!.deliveryDate;
-
-        // 배송지: 구독 고정 배송지 → 기본 배송지
-        const addr = await pickAddressForUser(sub.userId, sub.addressId);
-        const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
 
         // 2) 앵커 — PENDING 주문·주기·선택분을 토스 호출 전에 확정 (이전 실패 주문이 있으면 재사용)
         const orderNo = renewalOrderNo(now);
@@ -126,6 +143,7 @@ export async function POST(request: Request) {
 
         // 마무리 — 한 트랜잭션
         await finalizeRenewal({ sub, order, period, paymentData, now });
+        if (sub.zoneBlockedAt) await clearSubscriptionZoneBlock(sub.id); // 권역이 다시 열려 청구됐다
 
         if (sub.user.phone) {
           await sendAlimtalkSafe({

@@ -12,8 +12,8 @@
  */
 import { prisma } from "@repo/db";
 import { isOrderable } from "./cutoff";
-import { holdFromStatus } from "./geo";
-import { pickAddressForUser } from "./address-resolve";
+import { pickAndJudgeAddress } from "./address-resolve";
+import { suspensionsOn, type Suspension } from "./delivery-zone";
 import { PAID_PERIOD_STATUSES } from "./subscription-cycle";
 
 export const DELIVERY_ORDER_TYPE = "SUBSCRIPTION_DELIVERY" as const;
@@ -71,14 +71,20 @@ export async function ensureSubscriptionDeliveries(date: Date): Promise<{ create
   const existingBySub = new Map(existing.filter((o) => o.subscriptionId).map((o) => [o.subscriptionId!, o]));
 
   let created = 0, updated = 0, removed = 0;
+  // 이 날짜의 권역별 배송 중지 — 중지된 권역의 배송 건은 보류로 만들어 코스에서 뺀다 (한 번만 읽는다)
+  const suspension = await suspensionsOn(start);
+  const suspendedFor = (zoneId: string | null): Suspension | null => suspension.all ?? (zoneId ? suspension.byZone.get(zoneId) ?? null : null);
 
   for (const [subId, entry] of bySub) {
     const itemsData = [...entry.items].map(([productId, v]) => ({ productId, quantity: v.quantity, unitPrice: v.unitPrice, totalPrice: 0 }));
     const cur = existingBySub.get(subId);
 
     if (!cur) {
-      const addr = await pickAddressForUser(entry.userId, entry.addressId);
-      const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+      const judged = await pickAndJudgeAddress(entry.userId, entry.addressId);
+      const addr = judged?.address ?? null;
+      let hold = judged?.hold ?? { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+      const susp = suspendedFor(addr?.zoneId ?? null);
+      if (susp && !hold.deliveryHold) hold = { deliveryHold: true, deliveryHoldReason: `권역 배송 중지 — ${susp.reason}` };
       try {
       await prisma.order.create({
         data: {

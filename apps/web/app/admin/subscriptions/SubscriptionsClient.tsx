@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "../../lib/fetcher";
 
@@ -35,7 +36,9 @@ type InitialData = {
 };
 
 export default function SubscriptionsClient({ initialData }: { initialData: InitialData }) {
-  const [filter, setFilter] = useState({ status: "", mode: "", search: "" });
+  // 다른 화면(배송 권역 > 결제 보류 구독자)에서 "구독 보기"로 넘어올 때 ?search= 로 고객을 바로 찾는다
+  const initialSearch = useSearchParams().get("search") ?? "";
+  const [filter, setFilter] = useState({ status: "", mode: "", search: initialSearch });
   const [page, setPage] = useState(1);
 
   const params = new URLSearchParams();

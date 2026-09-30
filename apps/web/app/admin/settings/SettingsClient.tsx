@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 const defaultSettings = {
   shopName: "W2O SALADA",
@@ -20,6 +21,8 @@ const defaultSettings = {
   deliveryFee: "0",
   deliveryAreas: "대구 전역",
   // 배송 권역 (시/도 전역 → 허용 동 → 센터 반경 순 판정)
+  deliveryZoneMode: "LEGACY", // LEGACY = 기존 규칙(권역 밖도 보류 접수) / ZONES = 권역 테이블(권역 밖 결제 차단)
+  adminAlertPhone: "", // 권역 때문에 구독 자동결제가 보류되면 SMS 1건을 받을 관리자 번호 (비우면 화면 목록 + Sentry 만)
   deliveryCenterName: "본사",
   deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
   deliveryCenterLat: "",
@@ -238,8 +241,24 @@ export default function SettingsClient({
           <p className="text-xs text-gray-400 mb-4">
             판정 순서: <b>전역 배송 시/도</b> → 허용 동 → 센터 반경. 전역 시/도 안이면 좌표와 무관하게 자동 수용하고,
             그 밖은 센터 거리로 판정해 반경 밖이면 접수 후 &quot;배송지 확인&quot; 큐로 보냅니다.
+            {" "}권역 목록·예외·날짜별 중지 관리 →{" "}
+            <Link href="/admin/delivery-zones" className="text-[#1D9E75] hover:underline">/admin/delivery-zones</Link>
           </p>
           <div className="space-y-4">
+            {/* 판정 모드 — 권역 데이터 검증 전에 ZONES 로 바꾸면 기존 고객이 결제에서 막히므로 기본은 LEGACY */}
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">권역 판정 모드</label>
+              <select value={settings.deliveryZoneMode} onChange={(e) => update("deliveryZoneMode", e.target.value)} className={inputClass}>
+                <option value="LEGACY">기존 규칙 — 시/도·동·반경으로 판정, 권역 밖은 보류 접수</option>
+                <option value="ZONES">권역 테이블 — /admin/delivery-zones 에 등록된 권역만 배송, 권역 밖은 결제 차단 + 오픈 알림 신청</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">권역 데이터를 넣고 검증한 뒤 ZONES 로 바꾸세요. 예외 규칙(차단)은 두 모드 모두 적용됩니다.</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600 block mb-1">관리자 알림 휴대폰 (선택)</label>
+              <input type="text" value={settings.adminAlertPhone} onChange={(e) => update("adminAlertPhone", e.target.value)} placeholder="예: 010-0000-0000" className={inputClass} />
+              <p className="text-xs text-gray-400 mt-1">권역 때문에 구독 자동결제가 보류되면 이 번호로 SMS 1건을 보냅니다. 비우면 화면 목록과 Sentry 만.</p>
+            </div>
             <div>
               <label className="text-sm font-medium text-gray-600 block mb-1">전역 배송하는 시/도 (쉼표 구분)</label>
               <input type="text" value={settings.deliveryAllowedSido} onChange={(e) => update("deliveryAllowedSido", e.target.value)} placeholder="예: 대구" className={inputClass} />
@@ -280,7 +299,7 @@ export default function SettingsClient({
           </div>
           <div className="mt-5 flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => handleSave("area", ["deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedSido", "deliveryAllowedDongs"])}
+              onClick={() => handleSave("area", ["deliveryZoneMode", "adminAlertPhone", "deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedSido", "deliveryAllowedDongs"])}
               className="px-5 py-2 bg-[#1D9E75] text-white text-sm font-medium rounded-lg hover:bg-[#178a64] transition"
             >
               저장

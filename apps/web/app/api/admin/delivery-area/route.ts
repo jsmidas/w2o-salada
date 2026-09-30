@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAdmin } from "../../../lib/auth-guard";
-import { enrichLocation, geocodeAddress, geocoderStatus, getDeliveryCenter, judgeArea, locationToAddressData } from "../../../lib/geo";
+import { enrichLocation, geocodeAddress, geocoderStatus, getDeliveryCenter, locationToAddressData, rejudgeAddress } from "../../../lib/geo";
 
 /**
  * POST /api/admin/delivery-area
@@ -53,16 +53,20 @@ export async function POST(request: Request) {
 
       for (const a of addresses) {
         let data: Record<string, unknown>;
-        if (body.action === "backfill" && (a.lat === null || a.lng === null)) {
+        // backfill: 좌표가 없거나 법정동 코드(bcode)가 없는 주소는 지오코딩해서 채운다 (권역 BCODE 매칭에 필요)
+        if (body.action === "backfill" && (a.lat === null || a.lng === null || a.bcode === null)) {
           const loc = await enrichLocation(a.address1, {
+            zipCode: a.zipCode, bcode: a.bcode,
             sido: a.sido, sigungu: a.sigungu, bname: a.bname, buildingName: a.buildingName,
             isApartment: a.isApartment, roadAddress: a.roadAddress, jibunAddress: a.jibunAddress,
           });
           if (!loc.geocodedAt) geocodeFailed++;
-          data = locationToAddressData(loc);
+          data = loc.geocodedAt
+            ? locationToAddressData(loc)
+            : { areaStatus: loc.areaStatus, distanceKm: loc.distanceKm, zoneId: loc.zoneId, areaReason: loc.areaReason }; // 좌표는 기존 값 유지
         } else {
-          const j = judgeArea(a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null, a.bname, center, a.sido);
-          data = { areaStatus: j.status, distanceKm: j.distanceKm };
+          const r = await rejudgeAddress(a, center);
+          data = r.data;
         }
         const status = data.areaStatus as string;
         if (status === "IN_RANGE") inRange++; else if (status === "OUT_OF_RANGE") outOfRange++; else unknown++;

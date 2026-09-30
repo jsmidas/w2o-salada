@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       data: { userId, ...base, ...locationToAddressData(loc), isDefault: finalIsDefault },
     });
 
-    return NextResponse.json({ ...address, areaReason: loc.judgement.reason }, { status: 201 });
+    return NextResponse.json({ ...address, areaReason: loc.areaReason, canOrder: loc.canOrder, zoneName: loc.zone.zoneName }, { status: 201 });
   } catch (err) {
     console.error("POST /api/addresses error:", err);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

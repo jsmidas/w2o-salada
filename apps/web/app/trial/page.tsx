@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "../store/cart";
+import { productBadge } from "../lib/product-badge";
 
 type Category = {
   id: string;
@@ -384,7 +385,7 @@ function TrialItemRow({ item, deliveryDate }: { item: Product; deliveryDate: str
   const NameAndPrice = (
     <>
       <div className="min-w-0 flex-1">
-        {item.tags && <span className="text-[9px] font-bold text-[#5DCAA5] tracking-wider">{item.tags}</span>}
+        {productBadge(item) && <span className="text-[9px] font-bold text-[#5DCAA5] tracking-wider">{productBadge(item)}</span>}
         <p className="text-white font-semibold text-sm leading-tight truncate">{item.name}</p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">

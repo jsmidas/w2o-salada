@@ -53,8 +53,23 @@ async function getMenuData() {
   };
 }
 
+// 공개 후기. 0건이면 REVIEWS 섹션 자체를 그리지 않는다 (클라이언트 fetch 뒤 섹션이 튀어나오는 흔들림도 없앤다)
+async function getPublicReviews() {
+  const rows = await prisma.review.findMany({
+    where: { isVisible: true },
+    select: {
+      id: true, rating: true, content: true, createdAt: true,
+      user: { select: { name: true } },
+      product: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  }).catch(() => []);
+  return JSON.parse(JSON.stringify(rows));
+}
+
 export default async function Home() {
-  const menuData = await getMenuData();
+  const [menuData, reviews] = await Promise.all([getMenuData(), getPublicReviews()]);
 
   return (
     <>
@@ -67,7 +82,7 @@ export default async function Home() {
         <SubscribeSection />
         <WeeklyMenuSection initialData={menuData} />
         <DeliverySection />
-        <ReviewsSection />
+        <ReviewsSection initialReviews={reviews} />
         <CTASection />
       </main>
       <Footer />

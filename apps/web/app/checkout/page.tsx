@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "../store/cart";
 import SavedCardChoice, { type PayMethod, type SavedCardInfo } from "../components/SavedCardChoice";
-import AreaCheckNotice from "../components/address/AreaCheckNotice";
+import AreaCheckNotice, { type CheckResult } from "../components/address/AreaCheckNotice";
+import WaitlistForm, { type WaitlistPrefill } from "../components/address/WaitlistForm";
 import DeliveryDetailFields from "../components/address/DeliveryDetailFields";
 import {
   emptyDeliveryDetails, formatAddressLine, loadDaumPostcode, openDaumPostcode,
@@ -70,6 +71,7 @@ type DbAddressRow = {
   id: string; label: string | null; name: string; phone: string; zipCode: string; address1: string; address2: string | null;
   isDefault: boolean; deliveryMemo: string | null; roadAddress: string | null; jibunAddress: string | null;
   sido: string | null; sigungu: string | null; bname: string | null; buildingName: string | null; isApartment: boolean;
+  bcode?: string | null;
   areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
   entranceMethod: string | null; entrancePassword: string | null; floor: string | null; dropLocation: DropLocationValue; dropNote: string | null;
 };
@@ -89,7 +91,7 @@ function dbRowToSaved(a: DbAddressRow): SavedAddress {
     areaStatus: a.areaStatus,
     deliveryMemo: a.deliveryMemo ?? "",
     picked: {
-      zipCode: a.zipCode, address1: a.address1, roadAddress: a.roadAddress, jibunAddress: a.jibunAddress,
+      zipCode: a.zipCode, bcode: a.bcode ?? null, address1: a.address1, roadAddress: a.roadAddress, jibunAddress: a.jibunAddress,
       sido: a.sido, sigungu: a.sigungu, bname: a.bname, buildingName: a.buildingName, isApartment: a.isApartment,
     },
     details: {
@@ -108,7 +110,7 @@ function savedToAddress(s: SavedAddress, prev: CheckoutAddress): CheckoutAddress
     address1: s.address1,
     address2: s.address2,
     deliveryMemo: s.deliveryMemo || prev.deliveryMemo,
-    picked: s.picked ?? (s.zipCode ? { zipCode: s.zipCode, address1: s.address1, roadAddress: null, jibunAddress: null, sido: null, sigungu: null, bname: null, buildingName: null, isApartment: false } : null),
+    picked: s.picked ?? (s.zipCode ? { zipCode: s.zipCode, bcode: null, address1: s.address1, roadAddress: null, jibunAddress: null, sido: null, sigungu: null, bname: null, buildingName: null, isApartment: false } : null),
     details: s.details ?? { ...emptyDeliveryDetails, label: s.source === "local" ? s.label : "" },
   };
 }
@@ -119,6 +121,9 @@ export default function CheckoutPage() {
   const { items } = useCart();
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // 배송 권역 — 새로 고른 주소의 판정(화면) + 서버가 결제 직전에 막은 결과. 둘 중 하나라도 불가면 결제 대신 오픈 알림 신청
+  const [areaCheck, setAreaCheck] = useState<CheckResult | null>(null);
+  const [serverBlock, setServerBlock] = useState<{ message: string; prefill: WaitlistPrefill } | null>(null);
 
   // 장바구니 전체를 한 번에 결제한다. 서버는 배송일마다 주문을 나눠 만들고(배송 리포트·생산 집계용)
   // 결제 묶음 번호 하나로 토스에 합계를 청구한다. 키 "" = 배송일 미지정 라인 → 서버가 가장 빠른 배송일로 정한다
@@ -351,6 +356,18 @@ export default function CheckoutPage() {
     });
     const order = await orderRes.json();
     if (!orderRes.ok) {
+      if (order?.code === "OUT_OF_AREA") {
+        // 권역 밖 — 결제 대신 오픈 알림 신청 폼으로
+        setServerBlock({
+          message: order.message ?? "아직 배송하지 않는 지역입니다.",
+          prefill: {
+            zipCode: address.zipCode, bcode: address.picked?.bcode ?? null, sido: address.picked?.sido ?? null, sigungu: address.picked?.sigungu ?? null,
+            bname: address.picked?.bname ?? null, address1: address.address1, buildingName: address.picked?.buildingName ?? null,
+          },
+        });
+        setLoading(false);
+        return;
+      }
       alert(order?.message ?? order?.error ?? "주문 생성에 실패했습니다.");
       setLoading(false);
       return;
@@ -523,8 +540,24 @@ export default function CheckoutPage() {
 
             <input id="address2-input" type="text" placeholder="상세주소 (동/호수)" value={address.address2} onChange={(e) => setAddress({ ...address, address2: e.target.value })} className={inputCls} />
 
-            {/* 배송 가능 여부 — 저장된 배송지는 이미 판정돼 있어 새로 고른 주소만 확인 */}
-            {!address.dbId && <AreaCheckNotice picked={address.picked} theme="dark" />}
+            {/* 배송 가능 여부 — 저장된 배송지는 이미 판정돼 있어 새로 고른 주소만 확인. 권역 밖이면 이 자리에서 오픈 알림 신청 */}
+            {!address.dbId && (
+              <AreaCheckNotice
+                picked={address.picked}
+                theme="dark"
+                source="checkout"
+                dates={dateKeys.filter(Boolean)}
+                defaultName={address.name}
+                defaultPhone={address.phone}
+                onResult={(r) => { setAreaCheck(r); setServerBlock(null); }}
+              />
+            )}
+            {serverBlock && (
+              <div className="space-y-2">
+                <p className="text-xs text-amber-300">{serverBlock.message}</p>
+                <WaitlistForm prefill={serverBlock.prefill} source="checkout" theme="dark" defaultName={address.name} defaultPhone={address.phone} />
+              </div>
+            )}
 
             {/* 출입·수령 정보 (배송지마다 다르다) */}
             <div className="pt-3 mt-1 border-t border-white/10">
@@ -634,10 +667,17 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <button onClick={handleOrder} disabled={loading || !address.name || !address.address1}
-            className="w-full mt-6 py-4 bg-brand-amber text-white rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading ? "처리 중..." : savedCard && payMethod === "saved" ? `${finalTotal.toLocaleString()}원 등록 카드로 바로 결제` : `${finalTotal.toLocaleString()}원 결제하기`}
-          </button>
+          {(() => {
+            const areaBlocked = (!address.dbId && areaCheck !== null && !areaCheck.canOrder) || serverBlock !== null;
+            return (
+              <button onClick={handleOrder} disabled={loading || !address.name || !address.address1 || areaBlocked}
+                className="w-full mt-6 py-4 bg-brand-amber text-white rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? "처리 중..."
+                  : areaBlocked ? "배송 불가 지역 — 위에서 오픈 알림을 신청해주세요"
+                  : savedCard && payMethod === "saved" ? `${finalTotal.toLocaleString()}원 등록 카드로 바로 결제` : `${finalTotal.toLocaleString()}원 결제하기`}
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

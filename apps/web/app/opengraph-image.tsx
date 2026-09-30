@@ -28,7 +28,7 @@ export default function OgImage() {
           일어나면 이미 준비된 하루
         </div>
         <div style={{ fontSize: "20px", color: "#5DCAA5", fontWeight: 400 }}>
-          신선한 샐러드 새벽배송 · 정기구독 21% 할인
+          신선한 샐러드 새벽배송 · 정가 대비 상시 할인
         </div>
         <div
           style={{

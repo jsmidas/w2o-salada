@@ -27,6 +27,7 @@ const menuGroups: MenuGroup[] = [
       { href: "/admin/delivery-calendar", icon: "calendar_month", label: "배송 캘린더" },
       { href: "/admin/routes", icon: "alt_route", label: "배송 코스·기사" },
       { href: "/admin/apartments", icon: "apartment", label: "아파트 단지" },
+      { href: "/admin/delivery-zones", icon: "map", label: "배송 권역" },
     ],
   },
   {

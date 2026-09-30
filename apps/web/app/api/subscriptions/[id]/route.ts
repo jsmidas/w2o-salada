@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@repo/db";
 import { requireAuth } from "../../../lib/auth-guard";
-import { holdFromStatus } from "../../../lib/geo";
+import { holdFromStatus, rejudgeAndStore } from "../../../lib/geo";
+import { checkOrderable } from "../../../lib/delivery-zone";
 import { remainingPaidSelections } from "../../../lib/subscription-settle";
 import { getRefundFeePercent } from "../../../lib/refund-policy";
 
@@ -85,13 +86,19 @@ export async function PATCH(
     // 배송지 변경 — 본인 배송지만. 아직 배송 전인 이 구독의 주문도 새 배송지로 옮긴다
     let movedOrders = 0;
     if (typeof body.addressId === "string" && body.addressId !== subscription.addressId) {
-      const addr = await prisma.address.findUnique({ where: { id: body.addressId } });
-      if (!addr || addr.userId !== userId) {
+      const found = await prisma.address.findUnique({ where: { id: body.addressId } });
+      if (!found || found.userId !== userId) {
         return NextResponse.json({ error: "배송지를 찾을 수 없습니다." }, { status: 400 });
+      }
+      // 구독 배송지는 현재 권역 규칙으로 다시 판정한다. ZONES 모드 권역 밖·차단 규칙 주소로는 바꿀 수 없다
+      const { zone, address: addr } = await rejudgeAndStore(found);
+      const zoneCheck = await checkOrderable({ areaStatus: addr.areaStatus, zoneId: addr.zoneId, canOrder: zone.canOrder, areaReason: zone.reason, mode: zone.mode }, []);
+      if (zoneCheck.blocked) {
+        return NextResponse.json({ error: `이 배송지로는 변경할 수 없습니다. ${zoneCheck.blocked.message}`, code: zoneCheck.blocked.code }, { status: 400 });
       }
       data.addressId = addr.id;
 
-      const hold = holdFromStatus(addr.areaStatus, addr.distanceKm);
+      const hold = holdFromStatus(addr.areaStatus, addr.distanceKm, undefined, zone.matchedBy === "LEGACY" ? null : zone.reason);
       const todayKst = new Date(Date.now() + 9 * 3600 * 1000);
       todayKst.setUTCHours(0, 0, 0, 0);
       const res = await prisma.order.updateMany({

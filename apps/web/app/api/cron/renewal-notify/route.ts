@@ -50,6 +50,21 @@ export async function POST(request: Request) {
           startDate,
           endDate,
         });
+        // 권역 밖(ZONES 모드)이면 결제가 안 나갈 것이므로 예정 금액을 고지하지 않고 관리자 목록에만 올린다
+        {
+          const { pickAndJudgeAddress } = await import("../../../lib/address-resolve");
+          const { checkOrderable, markSubscriptionZoneBlocked } = await import("../../../lib/delivery-zone");
+          const judged = await pickAndJudgeAddress(sub.userId, sub.addressId);
+          const zc = await checkOrderable(
+            { areaStatus: judged?.address.areaStatus ?? "UNKNOWN", zoneId: judged?.address.zoneId ?? null, canOrder: judged?.zone.canOrder, areaReason: judged?.zone.reason, mode: judged?.zone.mode },
+            [],
+          );
+          if (zc.blocked?.code === "OUT_OF_AREA") {
+            await markSubscriptionZoneBlocked(sub, judged?.zone.reason ?? "배송지 없음", { userName: sub.user.name, phase: "renewal-notify" });
+            skipped++;
+            continue;
+          }
+        }
         const credit = Math.min(sub.creditBalance, preview.amount);
         const charge = preview.amount - credit;
 

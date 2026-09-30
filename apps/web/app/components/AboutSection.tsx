@@ -49,13 +49,16 @@ function useTypingEffect(texts: string[], speed = 100, pause = 2000) {
   return { display, showCursor };
 }
 
+// 초기값은 최종 숫자다 — 서버 렌더·JS 실행 전·스크롤 진입 전에도 "24시간", "6시 전"이 그대로 보인다.
+// 카운트업은 화면에 들어올 때만 0에서 다시 올라가는 부가 효과다.
 function useCountUp(target: number, duration = 2000) {
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(target);
   const [started, setStarted] = useState(false);
 
   const start = useCallback(() => {
     if (started) return;
     setStarted(true);
+    setCount(0);
     const startTime = Date.now();
     const tick = () => {
       const elapsed = Date.now() - startTime;
@@ -74,7 +77,9 @@ function FeatureCard({ icon, title, desc, stat, statLabel, delay }: {
   icon: string; title: string; desc: string; stat: number; statLabel: string; delay: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  // null = 아직 관찰 전(서버 렌더·JS 실행 전) — 이때는 숨기지 않고 그대로 보여준다.
+  // 마운트 후 화면 밖에 있을 때만 false 로 숨겼다가, 들어오면 true 로 페이드인한다.
+  const [visible, setVisible] = useState<boolean | null>(null);
   const [hovered, setHovered] = useState(false);
   const { count, start } = useCountUp(stat, 1500);
 
@@ -86,6 +91,8 @@ function FeatureCard({ icon, title, desc, stat, statLabel, delay }: {
         if (entry?.isIntersecting) {
           setTimeout(() => { setVisible(true); start(); }, delay);
           observer.disconnect();
+        } else {
+          setVisible(false);
         }
       },
       { threshold: 0.3 }
@@ -101,12 +108,12 @@ function FeatureCard({ icon, title, desc, stat, statLabel, delay }: {
       onMouseLeave={() => setHovered(false)}
       className="relative group cursor-pointer"
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible
-          ? hovered ? "translateY(-12px) scale(1.03)" : "translateY(0) scale(1)"
-          : "translateY(40px) scale(0.95)",
+        opacity: visible === false ? 0 : 1,
+        transform: visible === false
+          ? "translateY(40px) scale(0.95)"
+          : hovered ? "translateY(-12px) scale(1.03)" : "translateY(0) scale(1)",
         transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        transitionDelay: visible ? "0ms" : `${delay}ms`,
+        transitionDelay: visible === false ? `${delay}ms` : "0ms",
       }}
     >
       {/* 배경 글로우 */}
@@ -148,7 +155,7 @@ function FeatureCard({ icon, title, desc, stat, statLabel, delay }: {
         <div className="mt-3 sm:mt-5 h-1 rounded-full bg-gray-100 overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#1D9E75] to-[#5DCAA5] transition-all duration-1000 ease-out"
-            style={{ width: visible ? "100%" : "0%" }}
+            style={{ width: visible === false ? "0%" : "100%" }}
           />
         </div>
       </div>
@@ -158,7 +165,7 @@ function FeatureCard({ icon, title, desc, stat, statLabel, delay }: {
 }
 
 const features = [
-  { icon: "eco", title: "100% 신선 재료", desc: "매일 아침 산지에서 직송한 채소·과일·국거리로 만듭니다.", stat: 100, statLabel: "%" },
+  { icon: "eco", title: "신선한 재료", desc: "배송 전날 당일 조리·포장해 냉장 상태 그대로 새벽에 전해드립니다.", stat: 24, statLabel: "시간 내 조리·배송" },
   { icon: "restaurant_menu", title: "가정식 풀라인업", desc: "샐러드·간편식·반찬·국까지 한 번에 우리 집 식탁으로.", stat: 4, statLabel: "종 카테고리" },
   { icon: "dark_mode", title: "새벽 배송", desc: "밤사이 준비해서 아침 6시 전 문 앞에 도착합니다.", stat: 6, statLabel: "시 전 도착" },
   { icon: "savings", title: "상시 할인가", desc: "구독하지 않아도 정가보다 싸게, 구독하면 배송 고정·자동 결제까지 편하게.", stat: 21, statLabel: "% 할인" },
@@ -183,7 +190,7 @@ export default function AboutSection() {
             </span>
           </h2>
           <p className="text-[#2d5a3f] mt-4">
-            샐러드·간편식·반찬까지, 가정의 한 끼를 매일 새벽 문 앞으로.
+            샐러드·간편식·반찬까지, 가정의 한 끼를 매주 화·목 새벽 문 앞으로.
           </p>
           <p className="text-[#1D9E75] font-semibold mt-2">
             배송비, 가입비 없는 실속 소비 시작

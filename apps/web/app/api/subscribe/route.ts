@@ -173,6 +173,24 @@ export async function POST(request: Request) {
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: 400 });
     }
+    // 권역 검증 — ZONES 모드 권역 밖·차단 규칙이면 결제 전에 막고, 선택 배송일 중 중지된 날이 있으면 그 날짜를 돌려준다
+    const { checkOrderable } = await import("../../lib/delivery-zone");
+    const zoneCheck = await checkOrderable(resolved, selectedDates);
+    if (zoneCheck.blocked) {
+      return NextResponse.json(
+        {
+          error: zoneCheck.blocked.message,
+          code: zoneCheck.blocked.code,
+          message: zoneCheck.blocked.message,
+          dates: zoneCheck.blocked.dates ?? [],
+          suspendedDates: zoneCheck.blocked.dates ?? [],
+          reason: zoneCheck.blocked.reason ?? null,
+          areaStatus: resolved.areaStatus,
+          addressId: resolved.addressId,
+        },
+        { status: 400 },
+      );
+    }
 
     // 주문번호
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");

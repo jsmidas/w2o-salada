@@ -163,11 +163,28 @@ export async function POST(request: Request) {
     }
 
     // 배송지 확정 — 저장된 배송지(addressId) 또는 입력 폼(address). 주소 없는 주문은 받지 않는다.
-    // 반경 밖·좌표 불명 주소도 결제는 막지 않고 deliveryHold 로 표시해 주간에 사람이 확인한다.
+    // LEGACY 모드: 반경 밖·좌표 불명 주소도 결제는 막지 않고 deliveryHold 로 표시해 주간에 사람이 확인한다.
+    // ZONES 모드: 권역 밖·차단 규칙·날짜별 중지는 결제 전에 막는다 (화면은 오픈 알림 신청 폼으로 넘어간다).
     const { resolveAddress } = await import("../../lib/address-resolve");
     const addr = await resolveAddress({ userId, addressId: body.addressId, address: body.address });
     if ("error" in addr) {
       return NextResponse.json({ error: addr.error }, { status: 400 });
+    }
+    const { checkOrderable } = await import("../../lib/delivery-zone");
+    const zoneCheck = await checkOrderable(addr, resolved.dates);
+    if (zoneCheck.blocked) {
+      return NextResponse.json(
+        {
+          error: zoneCheck.blocked.message,
+          code: zoneCheck.blocked.code,
+          message: zoneCheck.blocked.message,
+          dates: zoneCheck.blocked.dates ?? [],
+          reason: zoneCheck.blocked.reason ?? null,
+          areaStatus: addr.areaStatus,
+          addressId: addr.addressId,
+        },
+        { status: 400 },
+      );
     }
 
     // 주문 N 건을 한 트랜잭션으로. 2건 이상이면 결제 묶음 번호를 공유 (토스 orderId)

@@ -30,6 +30,8 @@ type Address = {
   buildingName: string | null;
   isApartment: boolean;
   areaStatus: "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
+  areaReason?: string | null;
+  bcode?: string | null;
   distanceKm: number | null;
   // 출입·수령
   entranceMethod: string | null;
@@ -118,6 +120,7 @@ export default function AddressesPage() {
       deliveryMemo: a.deliveryMemo ?? "",
       picked: {
         zipCode: a.zipCode,
+        bcode: a.bcode ?? null,
         address1: a.address1,
         roadAddress: a.roadAddress,
         jibunAddress: a.jibunAddress,
@@ -327,7 +330,7 @@ export default function AddressesPage() {
               />
               <input type="text" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className={inputCls} placeholder="상세 주소 (동/호수)" />
               <div className="mt-2">
-                <AreaCheckNotice picked={form.picked} theme="dark" />
+                <AreaCheckNotice picked={form.picked} theme="dark" source="mypage" defaultName={form.name} defaultPhone={form.phone} />
               </div>
             </div>
 

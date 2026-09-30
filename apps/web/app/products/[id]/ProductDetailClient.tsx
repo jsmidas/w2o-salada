@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "../../store/cart";
+import { productBadge } from "../../lib/product-badge";
 import ProductPageView, { type ProductPageData } from "../../components/ProductPageView";
 
 type Product = {
@@ -97,9 +98,9 @@ export default function ProductDetailClient({
             <span className="px-3 py-1 bg-[#1D9E75]/10 text-[#1D9E75] text-sm font-medium rounded-full">
               {product.category.name}
             </span>
-            {product.tags && (
+            {productBadge(product) && (
               <span className="px-3 py-1 bg-[#EF9F27]/15 text-[#EF9F27] text-xs font-bold rounded-full">
-                {product.tags}
+                {productBadge(product)}
               </span>
             )}
           </div>

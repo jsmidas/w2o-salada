@@ -6,10 +6,13 @@
  *   - address:   입력 폼 값 (다음 API 필드 + 출입 정보 포함)
  * 폼 값은 같은 사용자의 동일 주소(우편번호+주소1+주소2)가 있으면 재사용하고 없으면 새로 만든다.
  * 비회원(guest)도 Address 를 만든다 — 배송에는 반드시 주소가 있어야 한다.
+ *
+ * 2026-09-30: 판정은 권역 테이블(delivery-zone.ts)을 거친다. 돌려주는 값에 zoneId·areaReason·canOrder 가 붙고,
+ * 결제를 막을지(ZONES 모드 권역 밖 / 차단 규칙 / 날짜별 중지)는 호출부가 checkOrderable 로 정한다.
  */
 import { prisma } from "@repo/db";
 import type { DropLocation } from "@prisma/client";
-import { areaLabel, enrichLocation, getDeliveryCenter, holdFromStatus, judgeArea, locationToAddressData, type DaumFields } from "./geo";
+import { areaLabel, enrichLocation, getDeliveryCenter, holdFromStatus, locationToAddressData, rejudgeAddress, rejudgeAndStore, type DaumFields } from "./geo";
 
 export type AddressInput = DaumFields & {
   name: string;
@@ -33,6 +36,11 @@ export type ResolvedAddress = {
   distanceKm: number | null;
   deliveryHold: boolean;
   deliveryHoldReason: string | null;
+  // 권역 판정
+  zoneId: string | null;
+  zoneName: string | null;
+  areaReason: string;
+  canOrder: boolean; // false 면 결제를 막아야 한다 (ZONES 모드 권역 밖 / 차단 규칙)
 };
 
 const DROP_LOCATIONS = ["DOOR", "SECURITY_OFFICE", "PARCEL_BOX", "OTHER"] as const;
@@ -86,33 +94,43 @@ export async function resolveAddress(params: {
     const saved = await prisma.address.findUnique({ where: { id: addressId } });
     if (!saved || saved.userId !== userId) return { error: "배송지를 찾을 수 없습니다." };
 
-    // 저장된 판정은 그때의 권역 규칙 기준이다. 전역 시/도·반경 설정이 바뀌어도 과거 배송지가
+    // 저장된 판정은 그때의 권역 규칙 기준이다. 권역·전역 시/도·반경 설정이 바뀌어도 과거 배송지가
     // 따라오도록 주문 시점에 현재 규칙으로 다시 검산한다 (좌표가 있으면 지오코딩 없이 계산만).
     const center = await getDeliveryCenter();
-    let { areaStatus, distanceKm } = saved;
     if (!saved.geocodedAt) {
       const loc = await enrichLocation(saved.address1, {
+        zipCode: saved.zipCode, bcode: saved.bcode,
         sido: saved.sido, sigungu: saved.sigungu, bname: saved.bname, buildingName: saved.buildingName,
         isApartment: saved.isApartment, roadAddress: saved.roadAddress, jibunAddress: saved.jibunAddress,
       });
-      if (loc.geocodedAt || loc.areaStatus !== saved.areaStatus) {
-        await prisma.address.update({
-          where: { id: saved.id },
-          data: loc.geocodedAt ? locationToAddressData(loc) : { areaStatus: loc.areaStatus, distanceKm: loc.distanceKm },
-        });
-        areaStatus = loc.areaStatus;
-        distanceKm = loc.distanceKm;
-      }
-    } else {
-      const point = saved.lat !== null && saved.lng !== null ? { lat: saved.lat, lng: saved.lng } : null;
-      const j = judgeArea(point, saved.bname, center, saved.sido);
-      if (j.status !== saved.areaStatus || j.distanceKm !== saved.distanceKm) {
-        await prisma.address.update({ where: { id: saved.id }, data: { areaStatus: j.status, distanceKm: j.distanceKm } });
-        areaStatus = j.status;
-        distanceKm = j.distanceKm;
-      }
+      await prisma.address.update({
+        where: { id: saved.id },
+        data: loc.geocodedAt
+          ? locationToAddressData(loc)
+          : { areaStatus: loc.areaStatus, distanceKm: loc.distanceKm, zoneId: loc.zoneId, areaReason: loc.areaReason, bcode: loc.bcode ?? saved.bcode },
+      });
+      return {
+        addressId: saved.id,
+        areaStatus: loc.areaStatus,
+        distanceKm: loc.distanceKm,
+        zoneId: loc.zoneId,
+        zoneName: loc.zone.zoneName,
+        areaReason: loc.areaReason,
+        canOrder: loc.canOrder,
+        ...holdFromStatus(loc.areaStatus, loc.distanceKm, areaLabel(center), loc.zone.matchedBy === "LEGACY" ? null : loc.areaReason),
+      };
     }
-    return { addressId: saved.id, areaStatus, distanceKm, ...holdFromStatus(areaStatus, distanceKm, areaLabel(center)) };
+    const { zone, address: a } = await rejudgeAndStore(saved, center);
+    return {
+      addressId: a.id,
+      areaStatus: a.areaStatus,
+      distanceKm: a.distanceKm,
+      zoneId: zone.zoneId,
+      zoneName: zone.zoneName,
+      areaReason: zone.reason,
+      canOrder: zone.canOrder,
+      ...holdFromStatus(a.areaStatus, a.distanceKm, areaLabel(center), zone.matchedBy === "LEGACY" ? null : zone.reason),
+    };
   }
 
   // 2) 폼 입력
@@ -128,8 +146,9 @@ export async function resolveAddress(params: {
         orderBy: { createdAt: "desc" },
       });
 
-  const loc = await enrichLocation(base.address1, address);
+  const loc = await enrichLocation(base.address1, { ...address, zipCode: base.zipCode });
   const locData = locationToAddressData(loc);
+  let zone = loc.zone;
 
   let saved;
   if (existing) {
@@ -138,9 +157,17 @@ export async function resolveAddress(params: {
     let locPatch: Record<string, unknown> = locData;
     if (!loc.geocodedAt && existing.geocodedAt) {
       const center = await getDeliveryCenter();
-      const point = existing.lat !== null && existing.lng !== null ? { lat: existing.lat, lng: existing.lng } : null;
-      const j = judgeArea(point, loc.bname ?? existing.bname, center, loc.sido ?? existing.sido);
-      locPatch = { areaStatus: j.status, distanceKm: j.distanceKm };
+      const r = await rejudgeAddress({
+        ...existing,
+        bcode: loc.bcode ?? existing.bcode,
+        bname: loc.bname ?? existing.bname,
+        sido: loc.sido ?? existing.sido,
+        sigungu: loc.sigungu ?? existing.sigungu,
+        buildingName: loc.buildingName ?? existing.buildingName,
+        apartmentId: loc.apartmentId ?? existing.apartmentId,
+      }, center);
+      zone = r.zone;
+      locPatch = { ...r.data, bcode: loc.bcode ?? existing.bcode };
     }
     saved = await prisma.address.update({
       where: { id: existing.id },
@@ -161,7 +188,11 @@ export async function resolveAddress(params: {
     addressId: saved.id,
     areaStatus: saved.areaStatus,
     distanceKm: saved.distanceKm,
-    ...holdFromStatus(saved.areaStatus, saved.distanceKm, loc.judgement.areaLabel),
+    zoneId: zone.zoneId,
+    zoneName: zone.zoneName,
+    areaReason: zone.reason,
+    canOrder: zone.canOrder,
+    ...holdFromStatus(saved.areaStatus, saved.distanceKm, loc.judgement.areaLabel, zone.matchedBy === "LEGACY" ? null : zone.reason),
   };
 }
 
@@ -175,4 +206,19 @@ export async function pickAddressForUser(userId: string, preferredAddressId?: st
     where: { userId },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
   });
+}
+
+/**
+ * 구독 경로 공용 — 구독 배송지(없으면 기본 배송지)를 골라 현재 규칙으로 다시 판정한다.
+ * 자동결제·다음 주기 확정·배송 건 생성이 모두 이걸 쓴다.
+ */
+export async function pickAndJudgeAddress(userId: string, preferredAddressId?: string | null) {
+  const addr = await pickAddressForUser(userId, preferredAddressId);
+  if (!addr) return null;
+  const { zone, address } = await rejudgeAndStore(addr);
+  return {
+    address,
+    zone,
+    hold: holdFromStatus(address.areaStatus, address.distanceKm, undefined, zone.matchedBy === "LEGACY" ? null : zone.reason),
+  };
 }

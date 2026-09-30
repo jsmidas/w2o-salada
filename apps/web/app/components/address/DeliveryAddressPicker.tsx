@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AreaCheckNotice from "./AreaCheckNotice";
+import AreaCheckNotice, { type CheckResult } from "./AreaCheckNotice";
+import type { WaitlistSource } from "./WaitlistForm";
 import DeliveryDetailFields from "./DeliveryDetailFields";
 import {
   emptyDeliveryDetails, formatAddressLine, loadDaumPostcode, openDaumPostcode,
@@ -55,12 +56,20 @@ export default function DeliveryAddressPicker({
   defaultPhone,
   theme = "light",
   onChange,
+  onAreaResult,
+  dates,
+  source = "subscribe",
 }: {
   loggedIn: boolean;
   defaultName?: string | null;
   defaultPhone?: string | null;
   theme?: "dark" | "light";
   onChange: (sel: AddressSelection | null) => void;
+  /** 새 주소의 권역 판정 결과 — canOrder=false 면 부모가 결제 버튼을 막는다 */
+  onAreaResult?: (r: CheckResult | null) => void;
+  /** 화면이 아는 배송일 — 날짜별 중지 확인용 */
+  dates?: string[];
+  source?: WaitlistSource;
 }) {
   const [saved, setSaved] = useState<SavedAddress[]>([]);
   const [loaded, setLoaded] = useState(!loggedIn);
@@ -131,6 +140,8 @@ export default function DeliveryAddressPicker({
 
   // 유효한 선택을 부모에 알린다
   useEffect(() => {
+    // 저장된 배송지를 고르면 새 주소 판정 결과는 무의미하다 — 부모의 차단 상태를 푼다 (서버가 결제 시 다시 판정한다)
+    if (mode === "saved") onAreaResult?.(null);
     if (mode === "saved" && selectedId) { onChange({ addressId: selectedId }); return; }
     const f = form;
     if (f.picked && f.name.trim() && f.phone.trim()) {
@@ -218,7 +229,7 @@ export default function DeliveryAddressPicker({
             </button>
           </div>
           <input id="picker-address2" type="text" placeholder="상세주소 (동/호수)" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className={input} />
-          <AreaCheckNotice picked={form.picked} theme={theme} />
+          <AreaCheckNotice picked={form.picked} theme={theme} onResult={onAreaResult} dates={dates} source={source} defaultName={form.name} defaultPhone={form.phone} />
           <DeliveryDetailFields value={form.details} onChange={(details) => setForm({ ...form, details })} theme={theme} />
           <input type="text" placeholder="배송 메모 (선택)" value={form.deliveryMemo} onChange={(e) => setForm({ ...form, deliveryMemo: e.target.value })} className={input} />
           {missing.length > 0 ? (

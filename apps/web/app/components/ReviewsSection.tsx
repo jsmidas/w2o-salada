@@ -12,16 +12,18 @@ type Review = {
   createdAt: string;
 };
 
-export default function ReviewsSection() {
-  const [dbReviews, setDbReviews] = useState<Review[]>([]);
+// initialReviews 를 넘기면 서버에서 조회한 목록을 그대로 쓰고 클라이언트 fetch 를 하지 않는다
+export default function ReviewsSection({ initialReviews }: { initialReviews?: Review[] }) {
+  const [dbReviews, setDbReviews] = useState<Review[]>(initialReviews ?? []);
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
+    if (initialReviews) return;
     fetch("/api/reviews?limit=10")
       .then((r) => r.json())
       .then((data) => { if (data.reviews?.length > 0) setDbReviews(data.reviews); })
       .catch(() => {});
-  }, []);
+  }, [initialReviews]);
 
   // 실제 고객 후기만 보여준다 — 가상의 이름·후기를 실명처럼 내걸면 표시광고법 문제가 된다
   const displayReviews = dbReviews.map((r) => ({
@@ -39,18 +41,8 @@ export default function ReviewsSection() {
     return () => clearInterval(timer);
   }, [displayReviews.length]);
 
-  if (displayReviews.length === 0) {
-    return (
-      <section id="reviews" className="py-20 bg-brand-deep">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <span className="text-brand-green text-xs tracking-[0.3em] uppercase font-medium">REVIEWS</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mt-3">고객님의 이야기</h2>
-          <p className="text-gray-400 mt-6">아직 후기가 없습니다. 첫 배송을 받으신 뒤 첫 번째 이야기를 남겨주세요.</p>
-          <Link href="/reviews" className="inline-block mt-6 text-sm text-brand-green hover:underline">후기 남기기 →</Link>
-        </div>
-      </section>
-    );
-  }
+  // 공개 후기가 없으면 섹션 전체를 숨긴다 — 빈 후기 칸은 출시 초기에 신뢰를 깎는다
+  if (displayReviews.length === 0) return null;
 
   return (
     <section id="reviews" className="py-20 bg-brand-deep">

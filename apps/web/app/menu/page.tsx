@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { productBadge } from "../lib/product-badge";
 
 type Product = {
   id: string;
@@ -77,7 +78,7 @@ export default function MenuPage() {
             우리 집 식탁 메뉴
           </h1>
           <p className="text-[#4a7a5e] mt-3 text-sm md:text-base max-w-xl mx-auto">
-            매일 셰프가 차리는 한 끼 — 샐러드·간편식·반찬까지.
+            매주 화·목, 셰프가 차리는 한 끼 — 샐러드·간편식·반찬까지.
             구독 시 매 배송일마다 원하는 조합을 자유롭게 선택할 수 있습니다.
           </p>
         </div>
@@ -148,9 +149,9 @@ export default function MenuPage() {
                   <span className="absolute top-3 left-3 px-3 py-1 bg-white/90 backdrop-blur-sm text-[#1D9E75] text-xs font-semibold rounded-full">
                     {item.category.name}
                   </span>
-                  {item.tags && (
+                  {productBadge(item) && (
                     <span className="absolute top-3 right-3 px-3 py-1 bg-[#EF9F27] text-white text-xs font-bold rounded-full">
-                      {item.tags}
+                      {productBadge(item)}
                     </span>
                   )}
                 </div>

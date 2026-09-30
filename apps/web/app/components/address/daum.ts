@@ -15,12 +15,14 @@ export type DaumPostcodeData = {
   sigungu: string;
   bname: string;          // 법정동
   bname1?: string;        // 법정리
+  bcode?: string;         // 법정동 코드 10자리 — 배송 권역 매칭 키
   buildingName: string;
   apartment: "Y" | "N";
 };
 
 export type PickedAddress = {
   zipCode: string;
+  bcode: string | null;
   address1: string;
   roadAddress: string | null;
   jibunAddress: string | null;
@@ -53,6 +55,7 @@ export function normalizeDaum(data: DaumPostcodeData): PickedAddress {
   const bname = data.bname || data.bname1 || "";
   return {
     zipCode: data.zonecode,
+    bcode: data.bcode || null,
     // 주소 문자열에 건물명을 합치지 않는다 — buildingName 은 별도 필드로 보존
     address1: data.roadAddress || data.address,
     roadAddress: data.roadAddress || null,

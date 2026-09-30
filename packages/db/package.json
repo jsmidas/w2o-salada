@@ -12,6 +12,7 @@
     "db:diff": "prisma migrate diff --from-schema-datasource ./prisma/schema.prisma --to-schema-datamodel ./prisma/schema.prisma --script",
     "db:deploy": "prisma migrate deploy",
     "db:backup": "tsx ../../tools/backup_db.ts",
+    "db:seed:zones": "tsx ../../tools/seed_delivery_zones.cts",
     "db:recover:20260927": "tsx ../../tools/recover_20260927.ts"
   },
   "//": [

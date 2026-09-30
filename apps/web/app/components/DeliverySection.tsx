@@ -1,3 +1,5 @@
+import AreaLookup from "./address/AreaLookup";
+
 const steps = [
   { icon: "shopping_cart", time: "전날 PM 2:00", label: "주문 마감", desc: "배송 전날 오후 2시" },
   { icon: "blender", time: "전날 오후", label: "신선 조리", desc: "조리·포장 후 냉장 보관" },
@@ -33,6 +35,11 @@ export default function DeliverySection() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* 배송 가능 지역 확인 — 주소 선택 즉시 판정, 불가 지역이면 오픈 알림 신청 */}
+        <div className="max-w-xl mx-auto mt-8">
+          <AreaLookup source="landing" theme="light" />
         </div>
       </div>
     </section>

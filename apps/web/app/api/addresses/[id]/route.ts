@@ -44,14 +44,19 @@ export async function PATCH(
       dropNote: str(body.dropNote, existing.dropNote),
     };
 
-    // 주소 자체가 바뀌었거나 좌표가 없으면 위치 정보 재계산
+    // 주소 자체가 바뀌었거나 좌표가 없으면 위치 정보 재계산. 그 밖에는 권역 판정만 현재 규칙으로 다시 (지오코딩 없음)
     const addressChanged = body.address1 !== undefined && body.address1 !== existing.address1;
     if (addressChanged || !existing.geocodedAt) {
-      const loc = await enrichLocation(String(data.address1), addressChanged ? body : {
+      const loc = await enrichLocation(String(data.address1), addressChanged ? { ...body, zipCode: String(data.zipCode) } : {
+        zipCode: String(data.zipCode), bcode: existing.bcode,
         sido: existing.sido, sigungu: existing.sigungu, bname: existing.bname, buildingName: existing.buildingName,
         isApartment: existing.isApartment, roadAddress: existing.roadAddress, jibunAddress: existing.jibunAddress, ...body,
       });
       Object.assign(data, locationToAddressData(loc));
+    } else {
+      const { rejudgeAddress } = await import("../../../lib/geo");
+      const r = await rejudgeAddress({ ...existing, zipCode: String(data.zipCode) });
+      Object.assign(data, r.data);
     }
 
     const updated = await prisma.address.update({ where: { id }, data });

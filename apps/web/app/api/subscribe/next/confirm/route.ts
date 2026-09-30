@@ -91,11 +91,23 @@ export async function POST(request: Request) {
     const deliveryFee = 0; // 정기구독은 금액과 무관하게 무료배송 (/api/subscribe 와 같은 규칙)
     const totalAmount = itemsTotal + deliveryFee;
 
-    // 배송지: 구독에 고정된 배송지 → 없으면 기본 배송지. 반경 밖이면 보류 표시
-    const { pickAddressForUser } = await import("../../../../lib/address-resolve");
-    const { holdFromStatus } = await import("../../../../lib/geo");
-    const addr = await pickAddressForUser(userId, subscription.addressId);
-    const hold = addr ? holdFromStatus(addr.areaStatus, addr.distanceKm) : { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+    // 배송지: 구독에 고정된 배송지 → 없으면 기본 배송지. 현재 권역 규칙으로 다시 판정 —
+    // LEGACY 모드 반경 밖은 보류 표시, ZONES 모드 권역 밖·차단·중지일은 결제 전에 막는다
+    const { pickAndJudgeAddress } = await import("../../../../lib/address-resolve");
+    const { checkOrderable } = await import("../../../../lib/delivery-zone");
+    const judged = await pickAndJudgeAddress(userId, subscription.addressId);
+    const addr = judged?.address ?? null;
+    const hold = judged?.hold ?? { deliveryHold: true, deliveryHoldReason: "배송지 없음" };
+    const zoneCheck = await checkOrderable(
+      { areaStatus: addr?.areaStatus ?? "UNKNOWN", zoneId: addr?.zoneId ?? null, canOrder: judged?.zone.canOrder, areaReason: judged?.zone.reason, mode: judged?.zone.mode },
+      [subscription.nextDeliveryDate.toISOString().slice(0, 10)],
+    );
+    if (zoneCheck.blocked) {
+      return NextResponse.json(
+        { error: zoneCheck.blocked.message, code: zoneCheck.blocked.code, message: zoneCheck.blocked.message, dates: zoneCheck.blocked.dates ?? [] },
+        { status: 400 },
+      );
+    }
 
     const orderNo = generateOrderNo();
     const order = await prisma.order.create({

@@ -8,8 +8,11 @@
  *   ※ Kakao Developers 앱에서 "카카오맵" 서비스가 켜져 있어야 한다.
  * - 센터·반경·허용 시/도·허용 동은 Setting 에 두어 관리자가 조정한다.
  * - 좌표를 못 얻으면 UNKNOWN 으로 두고 사람이 확인한다 (주문은 막지 않는다).
+ * - 2026-09-30: 권역 테이블(delivery-zone.ts)이 이 판정 위에 얹힌다. judgeArea 는 이제 "기존 규칙" 폴백이고,
+ *   최종 areaStatus 는 enrichLocation / rejudgeAddress 가 judgeZone 을 거쳐 정한다.
  */
 import { prisma } from "@repo/db";
+import { judgeZone, type ZoneJudgement, type ZoneMode } from "./delivery-zone";
 
 export type LatLng = { lat: number; lng: number };
 export type AreaStatus = "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
@@ -17,6 +20,7 @@ export type AreaStatus = "UNKNOWN" | "IN_RANGE" | "OUT_OF_RANGE";
 export type GeocodeResult = LatLng & {
   roadAddress: string | null;
   jibunAddress: string | null;
+  bcode: string | null; // 법정동 코드 10자리 (카카오만 준다 — 기존 주소 bcode 보정용)
   sido: string | null;
   sigungu: string | null;
   bname: string | null;
@@ -99,7 +103,7 @@ type KakaoAddressDoc = {
   x: string;
   y: string;
   road_address?: { address_name: string; region_1depth_name: string; region_2depth_name: string; region_3depth_name: string; building_name: string } | null;
-  address?: { address_name: string; region_1depth_name: string; region_2depth_name: string; region_3depth_name: string } | null;
+  address?: { address_name: string; region_1depth_name: string; region_2depth_name: string; region_3depth_name: string; b_code?: string } | null;
 };
 
 function finite(r: GeocodeResult | null): GeocodeResult | null {
@@ -152,6 +156,7 @@ async function kakaoGeocode(q: string, signal: AbortSignal): Promise<GeocodeResu
     lng: Number(doc.x),
     roadAddress: doc.road_address?.address_name ?? null,
     jibunAddress: doc.address?.address_name ?? null,
+    bcode: doc.address?.b_code || null,
     sido: region?.region_1depth_name || null,
     sigungu: region?.region_2depth_name || null,
     bname: region?.region_3depth_name || null,
@@ -197,6 +202,7 @@ async function vworldGeocode(q: string, signal: AbortSignal): Promise<GeocodeRes
       lng: Number(r.result.point.x),
       roadAddress: type === "road" ? text : null,
       jibunAddress: type === "parcel" ? text : null,
+      bcode: null,
       sido: s.level1 || null,
       sigungu: s.level2 || null,
       bname,
@@ -211,34 +217,41 @@ export function geocoderStatus(): { kakao: boolean; vworld: boolean } {
   return { kakao: !!kakaoKey() && Date.now() >= kakaoDisabledUntil, vworld: !!vworldKey() };
 }
 
-/** 주소 문자열 → 좌표·행정구역. 카카오 → VWorld 순으로 시도, 모두 실패하면 null (예외를 던지지 않는다) */
-export async function geocodeAddress(query: string, timeoutMs = 4000): Promise<GeocodeResult | null> {
+/**
+ * 무엇이 필요한가에 따라 제공자 순서가 다르다 (2026-09-30, 카카오맵 유료 전환 후 비용 최소화):
+ *   coords — 좌표만 필요. 무료인 VWorld 먼저, 실패할 때만 카카오
+ *   bcode  — 법정동 코드가 필요 (기존 주소 보정 배치). 카카오만 주므로 카카오 먼저
+ */
+export type GeocodeNeed = "coords" | "bcode";
+
+/** 주소 문자열 → 좌표·행정구역. 모두 실패하면 null (예외를 던지지 않는다) */
+export async function geocodeAddress(query: string, need: GeocodeNeed = "coords", timeoutMs = 4000): Promise<GeocodeResult | null> {
   const q = query.trim();
   if (!q) return null;
-  if (geocodeCache.has(q)) return geocodeCache.get(q) ?? null;
+  const cacheKey = `${need}:${q}`;
+  if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey) ?? null;
 
   if (!kakaoKey() && !vworldKey()) {
     console.warn("[geo] 지오코딩 키 없음 (KAKAO_REST_API_KEY / VWORLD_API_KEY) — 좌표 조회 생략");
     return null;
   }
 
+  const providers: [name: string, fn: (q: string, s: AbortSignal) => Promise<GeocodeResult | null>][] =
+    need === "bcode" ? [["카카오", kakaoGeocode], ["VWorld", vworldGeocode]] : [["VWorld", vworldGeocode], ["카카오", kakaoGeocode]];
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     let result: GeocodeResult | null = null;
-    try {
-      result = await kakaoGeocode(q, controller.signal);
-    } catch (err) {
-      console.warn("[geo] 카카오 예외:", err instanceof Error ? err.message : err);
-    }
-    if (!result) {
+    for (const [name, fn] of providers) {
       try {
-        result = await vworldGeocode(q, controller.signal);
+        result = await fn(q, controller.signal);
       } catch (err) {
-        console.warn("[geo] VWorld 예외:", err instanceof Error ? err.message : err);
+        console.warn(`[geo] ${name} 예외:`, err instanceof Error ? err.message : err);
       }
+      if (result) break;
     }
-    geocodeCache.set(q, result);
+    geocodeCache.set(cacheKey, result);
     return result;
   } finally {
     clearTimeout(timer);
@@ -328,6 +341,8 @@ export function judgeArea(
 
 /** 다음 우편번호 API가 주는 값 (클라이언트에서 그대로 넘긴다) */
 export type DaumFields = {
+  zipCode?: string | null; // zonecode — 권역 매칭 키
+  bcode?: string | null;   // 법정동 코드 10자리 — 권역 매칭 키
   sido?: string | null;
   sigungu?: string | null;
   bname?: string | null;
@@ -344,7 +359,12 @@ export type EnrichedLocation = DaumFields & {
   areaStatus: AreaStatus;
   apartmentId: string | null;
   geocodedAt: Date | null;
-  judgement: AreaJudgement;
+  judgement: AreaJudgement; // 기존 규칙(시/도·동·반경) 판정 — 폴백·거리용
+  // 권역 판정 (delivery-zone.ts). areaStatus 는 이 결과를 따른다
+  zone: ZoneJudgement;
+  zoneId: string | null;
+  areaReason: string;
+  canOrder: boolean;
 };
 
 function normName(s: string) {
@@ -367,15 +387,33 @@ export async function matchApartment(buildingName: string | null | undefined, si
   return null;
 }
 
-/**
- * 주소 한 건의 위치 정보를 채운다: 다음 API 값 보존 + 좌표 + 반경 판정 + 단지 매칭.
- * 지오코딩 실패해도 예외 없이 UNKNOWN 으로 돌려준다.
- */
-export async function enrichLocation(address1: string, daum: DaumFields = {}): Promise<EnrichedLocation> {
-  const query = daum.roadAddress || address1;
-  const [geo, center] = await Promise.all([geocodeAddress(query), getDeliveryCenter()]);
+export type EnrichOptions = {
+  /**
+   * auto(기본): 우편번호·법정동 코드·시/도만으로 판정이 끝나면 좌표를 조회하지 않는다 (유료 API 호출 최소화).
+   *             반경 판정이 필요할 때만 조회한다
+   * always:     항상 조회 (보정 배치처럼 좌표·법정동 코드 자체가 목적일 때)
+   * never:      조회하지 않는다
+   */
+  geocode?: "auto" | "always" | "never";
+  need?: GeocodeNeed;
+};
 
-  const merged: DaumFields = {
+/**
+ * 주소 한 건의 위치 정보를 채운다: 다음 API 값 보존 + (필요할 때만) 좌표 + 반경 판정 + 단지 매칭.
+ * 지오코딩 실패해도 예외 없이 UNKNOWN 으로 돌려준다.
+ *
+ * 비용: 판정은 먼저 좌표 없이 해 본다. 예외 규칙·권역 매칭·시/도 전역·허용 동 중 하나로 결론이 나면
+ * 그걸로 끝이고, 센터 반경까지 가야 할 때만 좌표를 조회한다. 신규 주소는 다음 API가 우편번호·법정동 코드를
+ * 주므로 권역 모드에서는 사실상 지오코딩이 일어나지 않는다. 좌표는 코스 배정 보조 정보일 뿐이라 없어도 된다.
+ */
+export async function enrichLocation(address1: string, daum: DaumFields = {}, opts: EnrichOptions = {}): Promise<EnrichedLocation> {
+  const query = daum.roadAddress || address1;
+  const center = await getDeliveryCenter();
+  const mode = opts.geocode ?? "auto";
+
+  const build = (geo: GeocodeResult | null): DaumFields => ({
+    zipCode: daum.zipCode ?? null,
+    bcode: daum.bcode ?? geo?.bcode ?? null,
     sido: daum.sido ?? geo?.sido ?? null,
     sigungu: daum.sigungu ?? geo?.sigungu ?? null,
     bname: daum.bname ?? geo?.bname ?? null,
@@ -383,21 +421,89 @@ export async function enrichLocation(address1: string, daum: DaumFields = {}): P
     isApartment: daum.isApartment ?? false,
     roadAddress: daum.roadAddress ?? geo?.roadAddress ?? null,
     jibunAddress: daum.jibunAddress ?? geo?.jibunAddress ?? null,
-  };
-  const point = geo ? { lat: geo.lat, lng: geo.lng } : null;
-  const judgement = judgeArea(point, merged.bname, center, merged.sido);
-  const apartmentId = await matchApartment(merged.buildingName, merged.sigungu).catch(() => null);
+  });
+
+  // 1) 좌표 없이 먼저 판정
+  let merged = build(null);
+  let point: LatLng | null = null;
+  let judgement = judgeArea(null, merged.bname, center, merged.sido);
+  let apartmentId = await matchApartment(merged.buildingName, merged.sigungu).catch(() => null);
+  let zone = await judgeZone({ ...merged, apartmentId }, judgement);
+  // 규칙·권역·시/도·허용 동으로 결론이 났으면 좌표는 필요 없다. LEGACY 폴백에서 UNKNOWN(반경 판정 불가)일 때만 필요
+  const decided = zone.matchedBy !== "LEGACY" || judgement.status !== "UNKNOWN";
+
+  // 2) 필요할 때만 지오코딩
+  if (mode === "always" || (mode === "auto" && !decided)) {
+    const geo = await geocodeAddress(query, opts.need ?? "coords");
+    if (geo) {
+      merged = build(geo);
+      point = { lat: geo.lat, lng: geo.lng };
+      judgement = judgeArea(point, merged.bname, center, merged.sido);
+      if (!apartmentId) apartmentId = await matchApartment(merged.buildingName, merged.sigungu).catch(() => null);
+      zone = await judgeZone({ ...merged, apartmentId }, judgement, zone.mode);
+    }
+  }
 
   return {
     ...merged,
     lat: point?.lat ?? null,
     lng: point?.lng ?? null,
-    distanceKm: judgement.distanceKm,
-    areaStatus: judgement.status,
+    distanceKm: zone.distanceKm,
+    areaStatus: zone.status,
     apartmentId,
     geocodedAt: point ? new Date() : null,
     judgement,
+    zone,
+    zoneId: zone.zoneId,
+    areaReason: zone.reason,
+    canOrder: zone.canOrder,
   };
+}
+
+/** 저장된 배송지가 갖는 위치 필드 — 재판정에 필요한 만큼만 */
+export type StoredAddressLocation = {
+  zipCode: string;
+  bcode: string | null;
+  sido: string | null;
+  sigungu: string | null;
+  bname: string | null;
+  buildingName: string | null;
+  apartmentId: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+/**
+ * 저장된 배송지를 현재 규칙으로 다시 판정한다 (지오코딩 없음 — 좌표·코드는 저장된 값을 쓴다).
+ * 주문·구독 신청·자동결제·배송지 변경이 모두 이 함수를 거쳐 "지금 규칙" 기준으로 판단한다.
+ * 돌려주는 data 는 Address 에 그대로 update 할 수 있는 형태.
+ */
+export async function rejudgeAddress(a: StoredAddressLocation, center?: DeliveryCenter, mode?: ZoneMode): Promise<{
+  zone: ZoneJudgement;
+  data: { areaStatus: AreaStatus; distanceKm: number | null; zoneId: string | null; areaReason: string };
+}> {
+  const c = center ?? (await getDeliveryCenter());
+  const point = a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null;
+  const legacy = judgeArea(point, a.bname, c, a.sido);
+  const zone = await judgeZone(
+    { zipCode: a.zipCode, bcode: a.bcode, buildingName: a.buildingName, apartmentId: a.apartmentId, sigungu: a.sigungu, sido: a.sido, bname: a.bname },
+    legacy,
+    mode,
+  );
+  return { zone, data: { areaStatus: zone.status, distanceKm: zone.distanceKm, zoneId: zone.zoneId, areaReason: zone.reason } };
+}
+
+/** 저장된 배송지 한 건을 재판정하고 값이 달라졌으면 DB 에 반영한다. 주문·구독 경로 공용 */
+export async function rejudgeAndStore<T extends StoredAddressLocation & { id: string; areaStatus: AreaStatus; distanceKm: number | null; zoneId: string | null; areaReason: string | null }>(
+  saved: T,
+  center?: DeliveryCenter,
+): Promise<{ zone: ZoneJudgement; address: T }> {
+  const { zone, data } = await rejudgeAddress(saved, center);
+  if (data.areaStatus !== saved.areaStatus || data.distanceKm !== saved.distanceKm || data.zoneId !== saved.zoneId || data.areaReason !== saved.areaReason) {
+    await prisma.address.update({ where: { id: saved.id }, data });
+    return { zone, address: { ...saved, ...data } };
+  }
+  return { zone, address: saved };
 }
 
 /** Address 레코드에 바로 넣을 수 있는 필드만 추린다 */
@@ -416,15 +522,20 @@ export function locationToAddressData(loc: EnrichedLocation) {
     areaStatus: loc.areaStatus,
     apartmentId: loc.apartmentId,
     geocodedAt: loc.geocodedAt,
+    bcode: loc.bcode ?? null,
+    zoneId: loc.zoneId,
+    areaReason: loc.areaReason,
   };
 }
 
 /**
  * 주소의 areaStatus 로 주문 보류 여부·사유 결정. label 은 areaLabel() 결과.
  * label 없이 부르는 곳(구독 갱신 등)은 저장된 areaStatus 만 믿으므로 권역 이름을 단정하지 않는다.
+ * reason 이 있으면(권역 판정 근거) 사유에 그대로 쓴다.
  */
-export function holdFromStatus(status: AreaStatus, distanceKm: number | null, label?: string): { deliveryHold: boolean; deliveryHoldReason: string | null } {
+export function holdFromStatus(status: AreaStatus, distanceKm: number | null, label?: string, reason?: string | null): { deliveryHold: boolean; deliveryHoldReason: string | null } {
   if (status === "OUT_OF_RANGE") {
+    if (reason) return { deliveryHold: true, deliveryHoldReason: `배송 권역 밖 — ${reason}` };
     const area = label ? `(${label}) ` : " ";
     return { deliveryHold: true, deliveryHoldReason: `배송 권역${area}밖${distanceKm !== null ? ` (센터에서 ${distanceKm}km)` : ""}` };
   }

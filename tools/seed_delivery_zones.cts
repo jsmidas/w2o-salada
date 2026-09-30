@@ -64,7 +64,9 @@ async function main() {
   const dry = process.env.DRY_RUN === "1";
   const rows = parseCsv(fs.readFileSync(file, "utf8"));
   if (rows.length < 2) throw new Error("CSV 에 헤더와 데이터 행이 필요합니다.");
-  const header = rows[0]!.map((h) => h.trim().toLowerCase());
+  // 헤더는 대소문자 무관하게 받되, 필드 이름은 정식 표기(isActive)로 맞춘다 — 소문자로만 비교하면 isActive 가 항상 비어 전부 활성이 된다
+  const CANON = ["kind", "code", "name", "sido", "sigungu", "isActive", "memo"];
+  const header = rows[0]!.map((h) => CANON.find((c) => c.toLowerCase() === h.trim().toLowerCase()) ?? h.trim());
   const need = ["kind", "code", "name"];
   for (const n of need) if (!header.includes(n)) throw new Error(`헤더에 ${n} 열이 없습니다. (현재: ${header.join(",")})`);
 

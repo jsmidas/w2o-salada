@@ -384,7 +384,7 @@ POST /api/admin/delivery/route      # 배송 코스표 (추후)
 - 날짜별 중지는 새 주문을 그 날짜에 막고(`DATE_SUSPENDED`), 이미 결제된 단건은 보류 큐로, 구독분은 관리자 버튼으로 크레딧 적립(건너뛰기와 같은 정산). 자동결제 직전이면 중지일을 주기에서 빼고 청구한다
 - `Address.bcode`는 다음 API `bcode`(신규) 또는 카카오 `b_code`(보정 배치)로 채운다. 기존 주소는 우편번호로만 매칭되다가 배치 후 법정동으로도 매칭된다
 - **지오코딩 비용 최소화 (2026-09-30, 카카오맵 유료 전환)**: `enrichLocation`은 좌표 없이 먼저 판정하고(규칙·권역·시/도·허용 동), 센터 반경까지 가야 할 때만 좌표를 조회한다. 좌표 조회는 무료 VWorld → 카카오 순, 법정동 코드가 목적인 보정 배치만 카카오를 먼저 부른다(`geocodeAddress(q, "bcode")`). 권역 모드에서 신규 주소는 사실상 카카오 호출이 없다
-- 절차·롤백·테스트 시나리오: [docs/DELIVERY_ZONE.md](docs/DELIVERY_ZONE.md)
+- 절차·롤백·테스트 시나리오: [docs/DELIVERY_ZONE.md](docs/DELIVERY_ZONE.md) · 관리자 사용 설명서: [docs/DELIVERY_ZONE_GUIDE.md](docs/DELIVERY_ZONE_GUIDE.md) (초기 CSV는 대구 9개 구·군, 군위군만 비활성)
 - 출입 방법·비밀번호·층수·갖다둘 곳·별칭은 **회원이 아니라 배송지(Address)** 에 둔다. 한 회원이 부모님 댁 등 여러 곳에 보낼 수 있다
 - `buildingName`은 다음 API 원문 그대로 저장(단지 묶음 키). 주소 문자열에 합치지 않는다
 

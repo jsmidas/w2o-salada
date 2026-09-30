@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCart } from "../store/cart";
 import Image from "next/image";
 import { firstOrderableDate } from "../lib/cutoff";
+import { productBadge } from "../lib/product-badge";
 
 type Category = {
   id: string;
@@ -34,10 +35,15 @@ type CalendarDay = {
   id: string;
   date: string;
   isActive: boolean;
+  substituteWeekday?: number | null; // 휴일 대체 배송일이면 원래 요일 (0=일~6=토)
   menuAssignments: { productId: string; sortOrder: number; product: Product }[];
 };
 
-type DisplayDay = { date: string; items: Product[] };
+type DisplayDay = { date: string; items: Product[]; substituteWeekday?: number | null };
+
+// 정규 배송 요일(화·목). 이 밖의 요일에 나가는 배송은 휴일 대체 배송으로 표시한다
+const REGULAR_WEEKDAYS = [2, 4];
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const ALL_TAB = "__all__";
 const DEFAULT_COLOR = "#1D9E75";
@@ -99,6 +105,7 @@ export default function WeeklyMenuSection({ initialData }: { initialData?: Initi
         .map((d) => ({
           date: new Date(d.date).toISOString().split("T")[0]!,
           items: d.menuAssignments.map((m) => m.product),
+          substituteWeekday: d.substituteWeekday ?? null,
         }))
         .filter((d) => d.date >= cutoffDate)
         .slice(0, MIN_DELIVERIES)
@@ -124,7 +131,7 @@ export default function WeeklyMenuSection({ initialData }: { initialData?: Initi
     if (activeTab === ALL_TAB) return allDays;
     return allDays
       .map((d) => ({
-        date: d.date,
+        ...d,
         items: d.items.filter((p) => p.category?.id === activeTab),
       }))
       .filter((d) => d.items.length > 0);
@@ -271,6 +278,11 @@ function DayCard({ day, spanClass, activeCategories }: {
 }) {
   const dateObj = new Date(day.date);
   const dayLabel = dateObj.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", weekday: "short" });
+  // 화·목이 아닌 날에 나가거나 관리자가 대체 요일을 지정한 날은 "휴일 대체 배송"으로 안내한다
+  const isSubstitute = day.substituteWeekday != null || !REGULAR_WEEKDAYS.includes(dateObj.getUTCDay());
+  const substituteLabel = isSubstitute
+    ? `휴일 대체 배송${day.substituteWeekday != null ? ` · ${WEEKDAY_LABELS[day.substituteWeekday]}요일분` : ""}`
+    : null;
 
   // 카테고리별 그룹핑 (활성 카테고리 순서대로)
   const groupedMap = new Map<string, { category: Category; items: Product[] }>();
@@ -296,7 +308,14 @@ function DayCard({ day, spanClass, activeCategories }: {
   return (
     <div className={`bg-white rounded-2xl border border-[#1D9E75]/10 overflow-hidden hover:shadow-lg hover:shadow-[#1D9E75]/10 hover:-translate-y-0.5 transition-all duration-300 ${spanClass}`}>
       <div className="bg-gradient-to-r from-[#1D9E75] to-[#5DCAA5] px-5 py-2.5 flex items-center justify-between">
-        <span className="text-white font-bold">{dayLabel}</span>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="text-white font-bold">{dayLabel}</span>
+          {substituteLabel && (
+            <span className="px-2 py-0.5 rounded-full bg-[#EF9F27] text-white text-[10px] font-bold whitespace-nowrap">
+              {substituteLabel}
+            </span>
+          )}
+        </span>
         <span className="text-white/80 text-xs">{summaryText}</span>
       </div>
       <div className="p-4 space-y-3">
@@ -405,7 +424,7 @@ function MenuItemRow({ item, deliveryDate }: { item: Product; deliveryDate: stri
   const NameAndPrice = (
     <>
       <div className="min-w-0 flex-1">
-        {item.tags && <span className="text-[9px] font-bold text-[#EF9F27] tracking-wider">{item.tags}</span>}
+        {productBadge(item) && <span className="text-[9px] font-bold text-[#EF9F27] tracking-wider">{productBadge(item)}</span>}
         <p className="text-[#0A1A0F] font-semibold text-sm leading-tight truncate">{item.name}</p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">

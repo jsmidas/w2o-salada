@@ -88,8 +88,8 @@ export default function AboutServicePage() {
               <strong>단건 주문:</strong> 원하는 메뉴를 개별 선택하여 주문
             </li>
             <li>
-              <strong>정기구독:</strong> 주 3회 / 주 5회 / 매일 배송 주기 선택
-              가능
+              <strong>정기구독:</strong> 매주 화·목 새벽 배송, 회당 수량·메뉴를
+              정해 2/4/6/8주 주기로 자동 결제
             </li>
           </ul>
 
@@ -106,43 +106,37 @@ export default function AboutServicePage() {
                   구성
                 </th>
                 <th className="border border-gray-300 px-4 py-2 text-right">
-                  월 가격
+                  가격
                 </th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td className="border border-gray-300 px-4 py-2 font-medium">
-                  라이트
+                  맛보기
                 </td>
                 <td className="border border-gray-300 px-4 py-2">
-                  주 3회 배송
+                  원하는 배송일 1회, 메뉴 자유 선택
                 </td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  89,000원
-                </td>
+                <td className="border border-gray-300 px-4 py-2 text-right"></td>
               </tr>
               <tr className="bg-gray-50">
                 <td className="border border-gray-300 px-4 py-2 font-medium">
-                  레귤러
+                  알아서 정기구독
                 </td>
                 <td className="border border-gray-300 px-4 py-2">
-                  주 5회 배송
+                  주 2회(화·목) 새벽 배송, 수량만 정하면 매주 자동 배정
                 </td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  139,000원
-                </td>
+                <td className="border border-gray-300 px-4 py-2 text-right"></td>
               </tr>
               <tr>
                 <td className="border border-gray-300 px-4 py-2 font-medium">
-                  프리미엄
+                  맞춤 정기구독
                 </td>
                 <td className="border border-gray-300 px-4 py-2">
-                  매일 배송
+                  주 2회(화·목) 새벽 배송, 매 배송 전 메뉴 직접 선택
                 </td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  189,000원
-                </td>
+                <td className="border border-gray-300 px-4 py-2 text-right"></td>
               </tr>
             </tbody>
           </table>

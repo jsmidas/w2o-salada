@@ -62,7 +62,7 @@ export default function TermsOfServicePage() {
               </li>
               <li>
                 <strong>&quot;정기구독&quot;</strong>이란 회원이 선택한 구독 플랜에 따라 정해진
-                주기(매일/격일/주 3회 등)로 상품을 자동 결제·배송받는 서비스를 말합니다.
+                주기(주 2회 등)로 상품을 자동 결제·배송받는 서비스를 말합니다.
               </li>
               <li>
                 <strong>&quot;새벽배송&quot;</strong>이란 배송일 전날 마감 시간(오후 2시) 이전에 주문된

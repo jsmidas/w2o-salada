@@ -23,6 +23,7 @@ const defaultSettings = {
   // 배송 권역 (시/도 전역 → 허용 동 → 센터 반경 순 판정)
   deliveryZoneMode: "LEGACY", // LEGACY = 기존 규칙(권역 밖도 보류 접수) / ZONES = 권역 테이블(권역 밖 결제 차단)
   adminAlertPhone: "", // 권역 때문에 구독 자동결제가 보류되면 SMS 1건을 받을 관리자 번호 (비우면 화면 목록 + Sentry 만)
+  deliveryZoneRadiusFallback: "0", // ZONES 모드에서 권역 미매칭 주소도 센터 반경 이내면 허용 ("1"/"0")
   deliveryCenterName: "본사",
   deliveryCenterAddress: "대구 달서구 성서공단로 332-10",
   deliveryCenterLat: "",
@@ -254,6 +255,19 @@ export default function SettingsClient({
               </select>
               <p className="text-xs text-gray-400 mt-1">권역 데이터를 넣고 검증한 뒤 ZONES 로 바꾸세요. 예외 규칙(차단)은 두 모드 모두 적용됩니다.</p>
             </div>
+            {/* 반경 폴백 — 권역 표에 없는 동네라도 센터에서 가까우면 받는다. 좌표는 무료 VWorld 로 한 번만 조회 */}
+            <label className="flex items-start gap-2 cursor-pointer max-w-md">
+              <input
+                type="checkbox"
+                checked={settings.deliveryZoneRadiusFallback === "1"}
+                onChange={(e) => update("deliveryZoneRadiusFallback", e.target.checked ? "1" : "0")}
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#1D9E75] focus:ring-[#1D9E75]"
+              />
+              <span className="text-sm text-gray-600">
+                권역 테이블 모드에서도 <b>센터 반경 이내면 허용</b>
+                <span className="block text-xs text-gray-400 mt-0.5">권역에 없는 주소만 좌표를 조회해 아래 반경(km)과 비교합니다. 경계 바깥 동네를 권역으로 일일이 등록하지 않아도 됩니다.</span>
+              </span>
+            </label>
             <div>
               <label className="text-sm font-medium text-gray-600 block mb-1">관리자 알림 휴대폰 (선택)</label>
               <input type="text" value={settings.adminAlertPhone} onChange={(e) => update("adminAlertPhone", e.target.value)} placeholder="예: 010-0000-0000" className={inputClass} />
@@ -299,7 +313,7 @@ export default function SettingsClient({
           </div>
           <div className="mt-5 flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => handleSave("area", ["deliveryZoneMode", "adminAlertPhone", "deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedSido", "deliveryAllowedDongs"])}
+              onClick={() => handleSave("area", ["deliveryZoneMode", "deliveryZoneRadiusFallback", "adminAlertPhone", "deliveryCenterName", "deliveryCenterAddress", "deliveryCenterLat", "deliveryCenterLng", "deliveryRadiusKm", "deliveryAllowedSido", "deliveryAllowedDongs"])}
               className="px-5 py-2 bg-[#1D9E75] text-white text-sm font-medium rounded-lg hover:bg-[#178a64] transition"
             >
               저장

@@ -430,7 +430,7 @@ export async function enrichLocation(address1: string, daum: DaumFields = {}, op
   let apartmentId = await matchApartment(merged.buildingName, merged.sigungu).catch(() => null);
   let zone = await judgeZone({ ...merged, apartmentId }, judgement);
   // 규칙·권역·시/도·허용 동으로 결론이 났으면 좌표는 필요 없다. LEGACY 폴백에서 UNKNOWN(반경 판정 불가)일 때만 필요
-  const decided = zone.matchedBy !== "LEGACY" || judgement.status !== "UNKNOWN";
+  const decided = !zone.needsCoords && (zone.matchedBy !== "LEGACY" || judgement.status !== "UNKNOWN");
 
   // 2) 필요할 때만 지오코딩
   if (mode === "always" || (mode === "auto" && !decided)) {

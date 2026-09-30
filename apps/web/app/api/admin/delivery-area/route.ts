@@ -53,13 +53,14 @@ export async function POST(request: Request) {
 
       for (const a of addresses) {
         let data: Record<string, unknown>;
-        // backfill: 좌표가 없거나 법정동 코드(bcode)가 없는 주소는 지오코딩해서 채운다 (권역 BCODE 매칭에 필요)
+        // backfill: 법정동 코드(bcode)가 없는 주소는 카카오로 채운다 (권역 BCODE 매칭에 필요 — 카카오만 준다).
+        // 좌표만 없는 주소는 무료 VWorld 로. 둘 다 있으면 지오코딩 없이 재판정만 (유료 호출 최소화)
         if (body.action === "backfill" && (a.lat === null || a.lng === null || a.bcode === null)) {
           const loc = await enrichLocation(a.address1, {
             zipCode: a.zipCode, bcode: a.bcode,
             sido: a.sido, sigungu: a.sigungu, bname: a.bname, buildingName: a.buildingName,
             isApartment: a.isApartment, roadAddress: a.roadAddress, jibunAddress: a.jibunAddress,
-          });
+          }, { geocode: "always", need: a.bcode === null ? "bcode" : "coords" });
           if (!loc.geocodedAt) geocodeFailed++;
           data = loc.geocodedAt
             ? locationToAddressData(loc)
